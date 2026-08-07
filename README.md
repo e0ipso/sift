@@ -140,7 +140,7 @@ export PREFIX=$(grep -m1 '^prefix:' .ai/sift/config/config.yaml | awk '{print $2
 Recipes that name one milestone read `$MILESTONE`; set it to a name from
 `MILESTONES.md` when you need them:
 ```sh
-export MILESTONE=$(basename "$(find .ai/sift/open -mindepth 1 -maxdepth 1 -type d | sort | head -1)")
+export MILESTONE=$(basename "$(find .ai/sift/open -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)")
 ```
 
 **List every open ticket:**
@@ -150,7 +150,7 @@ find .ai/sift/open -name "$PREFIX-*.md" | sort
 
 **Allocate the next ID** (highest existing + 1, across both buckets):
 ```sh
-find .ai/sift -name "$PREFIX-*.md" | sed 's#.*/##' | grep -oE "^$PREFIX-[0-9]{4}" | sort | tail -1
+find .ai/sift -name "$PREFIX-*.md" | sed 's#.*/##' | grep -oE "^$PREFIX-[0-9]{4}" | sort | tail -n 1
 ```
 
 **Triage view — id, title, priority for one milestone:**
@@ -182,8 +182,15 @@ grep -rl "$PREFIX-0042" .ai/sift --include="$PREFIX-*.md" | grep -v "$PREFIX-004
 **Pick the next thing to work on** (open, p1, not blocked):
 ```sh
 grep -rl '^priority: p1' .ai/sift/open --include="$PREFIX-*.md" \
-  | xargs grep -L '^status: blocked' | sort
+  | while read -r f; do grep -q '^status: blocked' "$f" || echo "$f"; done | sort
 ```
+
+**In-place edits use a temp file, never `sed -i`.** The flag is not POSIX and the two
+implementations disagree: GNU `sed -i` takes an optional suffix attached to the flag, BSD
+(macOS) `sed -i` *requires* a separate suffix argument, so `sed -i 's/a/b/' file` silently
+consumes the script as the suffix there and mangles the tree. Write `sed … "$f" > "$f.tmp"
+&& mv "$f.tmp" "$f"` instead — portable, and the `.tmp` name cannot match the
+`$PREFIX-*.md` glob, so a concurrent agent's `find` never sees the half-written file.
 
 **Move a ticket to another milestone** (edit `milestone:` key too):
 ```sh
@@ -191,16 +198,17 @@ DEST=<target-milestone>                              # a name from MILESTONES.md
 f=$(find .ai/sift/open -name "$PREFIX-0042--*.md")
 d=".ai/sift/open/$DEST/$(basename "$(dirname "$f")")"   # keep the same category
 mkdir -p "$d" && mv "$f" "$d/"
-sed -i "s/^milestone: .*/milestone: $DEST/" "$d/$(basename "$f")"
+t="$d/$(basename "$f")"
+sed "s/^milestone: .*/milestone: $DEST/" "$t" > "$t.tmp" && mv "$t.tmp" "$t"
 ```
 
 **Archive a finished ticket** (then strike its row in `ROADMAP.md` — rule 9):
 ```sh
 f=$(find .ai/sift/open -name "$PREFIX-0042--*.md")
-sed -i -e 's/^status: .*/status: done/' \
-       -e 's/^resolution: .*/resolution: "Fixed in commit abc1234"/' \
-       -e "s/^updated: .*/updated: $(date +%F)/" "$f"
-dest=${f/\/open\//\/archive\/}
+sed -e 's/^status: .*/status: done/' \
+    -e 's/^resolution: .*/resolution: "Fixed in commit abc1234"/' \
+    -e "s/^updated: .*/updated: $(date +%F)/" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+dest=$(printf '%s\n' "$f" | sed 's#/open/#/archive/#')
 mkdir -p "$(dirname "$dest")" && mv "$f" "$dest"
 ```
 

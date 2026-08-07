@@ -58,14 +58,14 @@ fi
 PREFIX="${SIFT_PREFIX:-}"
 if [ -z "$PREFIX" ] && [ -f "$SIFT/config/config.yaml" ]; then
   PREFIX="$(sed -n 's/^prefix:[[:space:]]*["'\'']\{0,1\}\([A-Za-z0-9_]\{1,\}\).*/\1/p' \
-    "$SIFT/config/config.yaml" | head -1)"
+    "$SIFT/config/config.yaml" | head -n 1)"
 fi
 if [ -z "$PREFIX" ]; then
   # Fall back to the most common prefix among existing ticket filenames.
   PREFIX="$(find "$SIFT/open" "$SIFT/archive" -name '*--*.md' 2>/dev/null |
     sed 's#.*/##' |
     sed -n 's/^\([A-Z][A-Z0-9]*\)-[0-9][0-9][0-9][0-9].*/\1/p' |
-    sort | uniq -c | sort -rn | head -1 | awk '{ print $2 }')"
+    sort | uniq -c | sort -rn | head -n 1 | awk '{ print $2 }')"
 fi
 if [ -z "$PREFIX" ]; then
   echo "error: cannot determine the ticket prefix" >&2
@@ -83,7 +83,10 @@ fi
 # headings is reported as a single wave 1.
 roadmap_rows() {
   awk -F'|' -v prefix="$PREFIX" '
-    function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    # [[:space:]], not [ \t]: POSIX leaves a backslash inside a bracket
+    # expression undefined, so a strict awk reads [ \t] as {space, \, t} and
+    # eats the leading "t" of a title like "tenant caching".
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
     BEGIN { pat = prefix "-[0-9][0-9][0-9][0-9]" }
     /^##[[:space:]]*[Ww]ave[[:space:]]/ {
       seen_wave = 1
@@ -121,7 +124,7 @@ roadmap_rows() {
 # --- Ticket files -----------------------------------------------------------
 # Absolute path of the ticket file for an ID (open/ first, then archive/).
 ticket_file() {
-  find "$SIFT/open" "$SIFT/archive" -name "$1--*.md" 2>/dev/null | sort | head -1
+  find "$SIFT/open" "$SIFT/archive" -name "$1--*.md" 2>/dev/null | sort | head -n 1
 }
 
 # One front-matter value, unquoted, or empty when the key is absent.

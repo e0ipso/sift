@@ -9,7 +9,7 @@ Design consequences that follow from that premise and should guide every decisio
 - Any state an agent needs must be recoverable by reading files, not by replaying a session.
 - File layout and frontmatter are the public API. Renaming a directory or a frontmatter key is a breaking change.
 - Concurrent agents may touch the tree at once; prefer append-only or one-file-per-entity shapes over shared mutable files.
-- Every operation must stay expressible with `find`, `grep`, `mv`, and `sed`. If a proposed feature needs tooling to be usable, it is the wrong feature.
+- Every operation must stay expressible with the Unix userland already on the machine — `find`, `grep`, `mv`, `sed`, `awk` and their neighbours. If a proposed feature needs an installable dependency to be usable, it is the wrong feature.
 
 ## The convention this repo defines
 
@@ -28,6 +28,7 @@ Because the layout and front-matter are the public API, edits to README.md are A
 - State the migration alongside the change. A rename that existing trees cannot absorb with a documented `find`/`sed` recipe is not ready.
 - Keep every cookbook command runnable as written against a real tree — they are the reference implementation, so a stale recipe is a broken build.
 - Keep the spec repository-agnostic. Concrete prefixes, milestone names, or project names belong in the consuming repo's config, never hardcoded in the convention text.
+- **Never let a feature require a binary the user has to install.** Recipes target the Unix userland already present: bash, the standard file utilities and `awk`, in the options both GNU and BSD (macOS) provide. `grep -r/-l/-L/-o/--include`, `find -maxdepth`, `sort -u` and `awk '{print $2}'` are all safe on both. Two are not, and are banned outright: **`sed -i`**, whose GNU and BSD forms disagree so badly that the BSD one eats the script as a backup suffix — use `sed … "$f" > "$f.tmp" && mv "$f.tmp" "$f"`; and **`xargs -r`**, a GNU extension older BSD `xargs` rejects — use `| while read -r f; do … done`, which also sidesteps the empty-input case where bare `xargs grep` falls through to reading stdin. In `awk`, write character classes as `[[:space:]]`, never `[ \t]` — POSIX leaves a backslash inside a bracket expression undefined, so a strict `awk` reads that set as {space, backslash, `t`} and silently eats the leading `t` of a title like "tenant caching". Anything outside the baseline — `xmllint`, `jq`, a language runtime — is an optional convenience only: guard it with `command -v` so its absence costs nothing, or leave it out. A recipe that silently assumes a tool is installed is a bug, not a shortcut.
 
 ## Working with Sift
 

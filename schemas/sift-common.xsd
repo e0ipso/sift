@@ -24,12 +24,14 @@
   <!-- ==================== front-matter value types ==================== -->
 
   <!--
-    Ticket ID: <PREFIX>-<NNNN>. The prefix is per-repository configuration read from
+    Ticket ID: <PREFIX>-<NNNN>. The numeric suffix is an open-ended digit run;
+    four-digit zero-pad (%04d) is allocation rendering width, not a schema maximum.
+    The prefix is per-repository configuration read from
     .ai/sift/config/config.yaml; the schema constrains its shape, not its value.
   -->
   <xs:simpleType name="ticketId">
     <xs:restriction base="xs:string">
-      <xs:pattern value="[A-Z][A-Z0-9]*-[0-9]{4}" />
+      <xs:pattern value="[A-Z][A-Z0-9]*-[0-9]+" />
     </xs:restriction>
   </xs:simpleType>
 

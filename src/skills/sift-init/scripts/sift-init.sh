@@ -60,9 +60,17 @@ case "$prefix" in
   *) echo "error: prefix must be 2-8 uppercase alphanumerics starting with a letter: $prefix" >&2; exit 2 ;;
 esac
 [ ${#prefix} -le 8 ] || { echo "error: prefix must be at most 8 characters: $prefix" >&2; exit 2; }
+# The milestone becomes a path component under .ai/sift/open, so the WHOLE value is
+# validated as lowercase kebab-case before any write. Testing only the first character
+# let `a/../../../evil` through, and `mkdir -p` then resolved it outside the tree.
+#
+# The allowed set is spelled out character by character instead of written `[a-z0-9-]`:
+# a glob range is collated, and under a UTF-8 locale the order is aAbBcC…zZ, so `[a-z]`
+# also matches `B`..`Z` and an uppercase name would slip through. An explicit list
+# collates the same everywhere.
 case "$milestone" in
-  [a-z0-9]*) : ;;
-  *) echo "error: milestone must be lowercase kebab-case: $milestone" >&2; exit 2 ;;
+  ''|-*|*-|*--*|*[!abcdefghijklmnopqrstuvwxyz0123456789-]*)
+    echo "error: milestone must be lowercase kebab-case: $milestone" >&2; exit 2 ;;
 esac
 
 # --- Locate the card's assets ----------------------------------------------

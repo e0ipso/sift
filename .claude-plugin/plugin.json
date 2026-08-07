@@ -1,0 +1,6 @@
+{
+  "name": "Sift",
+  "skills": [
+    "./src/skills/sift-drain"
+  ]
+}

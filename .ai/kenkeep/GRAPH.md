@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:1e8df785363cf7a6923674c9ccb1f86479805cb1f021b77e99d5e9215e072e20'
-node_count: 33
+nodes_hash: 'sha256:9137982e63fcce09c435cb651437f7656d8c5446ca987ce881bca1abcea949da'
+node_count: 34
 ---
 # kenkeep Graph
 
-Total nodes: 33
+Total nodes: 34
 
 ## map-sift-drain-skill
 
@@ -47,6 +47,14 @@ Total nodes: 33
 - **path:** spec/map-sift-readme-normative-spec.md
 - **tags:** sift, convention, docs
 - **relates_to:** map-sift-file-based-issue-tracker
+
+## map-sift-test-suite-runs-the-readme-recipes-themselves
+
+- **kind:** map
+- **title:** The test suite runs README's recipes, not copies of them
+- **path:** convention/map-sift-test-suite-runs-the-readme-recipes-themselves.md
+- **tags:** testing, portability, shell, convention, sift
+- **relates_to:** practice-batch-test-authoring-at-the-wave-gate, practice-keep-recipes-portable-gnu-and-bsd, practice-never-require-an-installable-binary
 
 ## map-sift-ticket-body-sections
 

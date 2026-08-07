@@ -1,0 +1,59 @@
+---
+type: map
+title: 'The test suite runs README''s recipes, not copies of them'
+description: >-
+  tests/run.sh is the whole verification story: no framework, cookbook cases
+  extract the fenced blocks from README.md and run that text.
+tags:
+  - testing
+  - portability
+  - shell
+  - convention
+  - sift
+kk_schema_version: 3
+kk_id: map-sift-test-suite-runs-the-readme-recipes-themselves
+kk_derived_from: []
+kk_relates_to:
+  - practice-batch-test-authoring-at-the-wave-gate
+  - practice-keep-recipes-portable-gnu-and-bsd
+  - practice-never-require-an-installable-binary
+kk_depends_on: []
+kk_confidence: high
+---
+`tests/run.sh` is the entire verification story for this repository — suite, lint
+and static analysis in one command, with no framework, runtime or lockfile,
+because a suite for a convention that forbids installable dependencies has to
+obey that convention itself. Each test is a shell script that prints TAP-ish
+lines plus one `# SUMMARY tests=… assertions=… failures=… skipped=…` line the
+runner adds up; `tests/lib/harness.sh` supplies the assertions and a `mktemp -d`
+that is cleaned on exit. Four groups: `cookbook/` (README recipes), `scripts/`
+(shipped card scripts through their real command lines), `static/` (the
+portability bans, shell lint, XSD schemas), `e2e/` (one gate → init → allocate →
+archive → roadmap-check lifecycle). `tests/run.sh <group>` runs one of them.
+
+The load-bearing design choice is in `tests/lib/recipes.sh`: a cookbook test
+never contains a copy of a recipe. `readme_block <anchor>` extracts the fenced
+block that follows an anchor line in README.md and the test runs that text, so a
+recipe drifting from its documentation is a build failure rather than a
+discovery in a consuming repository. A reworded anchor breaks extraction on
+purpose. Recipes are run under `set -e`, because the cookbook's guards are
+`… || { echo …; false; }` one-liners whose "stops with the tree untouched"
+contract only holds when a failing command ends the run.
+
+Portability is covered on two axes because only one of them can be executed
+here. `for_matrix` replays one representative scenario per recipe across
+bash/dash × gawk/mawk/nawk × C/C.utf8/en_US.utf8 (`for_shell_locale` drops the
+awk axis for recipes built only from grep/sed/find). No BSD host exists in the
+dev container, so the BSD half is enforced statically instead:
+`static/portability.test.sh` fails on `sed -i`, `xargs -r`, a `[ \t]` bracket
+expression in awk, and a collated `[a-z]`-style range in a shell glob or `case`
+pattern — scoped to executable text, since the prose that explains a ban has to
+name it. shellcheck is run only when present, never required.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-batch-test-authoring-at-the-wave-gate](/sift-drain/practice-batch-test-authoring-at-the-wave-gate.md)
+- Related: [practice-keep-recipes-portable-gnu-and-bsd](/portability/practice-keep-recipes-portable-gnu-and-bsd.md)
+- Related: [practice-never-require-an-installable-binary](/portability/practice-never-require-an-installable-binary.md)
+<!-- kk:related:end -->

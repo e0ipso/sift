@@ -11,8 +11,8 @@ _None._
 
 ## Conventions (how we build)
 - Open [**When draining sift, orchestrate and never implement**](practice-orchestrate-sift-drain-never-implement.md) to learn about: The orchestrator reads only the roadmap, the one ticket it is sizing, and structured sub-agent reports — never source, diffs, or raw test output. #sift-drain #orchestration #agents
-- Open [**Account for .ai/sift being gitignored**](practice-account-for-ai-sift-being-gitignored.md) to learn about: Ignore-aware search silently skips the tracker and it has no diff, so use find plus command grep and re-read ROADMAP.md before every dispatch. #sift-drain #git #gotcha #search
 - Open [**Batch test authoring at the wave gate, not per ticket**](practice-batch-test-authoring-at-the-wave-gate.md) to learn about: Ticket agents verify only what they touched and waive test criteria into the resolution; full suites and new tests belong to the gate. #sift-drain #testing #orchestration
+- Open [**Account for .ai/sift being gitignored**](practice-account-for-ai-sift-being-gitignored.md) to learn about: Ignore-aware search silently skips the tracker and it has no diff, so use find plus command grep and re-read ROADMAP.md before every dispatch. #sift-drain #git #gotcha #search
 - Open [**Nothing leaves the machine during a sift drain**](practice-never-push-or-file-upstream-during-a-drain.md) to learn about: No agent runs git push and none touches an external tracker; an upstream fix worth making becomes a local type: dx ticket. #sift-drain #git #agents
 - Open [**Resolve the sift tree by walking up for the .ai/sift directory**](practice-resolve-the-sift-tree-by-walking-up-for-the-ai-sift-directory.md) to learn about: Walk up from cwd for the .ai/sift directory, stop when parent equals cur, and absolutize SIFT_ROOT overrides. #sift-drain #shell #paths #portability
 - Open [**Sub-agent autonomy is the contract in a sift drain**](practice-sift-drain-sub-agents-decide-for-themselves.md) to learn about: Dispatch prompts state no answer is coming; an agent facing a judgment call decides it itself and records the call in its report. #sift-drain #agents #orchestration
@@ -43,6 +43,7 @@ _None._
 ### #testing
 - Open [**Batch test authoring at the wave gate, not per ticket**](practice-batch-test-authoring-at-the-wave-gate.md) — Ticket agents verify only what they touched and waive test criteria into the resolution; full suites and new tests belong to the gate.
 - Open [**Treat the dev environment as shared and not disposable**](practice-treat-the-dev-environment-as-shared.md) — No agent reinstalls it or executes a destructive scenario the code's guards exist to prevent — verify the guard, not the destruction.
+- Open [**The test suite runs README's recipes, not copies of them**](../convention/map-sift-test-suite-runs-the-readme-recipes-themselves.md) — tests/run.sh is the whole verification story: no framework, cookbook cases extract the fenced blocks from README.md and run that text.
 ### #gotcha
 - Open [**Never validate with an \[a-z\] glob range — spell the set out**](../portability/practice-never-write-a-z-glob-ranges-in-shell-validation.md) — Glob bracket ranges are collated, so under a UTF-8 locale \[a-z\] also matches B..Z; list the allowed characters instead.
 - Open [**Never write data through a sed replacement text**](../portability/practice-never-write-data-through-a-sed-replacement-text.md) — sed re-scans the replacement for & and \\1, so a title like "caching & sharding" comes back mangled; concatenate in awk instead.

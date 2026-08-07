@@ -268,9 +268,12 @@ All commands assume you run them from the repository root
 (`.ai/sift/...` paths) — adjust if elsewhere.
 
 **Set the prefix once per shell.** Every recipe below reads `$PREFIX`; export it first
-and nothing else needs editing when the prefix changes:
+and nothing else needs editing when the prefix changes. The tree guard on the next
+line fails closed when `.ai/sift` is missing, so a validation recipe run from the
+wrong directory cannot report a clean bill of health for a tree it never read:
 ```sh
 export PREFIX=$(grep -m1 '^prefix:' .ai/sift/config/config.yaml | awk '{print $2}' | tr -d "\"'")
+[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; exit 1; }
 ```
 
 Recipes that name one milestone read `$MILESTONE`; set it to a name from
@@ -303,10 +306,11 @@ find .ai/sift/open -name "$PREFIX-*.md" | sort
 ```
 Numeric comparison, not lexical sort, is what makes this correct once the tree passes
 `<PREFIX>-9999`: `%04d` is a *minimum* width, so the successor of `<PREFIX>-9999` is
-`<PREFIX>-10000` rather than a truncated four-digit collision. The `[ -d .ai/sift ]`
-guard carries more weight here than in the read-only recipes: `awk`'s `END` block fires
-even when `find` printed nothing, so running this from the wrong directory would
-otherwise report `<PREFIX>-0001` — an ID that is already taken — instead of failing.
+`<PREFIX>-10000` rather than a truncated four-digit collision. The inline
+`[ -d .ai/sift ]` guard matters here even when the shared tree guard above already
+ran: `awk`'s `END` block fires even when `find` printed nothing, so a copied
+allocation one-liner run from the wrong directory would otherwise report
+`<PREFIX>-0001` — an ID that is already taken — instead of failing.
 
 **Triage view — id, title, priority for one milestone:**
 ```sh
@@ -538,8 +542,11 @@ with the roadmap untouched and no `.tmp` left behind, because a rule 9 desync th
 success is worse than one that stops you. Re-running on an already-struck row is a no-op,
 not a double strike.
 
-**Roadmap consistency check** (run after creating, archiving, or re-wiring tickets):
+**Roadmap consistency check** (run after creating, archiving, or re-wiring tickets).
+The shared tree guard from the prefix setup is restated so a copied block still fails
+closed when `.ai/sift` is missing; a consistent tree stays silent:
 ```sh
+[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; exit 1; }
 # Every ticket (open or archived) must appear in ROADMAP.md ...
 find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sed 's#.*/##' \
   | grep -oE "^$PREFIX-[0-9]+" | sort -u | while read -r id; do
@@ -555,8 +562,11 @@ that has grown past `<PREFIX>-9999` is captured whole rather than truncated. Fou
 remain the *rendering* width when allocating a new ID (`%04d` above); these recipes only
 read IDs back.
 
-**Validate front-matter across the tree** (files missing a required key):
+**Validate front-matter across the tree** (files missing a required key). Same tree
+guard as above; when every required key is present the loop prints only the section
+headers and exits 0:
 ```sh
+[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; exit 1; }
 for k in id title status type milestone priority effort created updated; do
   echo "== missing $k:"; grep -rL "^$k:" .ai/sift/open .ai/sift/archive --include="$PREFIX-*.md"
 done

@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
-# Cookbook: the prefix/tree guard and "Validate front-matter across the tree".
+# Cookbook: the prefix/tree guard and every recipe that audits a tree —
+# front-matter keys, folder/front-matter agreement, and the two section-backfill
+# lists (README.md).
 #
 # Pins the rest of SFT-0010: a validation recipe run from the wrong directory
 # must diagnose and fail, never print a clean report for a tree it never read.
 # The roadmap half of that ticket lives in roadmap-consistency.test.sh.
+#
+# What binds these recipes together is that silence means "clean". That makes an
+# audit that reads nothing indistinguishable from a tree with nothing wrong, so
+# each case below pins the positive detection as well as the quiet pass.
 
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
@@ -106,5 +112,137 @@ test_case "a clean tree validates on every shell × locale"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open backlog/bug SFT-0042 complete 'Complete' > /dev/null
 for_shell_locale matrix_case "$d"
+
+# --- Folder / front-matter agreement -----------------------------------------
+#
+# Folders are an index and front-matter is the truth, so the two disagreeing is
+# the one inconsistency no other recipe notices: a ticket filed under the wrong
+# milestone directory still lists, still greps, still archives.
+
+AGREEMENT="$(recipe_folder_agreement)"
+
+test_case "the agreement recipe is the documented text"
+assert_contains "$AGREEMENT" 'case "$f" in */"$m"/*)' "the folder match is a case pattern"
+assert_contains "$AGREEMENT" 'MISMATCH:' "the diagnostic it prints"
+
+agree() { run_recipe "$1" "$AGREEMENT" PREFIX=SFT; }
+
+test_case "a consistent tree is silent"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0001 ok 'Ok' > /dev/null
+ticket "$d" archive platform/docs SFT-0002 old 'Old' 'status: done' \
+  'resolution: "x"' > /dev/null
+agree "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "" "$R_OUT" "nothing to report"
+
+test_case "a ticket whose milestone key disagrees with its folder is named"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0001 ok 'Ok' > /dev/null
+ticket "$d" open caching/bug SFT-0002 wrong 'Wrong' 'milestone: platform' > /dev/null
+agree "$d"
+assert_eq 0 "$R_STATUS" "exits 0 — it reports rather than fails"
+assert_eq 1 "$(printf '%s\n' "$R_OUT" | grep -c '^MISMATCH:')" "exactly one mismatch"
+assert_contains "$R_OUT" 'SFT-0002--wrong.md (says platform)' "the file and the claim"
+assert_not_contains "$R_OUT" 'SFT-0001' "the consistent ticket is not named"
+
+test_case "an empty tree reports no mismatch"
+d="$(newdir)"; make_tree "$d"
+agree "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "" "$R_OUT" "prints nothing"
+
+# --- The section-backfill lists ----------------------------------------------
+
+BUG_SECTIONS="$(recipe_bug_sections)"
+FEATURE_MISSING="$(recipe_feature_missing)"
+
+test_case "the backfill recipes are the documented text"
+assert_contains "$BUG_SECTIONS" "grep -q '^## Expected behaviour'" "bugs check the section"
+assert_contains "$FEATURE_MISSING" "grep -q '^## Direction'" "features check theirs"
+assert_contains "$BUG_SECTIONS" '.ai/sift/open .ai/sift/archive' "bugs span both buckets"
+
+test_case "a bug ticket without ## Expected behaviour is listed"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0001 bare 'Bare bug' > /dev/null
+g="$(ticket "$d" open caching/bug SFT-0002 full 'Full bug')"
+printf '\n## Expected behaviour\nIt should work.\n' >> "$g"
+ticket "$d" open caching/feature SFT-0003 feat 'A feature' 'type: feature' > /dev/null
+run_recipe "$d" "$BUG_SECTIONS" PREFIX=SFT
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq '.ai/sift/open/caching/bug/SFT-0001--bare.md' "$R_OUT" \
+  "only the bug missing the section — the complete bug and the feature are not bugs to backfill"
+
+test_case "a tree of complete bugs prints nothing"
+d="$(newdir)"; make_tree "$d"
+g="$(ticket "$d" open caching/bug SFT-0001 full 'Full bug')"
+printf '\n## Expected behaviour\nIt should work.\n' >> "$g"
+run_recipe "$d" "$BUG_SECTIONS" PREFIX=SFT
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "" "$R_OUT" "no backfill needed"
+
+test_case "a feature ticket without ## Direction is listed"
+d="$(newdir)"; make_tree "$d"
+mkdir -p "$d/.ai/sift/open/caching/feature"
+{ echo '---'; echo 'id: SFT-0001'; echo 'title: No direction'; echo 'status: open'
+  echo 'type: feature'; echo 'milestone: caching'; echo 'priority: p2'
+  echo 'effort: m'; echo 'created: 2026-08-01'; echo 'updated: 2026-08-01'
+  echo '---'; echo; echo '## Problem'; echo 'Why we want it.'; } \
+  > "$d/.ai/sift/open/caching/feature/SFT-0001--nodir.md"
+g="$(ticket "$d" open caching/feature SFT-0002 full 'Complete feature' 'type: feature')"
+printf '\n## Direction\nBuild it this way.\n' >> "$g"
+run_recipe "$d" "$FEATURE_MISSING" PREFIX=SFT
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq '.ai/sift/open/caching/feature/SFT-0001--nodir.md' "$R_OUT" \
+  "only the feature with no Direction section is listed"
+
+test_case "the feature backfill list reads open/ only"
+# Archived features are terminal: there is nothing left to propose, so the
+# recipe deliberately does not root itself at .ai/sift the way the bug one does.
+assert_not_contains "$FEATURE_MISSING" '.ai/sift/archive' "archive is out of scope"
+d="$(newdir)"; make_tree "$d"
+mkdir -p "$d/.ai/sift/archive/caching/feature"
+{ echo '---'; echo 'id: SFT-0001'; echo 'title: Archived'; echo 'status: done'
+  echo 'type: feature'; echo 'milestone: caching'; echo 'priority: p2'
+  echo 'effort: m'; echo 'created: 2026-08-01'; echo 'updated: 2026-08-01'
+  echo 'resolution: "shipped"'; echo '---'; echo; echo '## Problem'; echo 'x'; } \
+  > "$d/.ai/sift/archive/caching/feature/SFT-0001--arch.md"
+run_recipe "$d" "$FEATURE_MISSING" PREFIX=SFT
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "" "$R_OUT" "an archived feature is never asked for a Direction"
+
+test_case "both backfill lists are quiet on an empty tree"
+d="$(newdir)"; make_tree "$d"
+run_recipe "$d" "$BUG_SECTIONS" PREFIX=SFT
+assert_eq 0 "$R_STATUS" "the bug list exits 0"
+assert_eq "" "$R_OUT" "…printing nothing"
+run_recipe "$d" "$FEATURE_MISSING" PREFIX=SFT
+assert_eq 0 "$R_STATUS" "the feature list exits 0"
+assert_eq "" "$R_OUT" "…printing nothing"
+
+# --- The optional binary ------------------------------------------------------
+#
+# The convention's hard rule is that nothing may require an installed tool.
+# xmllint is the only optional binary the cookbook names, and its guard is the
+# thing that has to hold on a machine without it. Rather than assume this host
+# is such a machine, the recipe is run with a PATH that cannot resolve any
+# binary at all; the shell itself is named absolutely so it still starts.
+# The *positive* path — a rendered draft checked against the shipped XSD — is
+# covered by static/schemas.test.sh, which already runs xmllint when present.
+
+XMLLINT="$(recipe_xmllint)"
+
+test_case "the xmllint recipe guards before it calls"
+assert_contains "$XMLLINT" 'if command -v xmllint >/dev/null; then' "the guard is first"
+assert_contains "$XMLLINT" 'xmllint not installed' "and has an else branch"
+
+test_case "with xmllint unavailable the recipe is a no-op, not a failure"
+d="$(newdir)"; make_tree "$d"
+R_SHELL="$(command -v bash)"
+run_recipe "$d" "$XMLLINT" PATH="$d/no-such-bin"
+R_SHELL=bash
+assert_eq 0 "$R_STATUS" "exits 0 — a missing optional tool costs nothing"
+assert_contains "$R_OUT" 'xmllint not installed — skipping (optional)' "it says so"
+assert_contains "$R_OUT" 'check the schema by eye' "and names the fallback"
 
 summary

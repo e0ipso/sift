@@ -31,6 +31,45 @@ recipe_allocate()      { readme_block '**Allocate the next ID**'; }
 recipe_roadmap_check() { readme_block '**Roadmap consistency check**'; }
 recipe_frontmatter()   { readme_block '**Validate front-matter across the tree**'; }
 
+# Query recipes. All read-only, all driven by $PREFIX (and $MILESTONE where the
+# recipe names one), so they run verbatim — no parameter swap is needed.
+recipe_milestone_setup() { readme_block 'Recipes that name one milestone read'; }
+recipe_list_open()       { readme_block '**List every open ticket:**'; }
+recipe_triage()          { readme_block '**Triage view'; }
+recipe_count_milestone() { readme_block '**Count open tickets per milestone:**'; }
+recipe_find_ticket()     { readme_block '**Find a ticket wherever it lives:**'; }
+recipe_fulltext()        { readme_block '**Full-text search'; }
+recipe_dependents()      { readme_block '**Who depends on'; }
+recipe_next()            { readme_block '**Pick the next thing to work on**'; }
+
+# Front-matter parsing: the three `labels:` recipes share one awk program.
+recipe_labels_list()  { readme_block '**List every label in use**'; }
+recipe_labels_count() { readme_block '**Count tickets per label:**'; }
+
+# The label filter opens with a literal `LABEL=caching` from the worked example.
+# Swap it for a parameter expansion so a case can ask for a label no ticket
+# carries; the caller asserts the swap landed, so a README rewording cannot
+# silently degrade the test back to the example value.
+recipe_labels_filter() {
+  readme_block '**List tickets carrying one label**' \
+    | sed 's|^LABEL=caching$|LABEL=${LABEL?}|'
+}
+
+# Audit recipes: the two section-backfill lists and the folder/front-matter check.
+recipe_bug_sections()     { readme_block '**Find bug tickets missing'; }
+recipe_feature_missing()  { readme_block '**Find feature tickets whose Direction'; }
+recipe_folder_agreement() { readme_block '**Sanity-check folder/front-matter agreement:**'; }
+recipe_xmllint()          { readme_block '**Machine-check a draft'; }
+
+# The milestone move opens with a `DEST=<target-milestone>` placeholder, which is
+# a redirection rather than an assignment when run as written. Swap it, and swap
+# the worked example's ID, so a case can drive both; callers assert both landed.
+recipe_move_milestone() {
+  readme_block '**Move a ticket to another milestone**' | sed \
+    -e 's|^DEST=<target-milestone>.*$|DEST=${DEST:?}|' \
+    -e 's|\$PREFIX-0042--\*\.md|$PREFIX-${NUM:?}--*.md|'
+}
+
 # The archive recipe opens with three literal assignments (the worked example's
 # ID, status and resolution). Swap them for parameter expansions so a case can
 # drive the recipe from the environment; every caller asserts the swap landed,

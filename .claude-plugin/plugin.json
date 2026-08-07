@@ -1,6 +1,7 @@
 {
   "name": "Sift",
   "skills": [
+    "./src/skills/sift-init",
     "./src/skills/sift-drain"
   ]
 }

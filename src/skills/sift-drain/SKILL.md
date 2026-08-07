@@ -9,6 +9,20 @@ Work a `.ai/sift` roadmap to completion: one sub-agent per ticket, strictly sequ
 with a test-and-lint gate at the end of every wave. Nothing here is project-specific —
 sub-agents discover the repository's own commands and conventions themselves.
 
+## Gate: is sift initialized?
+
+Before anything else — before reading `ROADMAP.md`, before the first dispatch — run the
+`sift-init` card's `scripts/sift-gate.sh`. It reads only, and its exit code decides:
+
+- **0 (`READY`)** — continue below.
+- **3, 4 or 6** — there is no usable tree yet. Hand off to `sift-init` and follow its
+  rules (4 and 6 require asking the user first). There is nothing to drain until it
+  reports `READY`.
+- **5 (`UNRESOLVED`)** — no project root found. Report the `$PWD` it walked from and stop.
+
+Never resolve the root by eye and never initialize the tree yourself: the gate is one
+script precisely so every card agrees on where `.ai/sift` lives.
+
 ## Orchestrate, never implement
 
 You implement nothing. Every line of code, every test, and every piece of ticket

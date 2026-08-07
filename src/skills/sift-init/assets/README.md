@@ -309,68 +309,6 @@ find .ai/sift -name "$PREFIX-0042*"
 grep -ril 'cache invalidation' .ai/sift --include="$PREFIX-*.md"
 ```
 
-**List every label in use** (sorted, unique kebab tags from `labels:` front-matter):
-```sh
-find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r f; do
-  awk '
-    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
-    infm && /^---[[:space:]]*$/ { exit }
-    infm && /^labels:/ {
-      sub(/^labels:[[:space:]]*/, ""); sub(/^\[/, ""); sub(/\][[:space:]]*(#.*)?$/, "")
-      n = split($0, a, ",")
-      for (i = 1; i <= n; i++) {
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[i])
-        if (a[i] != "") print a[i]
-      }
-      exit
-    }
-  ' "$f"
-done | sort -u
-```
-
-**Count tickets per label:**
-```sh
-find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r f; do
-  awk '
-    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
-    infm && /^---[[:space:]]*$/ { exit }
-    infm && /^labels:/ {
-      sub(/^labels:[[:space:]]*/, ""); sub(/^\[/, ""); sub(/\][[:space:]]*(#.*)?$/, "")
-      n = split($0, a, ",")
-      for (i = 1; i <= n; i++) {
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[i])
-        if (a[i] != "") print a[i]
-      }
-      exit
-    }
-  ' "$f"
-done | sort | uniq -c | awk '{ printf "%s\t%s\n", $2, $1 }' | sort -k1,1
-```
-
-**List tickets carrying one label** (`$LABEL` is kebab-case, e.g. `caching`):
-```sh
-LABEL=caching
-find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r f; do
-  awk -v want="$LABEL" '
-    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
-    infm && /^---[[:space:]]*$/ { exit }
-    infm && /^labels:/ {
-      sub(/^labels:[[:space:]]*/, ""); sub(/^\[/, ""); sub(/\][[:space:]]*(#.*)?$/, "")
-      n = split($0, a, ",")
-      for (i = 1; i <= n; i++) {
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[i])
-        if (a[i] == want) { print FILENAME; exit }
-      }
-      exit
-    }
-  ' "$f"
-done | while read -r f; do
-  id=$(grep -m1 '^id:' "$f" | awk '{print $2}')
-  title=$(grep -m1 '^title:' "$f" | sed 's/^title:[[:space:]]*//')
-  printf '%s  %s  %s\n' "$id" "$title" "$f"
-done
-```
-
 **Who depends on `$PREFIX-0042`:**
 ```sh
 grep -rl "$PREFIX-0042" .ai/sift --include="$PREFIX-*.md" | grep -v "$PREFIX-0042--"

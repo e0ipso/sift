@@ -290,3 +290,29 @@ Each phase closes on the criteria in its own task files, verified by running the
 ### Execution Summary
 - Total Phases: 4
 - Total Tasks: 5
+
+### Review gate — round 1 NOT CERTIFIED (execution halted here)
+
+All four phases closed green and all five tasks are `completed`. The terminal code-review
+gate then failed to certify:
+
+```
+kind: reviewed   harness: codex   round: 1
+decision.kind: round-failed
+detail: The reviewer did not write .../review/round-1/review.xml, and its output carried no
+        complete findings document between this dispatch's fallback delimiters. A round with
+        no findings document cannot be read as a round with no findings.
+```
+
+`codex` is installed at `/usr/local/share/npm-global/bin/codex`, so this is not a missing
+harness — the reviewer ran and produced no findings document. `findings.json` records
+`status: findings-absent` with both `actionable` and `recorded` empty.
+
+**An uncertified round is not a clean round.** Per the gate's rules the plan stays in
+`plans/`, no completion summary is appended, and nothing is archived.
+
+**Next steps:** re-run `st-code-review`'s `code-review.cjs 1 claude 1` once the reviewer
+harness can write its `review.xml` — most likely a `codex` authentication or configuration
+issue in this environment. The implementation itself is committed and independently verified
+(see the four commits from `be03a2f` to `282afc3`); only the second-harness review is
+outstanding.

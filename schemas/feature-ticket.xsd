@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:sift:ticket:v1"
+           xmlns:tns="urn:sift:ticket:v1"
+           elementFormDefault="qualified">
+
+  <xs:include schemaLocation="sift-common.xsd" />
+
+  <!--
+    Drafting schema for a ticket with type: feature.
+
+    <motivation> renders as "## Problem" and <proposed-solution> as "## Direction" —
+    a feature ticket answers the same two questions as every other ticket, it just
+    answers them from need rather than from breakage.
+
+    Element order is the rendered section order; do not reorder. Optional elements are
+    omitted entirely when they do not apply — never emitted empty.
+  -->
+  <xs:element name="feature-ticket">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="front-matter" type="tns:frontMatter" />
+
+        <!-- ## Problem — why this is needed and what use case it serves. -->
+        <xs:element name="motivation" type="tns:nonEmptyString" />
+
+        <!-- ## Evidence — the demand: requests, failed workarounds, file:line refs. -->
+        <xs:element name="evidence" type="tns:evidence" minOccurs="0" />
+
+        <!-- ## Direction — what should be built or changed. -->
+        <xs:element name="proposed-solution" type="tns:nonEmptyString" />
+
+        <!-- ## Alternatives considered — other approaches, and why they lose. -->
+        <xs:element name="alternatives-considered" type="tns:nonEmptyString" minOccurs="0" />
+
+        <!-- ## Acceptance criteria -->
+        <xs:element name="acceptance-criteria" type="tns:acceptanceCriteria" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

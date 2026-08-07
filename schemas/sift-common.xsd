@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:sift:ticket:v1"
+           xmlns:tns="urn:sift:ticket:v1"
+           elementFormDefault="qualified">
+
+  <!--
+    Shared definitions for the sift ticket drafting schemas. Included (not imported)
+    by bug-ticket.xsd, feature-ticket.xsd and task-ticket.xsd, which all share this
+    target namespace.
+
+    These schemas describe a ticket at DRAFTING time. The ticket on disk is always
+    markdown with YAML front-matter; nothing in sift reads XML. See README.md,
+    "Drafting a ticket", for the render step and the field-by-field mapping.
+
+    Two rules from README.md cannot be expressed in XSD 1.0 and are therefore NOT
+    enforced here:
+      - An archived ticket (status done | wontfix | superseded) requires a non-empty
+        <resolution>. This is a cross-field constraint; check it by hand.
+      - <milestone> must name a milestone declared in MILESTONES.md, and must match
+        the folder the ticket file lives in. The set is open and per-repository.
+  -->
+
+  <!-- ==================== front-matter value types ==================== -->
+
+  <!--
+    Ticket ID: <PREFIX>-<NNNN>. The prefix is per-repository configuration read from
+    .ai/sift/config/config.yaml; the schema constrains its shape, not its value.
+  -->
+  <xs:simpleType name="ticketId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z][A-Z0-9]*-[0-9]{4}" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="nonEmptyString">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1" />
+      <xs:pattern value="\s*\S[\s\S]*" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- open | in-progress | blocked live in open/; the rest live in archive/. -->
+  <xs:simpleType name="status">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="open" />
+      <xs:enumeration value="in-progress" />
+      <xs:enumeration value="blocked" />
+      <xs:enumeration value="done" />
+      <xs:enumeration value="wontfix" />
+      <xs:enumeration value="superseded" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Closed set. Doubles as the <category> folder under the milestone. -->
+  <xs:simpleType name="type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="bug" />
+      <xs:enumeration value="hardening" />
+      <xs:enumeration value="feature" />
+      <xs:enumeration value="test" />
+      <xs:enumeration value="docs" />
+      <xs:enumeration value="dx" />
+      <xs:enumeration value="release" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- p1 critical | p2 high | p3 normal | p4 someday -->
+  <xs:simpleType name="priority">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="p1" />
+      <xs:enumeration value="p2" />
+      <xs:enumeration value="p3" />
+      <xs:enumeration value="p4" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="effort">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="s" />
+      <xs:enumeration value="m" />
+      <xs:enumeration value="l" />
+      <xs:enumeration value="xl" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!--
+    Milestone names are an open set defined per repository in MILESTONES.md. The only
+    constraint the convention imposes is that the name is usable as a directory
+    component: no slashes, no whitespace.
+  -->
+  <xs:simpleType name="milestone">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Za-z0-9][A-Za-z0-9._-]*" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Free-form topic tags. Kebab-case so they stay greppable. -->
+  <xs:simpleType name="label">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[a-z0-9]+(-[a-z0-9]+)*" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ==================== front-matter ==================== -->
+
+  <xs:complexType name="frontMatter">
+    <xs:sequence>
+      <xs:element name="id" type="tns:ticketId" />
+      <xs:element name="title" type="tns:nonEmptyString" />
+      <xs:element name="status" type="tns:status" />
+      <xs:element name="type" type="tns:type" />
+      <xs:element name="milestone" type="tns:milestone" />
+      <xs:element name="priority" type="tns:priority" />
+      <xs:element name="effort" type="tns:effort" />
+      <xs:element name="created" type="xs:date" />
+      <xs:element name="updated" type="xs:date" />
+      <xs:element name="labels" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="label" type="tns:label" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="depends-on" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="ticket" type="tns:ticketId" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <!-- Required non-empty when status is done | wontfix | superseded. -->
+      <xs:element name="resolution" type="tns:nonEmptyString" minOccurs="0" />
+      <xs:element name="source" type="tns:nonEmptyString" minOccurs="0" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ==================== shared body sections ==================== -->
+
+  <!--
+    Renders as "## Evidence": one bullet per item. Claims about code cite file:line
+    (README.md rule 5).
+  -->
+  <xs:complexType name="evidence">
+    <xs:sequence>
+      <xs:element name="item" type="tns:nonEmptyString" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Renders as "## Acceptance criteria": one "- [ ]" checkbox per criterion. -->
+  <xs:complexType name="acceptanceCriteria">
+    <xs:sequence>
+      <xs:element name="criterion" type="tns:nonEmptyString" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>

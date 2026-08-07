@@ -32,6 +32,11 @@ placeholder the same way; substitute a name from `MILESTONES.md` when you read i
 ├── README.md                  ← this convention (read it before touching tickets)
 ├── MILESTONES.md              ← what each milestone means, in intended order
 ├── ROADMAP.md                 ← advisory resolution order (tickets' depends_on is the truth)
+├── schemas/                   ← XSD drafting schemas (authoring aid; see "Drafting a ticket")
+│   ├── sift-common.xsd
+│   ├── bug-ticket.xsd
+│   ├── feature-ticket.xsd
+│   └── task-ticket.xsd
 ├── open/                      ← actionable work
 │   └── <milestone>/           ← one of the milestones in MILESTONES.md
 │       └── <category>/        ← bug | hardening | feature | test | docs | dx | release
@@ -84,7 +89,8 @@ Statuses `open | in-progress | blocked` live in `open/`. Statuses
 
 ## Ticket body
 
-Use these sections (omit ones that are genuinely empty, keep the order):
+Every body is built from four canonical sections, in this order, omitting ones that are
+genuinely empty:
 
 ```markdown
 # <title, repeated>
@@ -101,6 +107,101 @@ The proposed approach, alternatives considered, known constraints.
 ## Acceptance criteria
 - [ ] Checkable statements that define "done".
 ```
+
+Two types add sections to that skeleton, because the four alone let a drafter skip the
+question that type most needs answered.
+
+**`type: bug`** — a bug ticket that does not say what *should* happen is not actionable:
+
+```markdown
+## Problem
+## Expected behaviour        ← required: what should happen instead
+## Steps to reproduce        ← optional: numbered list, one step per line
+## Evidence                  ← required for bugs: cite file:line
+## Direction
+## Acceptance criteria
+```
+
+**`type: feature`** — `Problem` carries the motivation and `Direction` the proposal, so
+only the discarded options need a home of their own:
+
+```markdown
+## Problem                   ← the motivation: why this is needed, whose use case
+## Evidence
+## Direction                 ← the proposed solution
+## Alternatives considered   ← optional: other approaches, and why they lose
+## Acceptance criteria
+```
+
+**Every other type** (`hardening | test | docs | dx | release`) uses the four canonical
+sections unchanged.
+
+## Drafting a ticket
+
+`schemas/` holds one XSD per body shape. They exist because a drafter writing markdown
+straight into the file skips the awkward field — the expected behaviour it has not pinned
+down, the alternative it did not weigh — and the omission is invisible afterwards. Filling
+a structure that names every field forces the gap to surface while it can still be closed.
+
+Draft into a scratch file outside `.ai/sift/`, then render it to the markdown ticket and
+throw the draft away:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<bug-ticket xmlns="urn:sift:ticket:v1">
+  <front-matter>
+    <id>ABCD-0042</id>
+    <title>Fix cache key collision on tenant switch</title>
+    <status>open</status>
+    <type>bug</type>
+    <milestone>foundations</milestone>
+    <priority>p2</priority>
+    <effort>m</effort>
+    <created>2026-08-07</created>
+    <updated>2026-08-07</updated>
+    <labels><label>api</label><label>caching</label></labels>
+    <depends-on><ticket>ABCD-0041</ticket></depends-on>
+  </front-matter>
+  <problem>The cache key omits the tenant id, so tenant B reads tenant A's payload.</problem>
+  <expected-behaviour>Each tenant resolves its own payload.</expected-behaviour>
+  <steps-to-reproduce>
+    <step>Warm the cache as tenant A.</step>
+    <step>Request the same route as tenant B.</step>
+  </steps-to-reproduce>
+  <evidence><item>src/cache/key.ts:31 builds the key from route alone.</item></evidence>
+  <direction>Prefix the key with the resolved tenant id.</direction>
+  <acceptance-criteria>
+    <criterion>Cross-tenant read returns tenant B's payload.</criterion>
+  </acceptance-criteria>
+</bug-ticket>
+```
+
+| Draft element | Renders to |
+|---|---|
+| `<front-matter>` children | the YAML keys of the same name (`<depends-on>` → `depends_on`) |
+| `<labels>`, `<depends-on>` | YAML flow lists — `labels: [api, caching]` |
+| `<problem>` / `<motivation>` / `<description>` | `## Problem` |
+| `<expected-behaviour>` | `## Expected behaviour` |
+| `<steps-to-reproduce><step>` | `## Steps to reproduce`, numbered list |
+| `<evidence><item>` | `## Evidence`, one bullet per item |
+| `<direction>` / `<proposed-solution>` | `## Direction` |
+| `<alternatives-considered>` | `## Alternatives considered` |
+| `<acceptance-criteria><criterion>` | `## Acceptance criteria`, one `- [ ]` per criterion |
+
+Which root element to use: `<bug-ticket>` for `type: bug`, `<feature-ticket>` for
+`type: feature`, `<task-ticket>` for the other five types.
+
+**The XML is scaffolding, not storage, and no tool is required to use it.** The ticket on
+disk is markdown with YAML front-matter, exactly as specified above; nothing in sift reads,
+writes, or validates XML on the way in or out. Read `schemas/*.xsd` as a checklist and
+render by hand — that is the supported path, and it works on a machine with nothing but a
+text editor. If `xmllint` happens to be installed, the optional recipe in the cookbook will
+also machine-check a draft; if it is not installed, skip it and lose nothing but a
+convenience. Never make a ticket, a recipe, or a workflow depend on it.
+
+Two rules the schemas cannot carry, because XSD 1.0 has no cross-field assertions:
+a non-empty `resolution` is required once `status` is terminal, and `milestone` must name a
+milestone from `MILESTONES.md` that matches the ticket's folder. Check both by hand.
 
 ## Rules for agents
 
@@ -125,6 +226,10 @@ The proposed approach, alternatives considered, known constraints.
    re-check its wave placement. Then run the roadmap consistency check below — a
    ticket missing from the roadmap, or a roadmap entry pointing at nothing, is a
    convention violation.
+10. **Use the body template for the ticket's `type`.** A `bug` states its expected
+    behaviour and cites `file:line`; a `feature` states its motivation. Draft against
+    `schemas/` when writing a new ticket — but never make anything depend on `xmllint`
+    being installed.
 
 ## Operations cookbook (terminal)
 
@@ -230,6 +335,31 @@ done
 for k in id title status type milestone priority effort created updated; do
   echo "== missing $k:"; grep -rL "^$k:" .ai/sift/open .ai/sift/archive --include="$PREFIX-*.md"
 done
+```
+
+**Find bug tickets missing the `## Expected behaviour` section** (the backfill list after
+adopting the type-specific templates — add the section to each, or accept it as debt):
+```sh
+grep -rl '^type: bug' .ai/sift/open .ai/sift/archive --include="$PREFIX-*.md" \
+  | while read -r f; do grep -q '^## Expected behaviour' "$f" || echo "$f"; done
+```
+
+**Find feature tickets whose Direction is missing** (`## Direction` carries the proposal):
+```sh
+grep -rl '^type: feature' .ai/sift/open --include="$PREFIX-*.md" \
+  | while read -r f; do grep -q '^## Direction' "$f" || echo "$f"; done
+```
+
+**Machine-check a draft — optional, only if `xmllint` is already installed.** Nothing in
+this convention requires it: the schemas are a checklist you can read, and a ticket
+rendered by hand without ever running this is fully valid. The guard below makes the
+recipe a no-op rather than a failure on a machine without the binary:
+```sh
+if command -v xmllint >/dev/null; then
+  xmllint --noout --schema .ai/sift/schemas/bug-ticket.xsd /tmp/draft.xml
+else
+  echo "xmllint not installed — skipping (optional); check the schema by eye"
+fi
 ```
 
 **Sanity-check folder/front-matter agreement:**

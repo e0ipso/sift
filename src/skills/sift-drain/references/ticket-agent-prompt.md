@@ -119,8 +119,15 @@ Capture the merge commit hash. Do NOT push.
 STEP 8 — FILE FOLLOW-UPS IF WARRANTED
 Out-of-scope bugs, deferred improvements, gaps you cannot address: file them as new sift
 tickets per .ai/sift/README.md, including the ROADMAP.md placement rule 9 requires, in the
-same commit. Every self-filed ticket ID must appear in your report — the user requires
-visibility of everything entering the backlog.
+same commit. Use the body template for the ticket's `type` — a `bug` needs its
+`## Expected behaviour`, a `feature` its motivation under `## Problem`. Draft against the
+matching `.ai/sift/schemas/*.xsd` first if the ticket is non-trivial: filling the structure
+is what stops you skipping the field you have not thought through. The draft is scratch —
+render it to markdown, write only the markdown into `.ai/sift/`, and delete the draft.
+Never invoke `xmllint`; the schema is a checklist to read, and nothing here depends on it
+being installed.
+Every self-filed ticket ID must appear in your report — the user requires visibility of
+everything entering the backlog.
 
 STEP 9 — CAPTURE DURABLE KNOWLEDGE
 If the project has a knowledge-base capture skill, run it before reporting back. Resolve

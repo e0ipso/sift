@@ -79,6 +79,12 @@ scripts/sift-init.sh --root "$ROOT" --prefix ACME [--milestone <name>]
 The default is the root's basename with non-alphanumerics stripped, uppercased, first
 four characters. It is a starting point for the question, not an answer to it.
 
+`--milestone` must be lowercase kebab-case — lowercase letters and digits in
+hyphen-separated groups, as in `backlog` or `v1-2`. Anything else (a slash, a dot, a
+space, an uppercase letter, a leading, trailing or doubled hyphen) exits 2 before a
+single directory is created, because the value becomes a path component under
+`open/`.
+
 What lands, all create-if-absent:
 
 ```

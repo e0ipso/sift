@@ -29,11 +29,22 @@ For ASCII-only validation, spell the allowed set out character by character:
 collate, so it behaves identically on every platform and locale. Put the `-`
 last so it stays a literal.
 
-`src/skills/sift-init/scripts/sift-init.sh` is the live example: `--milestone`
-is validated as lowercase kebab-case with
+`src/skills/sift-init/scripts/sift-init.sh` holds both live examples.
+`--milestone` is validated as lowercase kebab-case with
 `case "$milestone" in ''|-*|*-|*--*|*[!abcdefghijklmnopqrstuvwxyz0123456789-]*)`
 before any directory is created, because the value becomes a path component
-under `.ai/sift/open/`.
+under `.ai/sift/open/`. `--prefix` goes through `prefix_is_well_formed()`, which
+rejects `*[!ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789]*` first and then requires
+`[ABCDEFGHIJKLMNOPQRSTUVWXYZ]?*` — the `?*` is how a glob expresses a minimum
+length of two, since it cannot count; the maximum stays a `${#value}` test.
+
+**You cannot reproduce the failure on modern bash, so do not try to.** Bash 5
+enables the `globasciiranges` shopt by default, which forces bracket ranges to
+ASCII order regardless of locale, so `case abc in [A-Z]*)` correctly declines to
+match even under `en_US.UTF-8`. The trap is still live in `sh`/dash, in older
+bash, and in BSD userland. Treat the rule as unconditional rather than
+condition-checking it on the machine in front of you — a green local check here
+is evidence of nothing.
 
 **Why:** the failure is silent and locale-dependent — it passes in a `C.UTF-8`
 container and leaks in a developer's `en_US.UTF-8` shell — so it survives review

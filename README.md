@@ -29,6 +29,7 @@ placeholder the same way; substitute a name from `MILESTONES.md` when you read i
 
 ```
 .ai/sift/
+├── .gitignore                 ← ignores the tree by default; delete it to track tickets
 ├── README.md                  ← this convention (read it before touching tickets)
 ├── MILESTONES.md              ← what each milestone means, in intended order
 ├── ROADMAP.md                 ← advisory resolution order (tickets' depends_on is the truth)
@@ -52,6 +53,12 @@ placeholder the same way; substitute a name from `MILESTONES.md` when you read i
   coarse lifecycle; the `status` front-matter key is the fine-grained truth.
 - **The hierarchy below the bucket is `<milestone>/<category>/`.** Both values are
   duplicated in front-matter so `grep` works even when a file has been moved.
+- **The tree is untracked by default.** The shipped `.gitignore` is `*` and
+  `!.gitignore`, so the backlog stays local and git history stays free of ticket churn.
+  Delete that file to track tickets instead; nothing else in the convention depends on
+  the choice. Either way, remember that ignore-aware search tools (`rg`, editor and
+  agent search) skip an ignored tree silently — the recipes below use `find` and `grep`
+  directly for exactly that reason.
 
 ## File naming
 

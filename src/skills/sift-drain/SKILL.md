@@ -46,6 +46,8 @@ resolve that absolute path once at run start and reuse it.
 scripts/next-ticket.sh    # next dispatchable ticket + front-matter
 scripts/wave-status.sh    # per-wave done/remaining + current wave
 scripts/roadmap-check.sh  # rule-9 consistency, non-zero on violation
+scripts/list-labels.sh    # every label in use (--counts, --open)
+scripts/tickets-by-label.sh <label>  # tickets carrying one label (--open, --paths)
 ```
 
 They find the project root by walking up from `$PWD` for `.ai/sift/ROADMAP.md` and read

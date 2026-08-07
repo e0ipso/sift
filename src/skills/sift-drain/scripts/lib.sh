@@ -6,6 +6,8 @@
 #   roadmap_rows                    — TSV of every roadmap ticket row
 #   ticket_file <ID>                — absolute path of a ticket file, or empty
 #   fm_value <file> <key>           — one front-matter value
+#   fm_labels <file>                — one label per line from labels: [...]
+#   ticket_search_dirs [--open]     — .ai/sift/open [and archive/]
 #
 # Overrides:
 #   SIFT_ROOT    project root (default: nearest ancestor of $PWD with .ai/sift/ROADMAP.md)
@@ -139,4 +141,32 @@ fm_value() {
       exit
     }
   ' "$1"
+}
+
+# One label per line from a ticket's `labels: [a, b]` front-matter (flow list only).
+fm_labels() {
+  awk '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
+    infm && /^---[[:space:]]*$/ { exit }
+    infm && /^labels:/ {
+      sub(/^labels:[[:space:]]*/, "")
+      sub(/^\[/, "")
+      sub(/\][[:space:]]*(#.*)?$/, "")
+      n = split($0, parts, ",")
+      for (i = 1; i <= n; i++) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", parts[i])
+        if (parts[i] != "") print parts[i]
+      }
+      exit
+    }
+  ' "$1"
+}
+
+# Print absolute directories to search. Pass --open to skip archive/.
+ticket_search_dirs() {
+  if [ "${1:-}" = "--open" ]; then
+    printf '%s\n' "$SIFT/open"
+  else
+    printf '%s\n' "$SIFT/open" "$SIFT/archive"
+  fi
 }

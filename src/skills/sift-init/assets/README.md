@@ -424,10 +424,41 @@ strike rule 9 requires are one workflow, so run all three together:
 ```sh
 ID=$PREFIX-0042
 STATUS=done                                    # done | wontfix | superseded
+RESOLUTION='Fixed in commit abc1234'           # required non-empty
 f=$(find .ai/sift/open -name "$ID--*.md")
+[ -n "$RESOLUTION" ] || { echo "archive: RESOLUTION must be non-empty" >&2; false; }
 sed -e "s/^status: .*/status: $STATUS/" \
-    -e 's/^resolution: .*/resolution: "Fixed in commit abc1234"/' \
     -e "s/^updated: .*/updated: $(date +%F)/" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+RESOLUTION="$RESOLUTION" awk '
+  BEGIN { in_fm = 0; wrote = 0 }
+  function emit_res(   v) {
+    v = ENVIRON["RESOLUTION"]
+    if (v == "") {
+      print "archive: RESOLUTION must be non-empty" > "/dev/stderr"
+      exit 1
+    }
+    print "resolution: \"" v "\""
+    wrote = 1
+  }
+  /^---$/ {
+    if (!in_fm) { in_fm = 1; print; next }
+    if (!wrote) emit_res()                  # insert before closing fence when absent
+    in_fm = 0
+    print
+    next
+  }
+  in_fm && /^resolution:[[:space:]]*/ {      # rewrite existing (incl. empty) line
+    emit_res()
+    next
+  }
+  { print }
+  END {
+    if (!wrote) {
+      print "archive: no front-matter found to hold resolution" > "/dev/stderr"
+      exit 1
+    }
+  }
+' "$f" > "$f.tmp" && mv "$f.tmp" "$f" || { rm -f "$f.tmp"; false; }
 dest=$(printf '%s\n' "$f" | sed 's#/open/#/archive/#')
 mkdir -p "$(dirname "$dest")" && mv "$f" "$dest"
 
@@ -483,6 +514,17 @@ awk -v id="$ID" -v prefix="$PREFIX" -v st="$STATUS" '
   false
 }
 ```
+`$RESOLUTION` is required and checked before any rewrite: an empty value prints
+`archive: RESOLUTION must be non-empty` and exits non-zero with the ticket untouched.
+`status:` and `updated:` stay on `sed` because those values are recipe-controlled fixed
+strings; `resolution:` goes through a separate `awk` insert-or-replace that reads the
+value from `ENVIRON` and concatenates the new line, so `&`, `/`, `|` and `[` survive
+byte-for-byte — a `sed` replacement would re-scan them. Inside the front-matter block the
+pass rewrites an existing `resolution:` line (including `resolution: ""`) and, when the
+key is absent, inserts exactly one line before the closing `---`; a second run therefore
+never duplicates the key. A ticket with no front-matter fence fails loudly rather than
+archiving without the required field.
+
 The strike keys off the immutable `$ID`, never the title or the slug, and it rewrites
 through `$R.tmp` plus `mv` so an interrupted run can never leave a half-written roadmap.
 `awk` string concatenation does the editing rather than a `sed` substitution, because a

@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:0041539f6dbb80319c3b33a18afd9c70edc3b00acb8c4a18914285155bcd1cbf'
-node_count: 32
+nodes_hash: 'sha256:1e8df785363cf7a6923674c9ccb1f86479805cb1f021b77e99d5e9215e072e20'
+node_count: 33
 ---
 # kenkeep Graph
 
-Total nodes: 32
+Total nodes: 33
 
 ## map-sift-drain-skill
 
@@ -194,6 +194,14 @@ Total nodes: 32
 - **title:** Never validate with an [a-z] glob range — spell the set out
 - **path:** portability/practice-never-write-a-z-glob-ranges-in-shell-validation.md
 - **tags:** portability, shell, gotcha, convention
+- **relates_to:** practice-keep-recipes-portable-gnu-and-bsd
+
+## practice-never-write-data-through-a-sed-replacement-text
+
+- **kind:** practice
+- **title:** Never write data through a sed replacement text
+- **path:** portability/practice-never-write-data-through-a-sed-replacement-text.md
+- **tags:** portability, shell, gotcha, sift, convention
 - **relates_to:** practice-keep-recipes-portable-gnu-and-bsd
 
 ## practice-orchestrate-sift-drain-never-implement

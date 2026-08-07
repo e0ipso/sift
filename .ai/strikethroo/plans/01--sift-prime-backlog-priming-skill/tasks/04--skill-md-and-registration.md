@@ -2,7 +2,7 @@
 id: 4
 group: "sift-prime-card"
 dependencies: [1, 2, 3]
-status: "pending"
+status: "completed"
 created: 2026-08-07
 skills:
   - technical-writing

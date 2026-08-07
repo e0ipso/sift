@@ -2,6 +2,7 @@
   "name": "Sift",
   "skills": [
     "./src/skills/sift-init",
+    "./src/skills/sift-prime",
     "./src/skills/sift-drain"
   ]
 }

@@ -268,9 +268,9 @@ No circular dependencies: the graph is a DAG rooted at task 001 and terminating 
 - ✔️ Task 002: Create `roadmap-append.sh`, the card's only writing script (depends on: 001)
 - ✔️ Task 003: Write `references/analysis.md` and `references/drafting-agent-prompt.md` (depends on: 001)
 
-### Phase 3: The playbook
+### ✅ Phase 3: The playbook
 **Parallel Tasks:**
-- Task 004: Write `SKILL.md` and register the card in `.claude-plugin/plugin.json` (depends on: 001, 002, 003)
+- ✔️ Task 004: Write `SKILL.md` and register the card in `.claude-plugin/plugin.json` (depends on: 001, 002, 003)
 
 ### Phase 4: Verification
 **Parallel Tasks:**

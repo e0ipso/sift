@@ -542,14 +542,18 @@ not a double strike.
 ```sh
 # Every ticket (open or archived) must appear in ROADMAP.md ...
 find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sed 's#.*/##' \
-  | grep -oE "^$PREFIX-[0-9]{4}" | sort -u | while read -r id; do
+  | grep -oE "^$PREFIX-[0-9]+" | sort -u | while read -r id; do
     grep -q "$id" .ai/sift/ROADMAP.md || echo "NOT IN ROADMAP: $id"
   done
 # ... and every roadmap ID must correspond to a ticket file somewhere.
-grep -oE "$PREFIX-[0-9]{4}" .ai/sift/ROADMAP.md | sort -u | while read -r id; do
+grep -oE "$PREFIX-[0-9]+" .ai/sift/ROADMAP.md | sort -u | while read -r id; do
   find .ai/sift/open .ai/sift/archive -name "$id--*.md" | grep -q . || echo "STALE IN ROADMAP: $id"
 done
 ```
+Extraction matches the whole numeric suffix (`[0-9]+`), not a fixed four digits, so an ID
+that has grown past `<PREFIX>-9999` is captured whole rather than truncated. Four digits
+remain the *rendering* width when allocating a new ID (`%04d` above); these recipes only
+read IDs back.
 
 **Validate front-matter across the tree** (files missing a required key):
 ```sh

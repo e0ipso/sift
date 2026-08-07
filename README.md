@@ -1,20 +1,29 @@
-# sift — file-based ticketing for SDC Display
+# sift — file-based ticketing
 
 sift is this repository's ticket system. It is plain markdown files on disk, operated
 with ordinary terminal tools (`find`, `grep`, `mv`, `sed`). There is no daemon, no
 database, and no CLI to install. Agents and humans follow the same rules.
 
-## Ticket prefix
+## Configuration
 
-If you cannot infer the ticket prefix you can check it at `.ai/sift/config/config.yaml`
-under `prefix`.
+Two things are per-repository configuration rather than part of the convention: the
+ticket **prefix** and the set of **milestones**.
 
-The prefix is per-repository configuration, not part of the convention. Every ticket ID
-is `<PREFIX>-<NNNN>`; the line above is the single place it is defined. Everything below
-writes `<PREFIX>` as a placeholder — substitute the value above when you read it, and
-in real tickets and filenames write the substituted form, never the literal
-`<PREFIX>`. The cookbook commands read the same value from a `$PREFIX` shell variable,
-so changing the declaration above (and renaming existing files) is the whole migration.
+The prefix lives in `.ai/sift/config/config.yaml`:
+
+```yaml
+prefix: ABCD      # uppercase; stable for the life of the repository
+```
+
+Every ticket ID is `<PREFIX>-<NNNN>`, and that file is the single place the value is
+defined. Everything below writes `<PREFIX>` as a placeholder — substitute the configured
+value when you read it, and write the substituted form in real tickets and filenames,
+never the literal `<PREFIX>`. The cookbook commands read it into a `$PREFIX` shell
+variable, so changing the declaration (and renaming existing files) is the whole
+migration.
+
+Milestones are named and ordered in `MILESTONES.md`. This file writes `<milestone>` as a
+placeholder the same way; substitute a name from `MILESTONES.md` when you read it.
 
 ## Directory layout
 
@@ -24,7 +33,7 @@ so changing the declaration above (and renaming existing files) is the whole mig
 ├── MILESTONES.md              ← what each milestone means, in intended order
 ├── ROADMAP.md                 ← advisory resolution order (tickets' depends_on is the truth)
 ├── open/                      ← actionable work
-│   └── <milestone>/           ← e.g. m1-correctness
+│   └── <milestone>/           ← one of the milestones in MILESTONES.md
 │       └── <category>/        ← bug | hardening | feature | test | docs | dx | release
 │           └── <PREFIX>-0001--short-slug.md
 └── archive/                   ← finished work (done, wontfix, superseded)
@@ -41,11 +50,11 @@ so changing the declaration above (and renaming existing files) is the whole mig
 
 ## File naming
 
-`<PREFIX>-<NNNN>--<kebab-slug>.md` — here, `SDCD-<NNNN>--<kebab-slug>.md`.
+`<PREFIX>-<NNNN>--<kebab-slug>.md`
 
 - `<PREFIX>-<NNNN>` is the ticket ID: zero-padded, sequential, **immutable, never
-  reused**, globally unique across both buckets. The prefix comes from the *Ticket
-  prefix* section above. The slug may be edited; the ID may not.
+  reused**, globally unique across both buckets. The prefix comes from the
+  *Configuration* section above. The slug may be edited; the ID may not.
 - Allocate the next ID by looking at the highest existing one (see cookbook below).
 
 ## Front-matter schema
@@ -58,12 +67,12 @@ id: <PREFIX>-0042      # ✱ matches the filename prefix
 title: Short imperative summary            # ✱
 status: open           # ✱ open | in-progress | blocked | done | wontfix | superseded
 type: bug              # ✱ bug | hardening | feature | test | docs | dx | release
-milestone: m2-robustness # ✱ must match the folder it lives in
+milestone: <milestone> # ✱ from MILESTONES.md; must match the folder it lives in
 priority: p2           # ✱ p1 critical | p2 high | p3 normal | p4 someday
 effort: m              # ✱ s | m | l | xl (honest guess, revise freely)
 created: 2026-08-05    # ✱ YYYY-MM-DD
 updated: 2026-08-05    # ✱ bump on every meaningful edit
-labels: [views, entity-reference]   # free-form kebab tags
+labels: [api, caching] # free-form kebab tags
 depends_on: []         # list of ticket IDs that must land first, e.g. [<PREFIX>-0041]
 resolution: ""         # required non-empty when archived: one line on how it ended
 source: ""             # where the ticket came from (session, issue URL, review)
@@ -125,7 +134,13 @@ All commands assume you run them from the repository root
 **Set the prefix once per shell.** Every recipe below reads `$PREFIX`; export it first
 and nothing else needs editing when the prefix changes:
 ```sh
-export PREFIX=SDCD        # the value from the "Ticket prefix" section above
+export PREFIX=$(grep -m1 '^prefix:' .ai/sift/config/config.yaml | awk '{print $2}' | tr -d "\"'")
+```
+
+Recipes that name one milestone read `$MILESTONE`; set it to a name from
+`MILESTONES.md` when you need them:
+```sh
+export MILESTONE=$(basename "$(find .ai/sift/open -mindepth 1 -maxdepth 1 -type d | sort | head -1)")
 ```
 
 **List every open ticket:**
@@ -135,12 +150,12 @@ find .ai/sift/open -name "$PREFIX-*.md" | sort
 
 **Allocate the next ID** (highest existing + 1, across both buckets):
 ```sh
-find .ai/sift -name "$PREFIX-*.md" -printf '%f\n' | grep -oE "^$PREFIX-[0-9]{4}" | sort | tail -1
+find .ai/sift -name "$PREFIX-*.md" | sed 's#.*/##' | grep -oE "^$PREFIX-[0-9]{4}" | sort | tail -1
 ```
 
 **Triage view — id, title, priority for one milestone:**
 ```sh
-grep -r --include="$PREFIX-*.md" -H '^title:' .ai/sift/open/m1-correctness | sort
+grep -r --include="$PREFIX-*.md" -H '^title:' ".ai/sift/open/$MILESTONE" | sort
 grep -rl '^priority: p1' .ai/sift/open        # all critical tickets
 ```
 
@@ -154,9 +169,9 @@ for m in .ai/sift/open/*/; do printf '%-28s %s\n' "$(basename "$m")" "$(find "$m
 find .ai/sift -name "$PREFIX-0042*"
 ```
 
-**Full-text search (e.g. everything touching the widget):**
+**Full-text search (e.g. every ticket touching one symbol or subsystem):**
 ```sh
-grep -ril 'FieldUnionWidget' .ai/sift --include="$PREFIX-*.md"
+grep -ril 'cache invalidation' .ai/sift --include="$PREFIX-*.md"
 ```
 
 **Who depends on `$PREFIX-0042`:**
@@ -172,9 +187,11 @@ grep -rl '^priority: p1' .ai/sift/open --include="$PREFIX-*.md" \
 
 **Move a ticket to another milestone** (edit `milestone:` key too):
 ```sh
-mkdir -p .ai/sift/open/m3-completeness/feature
-mv .ai/sift/open/m1-correctness/feature/"$PREFIX"-0042--*.md .ai/sift/open/m3-completeness/feature/
-sed -i 's/^milestone: .*/milestone: m3-completeness/' .ai/sift/open/m3-completeness/feature/"$PREFIX"-0042--*.md
+DEST=<target-milestone>                              # a name from MILESTONES.md
+f=$(find .ai/sift/open -name "$PREFIX-0042--*.md")
+d=".ai/sift/open/$DEST/$(basename "$(dirname "$f")")"   # keep the same category
+mkdir -p "$d" && mv "$f" "$d/"
+sed -i "s/^milestone: .*/milestone: $DEST/" "$d/$(basename "$f")"
 ```
 
 **Archive a finished ticket** (then strike its row in `ROADMAP.md` — rule 9):
@@ -190,7 +207,7 @@ mkdir -p "$(dirname "$dest")" && mv "$f" "$dest"
 **Roadmap consistency check** (run after creating, archiving, or re-wiring tickets):
 ```sh
 # Every ticket (open or archived) must appear in ROADMAP.md ...
-find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" -printf '%f\n' \
+find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sed 's#.*/##' \
   | grep -oE "^$PREFIX-[0-9]{4}" | sort -u | while read -r id; do
     grep -q "$id" .ai/sift/ROADMAP.md || echo "NOT IN ROADMAP: $id"
   done

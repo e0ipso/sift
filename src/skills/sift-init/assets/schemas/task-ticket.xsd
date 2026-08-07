@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:sift:ticket:v1"
+           xmlns:tns="urn:sift:ticket:v1"
+           elementFormDefault="qualified">
+
+  <xs:include schemaLocation="sift-common.xsd" />
+
+  <!--
+    Drafting schema for a ticket whose type is hardening, test, docs, dx or release —
+    work that is neither a defect nor new capability. The rendered body is the four
+    canonical sections and nothing more, so tickets written before the type-specific
+    templates existed already validate against this schema unchanged.
+
+    Element order is the rendered section order; do not reorder. Optional elements are
+    omitted entirely when they do not apply — never emitted empty.
+  -->
+  <xs:element name="task-ticket">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="front-matter" type="tns:frontMatter" />
+
+        <!-- ## Problem — what needs to be done and why it matters now. -->
+        <xs:element name="description" type="tns:nonEmptyString" />
+
+        <!-- ## Evidence — file:line refs, test names, external links. -->
+        <xs:element name="evidence" type="tns:evidence" minOccurs="0" />
+
+        <!-- ## Direction — the approach, alternatives, known constraints. -->
+        <xs:element name="direction" type="tns:nonEmptyString" minOccurs="0" />
+
+        <!-- ## Acceptance criteria -->
+        <xs:element name="acceptance-criteria" type="tns:acceptanceCriteria" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

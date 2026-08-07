@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:sift:ticket:v1"
+           xmlns:tns="urn:sift:ticket:v1"
+           elementFormDefault="qualified">
+
+  <xs:include schemaLocation="sift-common.xsd" />
+
+  <!--
+    Drafting schema for a ticket with type: bug.
+
+    Element order is the rendered section order; do not reorder. Optional elements are
+    omitted entirely when they do not apply — never emitted empty.
+  -->
+  <xs:element name="bug-ticket">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="front-matter" type="tns:frontMatter" />
+
+        <!-- ## Problem — what is wrong, and why it matters. 2-6 sentences. -->
+        <xs:element name="problem" type="tns:nonEmptyString" />
+
+        <!-- ## Expected behaviour — what should happen instead. -->
+        <xs:element name="expected-behaviour" type="tns:nonEmptyString" />
+
+        <!-- ## Steps to reproduce — one numbered step per element. -->
+        <xs:element name="steps-to-reproduce" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="step" type="tns:nonEmptyString" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+        <!-- ## Evidence — file:line refs, test names, logs, links. -->
+        <xs:element name="evidence" type="tns:evidence" />
+
+        <!-- ## Direction — proposed approach, alternatives, known constraints. -->
+        <xs:element name="direction" type="tns:nonEmptyString" minOccurs="0" />
+
+        <!-- ## Acceptance criteria -->
+        <xs:element name="acceptance-criteria" type="tns:acceptanceCriteria" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

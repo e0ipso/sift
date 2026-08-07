@@ -53,7 +53,7 @@ _None._
 ### #portability
 - Open [**Never let a feature require a binary the user has to install**](../portability/practice-never-require-an-installable-binary.md) — Anything outside the baseline Unix userland is an optional convenience: guard it with command -v or leave it out.
 - Open [**Write every recipe to run on both GNU and BSD userland**](../portability/practice-keep-recipes-portable-gnu-and-bsd.md) — sed -i and xargs -r are banned outright, and awk character classes must be written \[\[:space:\]\] — all three break silently on one platform.
-- Open [**Resolve the sift tree by walking up for the .ai/sift directory**](practice-resolve-the-sift-tree-by-walking-up-for-the-ai-sift-directory.md) — Walk up from cwd for the .ai/sift directory, stop when parent equals cur, and absolutize SIFT_ROOT overrides.
+- Open [**Never validate with an \[a-z\] glob range — spell the set out**](../portability/practice-never-write-a-z-glob-ranges-in-shell-validation.md) — Glob bracket ranges are collated, so under a UTF-8 locale \[a-z\] also matches B..Z; list the allowed characters instead.
 ### #reporting
 - Open [**Surface every self-filed ticket and report progress honestly**](practice-surface-every-self-filed-ticket-and-honest-progress.md) — One line per ticket, every self-filed ID surfaced every time, and completion percentages given with their qualifiers.
 ### #safety
@@ -63,7 +63,7 @@ _None._
 ### #shell
 - Open [**Never let a feature require a binary the user has to install**](../portability/practice-never-require-an-installable-binary.md) — Anything outside the baseline Unix userland is an optional convenience: guard it with command -v or leave it out.
 - Open [**Write every recipe to run on both GNU and BSD userland**](../portability/practice-keep-recipes-portable-gnu-and-bsd.md) — sed -i and xargs -r are banned outright, and awk character classes must be written \[\[:space:\]\] — all three break silently on one platform.
-- Open [**Resolve the sift tree by walking up for the .ai/sift directory**](practice-resolve-the-sift-tree-by-walking-up-for-the-ai-sift-directory.md) — Walk up from cwd for the .ai/sift directory, stop when parent equals cur, and absolutize SIFT_ROOT overrides.
+- Open [**Never validate with an \[a-z\] glob range — spell the set out**](../portability/practice-never-write-a-z-glob-ranges-in-shell-validation.md) — Glob bracket ranges are collated, so under a UTF-8 locale \[a-z\] also matches B..Z; list the allowed characters instead.
 ### #skills
 - Open [**sift-prime: the skill that fills a sift backlog**](../sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md) — Middle card at src/skills/sift-prime/ — goal-gap analysis, chat negotiation, then batch ticket + roadmap writes for sift-drain.
 - Open [**sift-init: deterministic project-root gate and tree materialization**](../sift-init/map-sift-init-deterministic-project-root-gate-and-tree-materialization.md) — Skill at src/skills/sift-init/ that resolves the project root and idempotently creates .ai/sift from shipped assets.

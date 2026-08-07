@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:8689a46be04ee11a8a81b51bcb4ec718955ce5456cdac87197c5d8572a5738ff'
-node_count: 31
+nodes_hash: 'sha256:0041539f6dbb80319c3b33a18afd9c70edc3b00acb8c4a18914285155bcd1cbf'
+node_count: 32
 ---
 # kenkeep Graph
 
-Total nodes: 31
+Total nodes: 32
 
 ## map-sift-drain-skill
 
@@ -187,6 +187,14 @@ Total nodes: 31
 - **path:** portability/practice-never-require-an-installable-binary.md
 - **tags:** portability, shell, sift, convention
 - **relates_to:** map-sift-xsd-drafting-schemas
+
+## practice-never-write-a-z-glob-ranges-in-shell-validation
+
+- **kind:** practice
+- **title:** Never validate with an [a-z] glob range — spell the set out
+- **path:** portability/practice-never-write-a-z-glob-ranges-in-shell-validation.md
+- **tags:** portability, shell, gotcha, convention
+- **relates_to:** practice-keep-recipes-portable-gnu-and-bsd
 
 ## practice-orchestrate-sift-drain-never-implement
 

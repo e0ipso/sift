@@ -67,7 +67,8 @@ placeholder the same way; substitute a name from `MILESTONES.md` when you read i
 - `<PREFIX>-<NNNN>` is the ticket ID: zero-padded, sequential, **immutable, never
   reused**, globally unique across both buckets. The prefix comes from the
   *Configuration* section above. The slug may be edited; the ID may not.
-- Allocate the next ID by looking at the highest existing one (see cookbook below).
+- Allocate the next ID as the highest existing one across **both** buckets plus one —
+  never the highest existing ID itself, which is already taken (see cookbook below).
 
 ## Front-matter schema
 
@@ -283,10 +284,29 @@ export MILESTONE=$(basename "$(find .ai/sift/open -mindepth 1 -maxdepth 1 -type 
 find .ai/sift/open -name "$PREFIX-*.md" | sort
 ```
 
-**Allocate the next ID** (highest existing + 1, across both buckets):
+**Allocate the next ID** (highest existing + 1, across both buckets; prints
+`<PREFIX>-0001` on an empty tree):
 ```sh
-find .ai/sift -name "$PREFIX-*.md" | sed 's#.*/##' | grep -oE "^$PREFIX-[0-9]{4}" | sort | tail -n 1
+[ -d .ai/sift ] && find .ai/sift -name "$PREFIX-*.md" | awk -v prefix="$PREFIX" '
+  BEGIN { max = 0 }
+  {
+    name = $0
+    sub(/^.*\//, "", name)
+    if (index(name, prefix "-") != 1) next
+    rest = substr(name, length(prefix) + 2)
+    if (match(rest, /^[0-9]+/) == 0) next
+    n = substr(rest, 1, RLENGTH) + 0
+    if (n > max) max = n
+  }
+  END { printf "%s-%04d\n", prefix, max + 1 }
+'
 ```
+Numeric comparison, not lexical sort, is what makes this correct once the tree passes
+`<PREFIX>-9999`: `%04d` is a *minimum* width, so the successor of `<PREFIX>-9999` is
+`<PREFIX>-10000` rather than a truncated four-digit collision. The `[ -d .ai/sift ]`
+guard carries more weight here than in the read-only recipes: `awk`'s `END` block fires
+even when `find` printed nothing, so running this from the wrong directory would
+otherwise report `<PREFIX>-0001` — an ID that is already taken — instead of failing.
 
 **Triage view — id, title, priority for one milestone:**
 ```sh
@@ -307,6 +327,68 @@ find .ai/sift -name "$PREFIX-0042*"
 **Full-text search (e.g. every ticket touching one symbol or subsystem):**
 ```sh
 grep -ril 'cache invalidation' .ai/sift --include="$PREFIX-*.md"
+```
+
+**List every label in use** (sorted, unique kebab tags from `labels:` front-matter):
+```sh
+find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r f; do
+  awk '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
+    infm && /^---[[:space:]]*$/ { exit }
+    infm && /^labels:/ {
+      sub(/^labels:[[:space:]]*/, ""); sub(/^\[/, ""); sub(/\][[:space:]]*(#.*)?$/, "")
+      n = split($0, a, ",")
+      for (i = 1; i <= n; i++) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[i])
+        if (a[i] != "") print a[i]
+      }
+      exit
+    }
+  ' "$f"
+done | sort -u
+```
+
+**Count tickets per label:**
+```sh
+find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r f; do
+  awk '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
+    infm && /^---[[:space:]]*$/ { exit }
+    infm && /^labels:/ {
+      sub(/^labels:[[:space:]]*/, ""); sub(/^\[/, ""); sub(/\][[:space:]]*(#.*)?$/, "")
+      n = split($0, a, ",")
+      for (i = 1; i <= n; i++) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[i])
+        if (a[i] != "") print a[i]
+      }
+      exit
+    }
+  ' "$f"
+done | sort | uniq -c | awk '{ printf "%s\t%s\n", $2, $1 }' | sort -k1,1
+```
+
+**List tickets carrying one label** (`$LABEL` is kebab-case, e.g. `caching`):
+```sh
+LABEL=caching
+find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r f; do
+  awk -v want="$LABEL" '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
+    infm && /^---[[:space:]]*$/ { exit }
+    infm && /^labels:/ {
+      sub(/^labels:[[:space:]]*/, ""); sub(/^\[/, ""); sub(/\][[:space:]]*(#.*)?$/, "")
+      n = split($0, a, ",")
+      for (i = 1; i <= n; i++) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[i])
+        if (a[i] == want) { print FILENAME; exit }
+      }
+      exit
+    }
+  ' "$f"
+done | while read -r f; do
+  id=$(grep -m1 '^id:' "$f" | awk '{print $2}')
+  title=$(grep -m1 '^title:' "$f" | sed 's/^title:[[:space:]]*//')
+  printf '%s  %s  %s\n' "$id" "$title" "$f"
+done
 ```
 
 **Who depends on `$PREFIX-0042`:**
@@ -337,15 +419,82 @@ t="$d/$(basename "$f")"
 sed "s/^milestone: .*/milestone: $DEST/" "$t" > "$t.tmp" && mv "$t.tmp" "$t"
 ```
 
-**Archive a finished ticket** (then strike its row in `ROADMAP.md` — rule 9):
+**Archive a finished ticket** — the front-matter edit, the `mv` and the `ROADMAP.md`
+strike rule 9 requires are one workflow, so run all three together:
 ```sh
-f=$(find .ai/sift/open -name "$PREFIX-0042--*.md")
-sed -e 's/^status: .*/status: done/' \
+ID=$PREFIX-0042
+STATUS=done                                    # done | wontfix | superseded
+f=$(find .ai/sift/open -name "$ID--*.md")
+sed -e "s/^status: .*/status: $STATUS/" \
     -e 's/^resolution: .*/resolution: "Fixed in commit abc1234"/' \
     -e "s/^updated: .*/updated: $(date +%F)/" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 dest=$(printf '%s\n' "$f" | sed 's#/open/#/archive/#')
 mkdir -p "$(dirname "$dest")" && mv "$f" "$dest"
+
+R=.ai/sift/ROADMAP.md
+awk -v id="$ID" -v prefix="$PREFIX" -v st="$STATUS" '
+  function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+  function tail_bs(s,   k) {              # trailing backslashes; odd = escaped pipe
+    k = 0
+    while (k < length(s) && substr(s, length(s) - k, 1) == "\\") k++
+    return k % 2
+  }
+  function cut(s, a,   t, n, i, m) {      # split a table row on UNESCAPED pipes only
+    n = split(s, t, "|"); m = 0
+    for (i = 1; i <= n; i++)
+      if (m > 0 && tail_bs(a[m])) a[m] = a[m] "|" t[i]; else a[++m] = t[i]
+    return m
+  }
+  BEGIN { pat = prefix "-[0-9][0-9][0-9][0-9][0-9]*" }
+  {
+    line[NR] = $0; last = NR
+    if ($0 !~ /^[[:space:]]*\|/) next       # table rows only
+    m = cut($0, c); if (m < 3) next
+    k = 0                                   # first ID-bearing cell IS the ticket cell
+    for (i = 1; i <= m; i++) { b = c[i]; gsub(/~~/, "", b); if (b ~ pat) { k = i; break } }
+    if (k == 0) next
+    b = c[k]; gsub(/~~/, "", b); match(b, pat)
+    if (substr(b, RSTART, RLENGTH) != id) next
+    hits++; hl = NR; hk = k
+  }
+  END {
+    if (hits + 0 != 1) {                    # missing or ambiguous: write nothing
+      printf "roadmap: %d rows for %s, expected exactly 1\n", hits + 0, id > "/dev/stderr"
+      exit 1
+    }
+    m = cut(line[hl], c)
+    if (c[hk] ~ /~~/ || (hk + 1 < m && c[hk + 1] ~ /~~/)) {
+      printf "roadmap: %s is already struck, left as is\n", id > "/dev/stderr"
+    } else {
+      c[hk] = " ~~" trim(c[hk]) "~~ "
+      if (hk + 1 < m) {
+        t2 = trim(c[hk + 1])
+        c[hk + 1] = (t2 == "" ? " " : " ~~" t2 "~~ ") "— " st " "
+      }
+      out = c[1]
+      for (i = 2; i <= m; i++) out = out "|" c[i]
+      line[hl] = out
+    }
+    for (i = 1; i <= last; i++) print line[i]
+  }
+' "$R" > "$R.tmp" && mv "$R.tmp" "$R" || {
+  rm -f "$R.tmp"
+  echo "ROADMAP NOT UPDATED for $ID: strike its row by hand before committing" >&2
+  false
+}
 ```
+The strike keys off the immutable `$ID`, never the title or the slug, and it rewrites
+through `$R.tmp` plus `mv` so an interrupted run can never leave a half-written roadmap.
+`awk` string concatenation does the editing rather than a `sed` substitution, because a
+replacement text is re-scanned for `&` and `\1` — a title like `tenant caching & sharding`
+would come back mangled. Two rules keep the match honest. Only the *first* ID-bearing cell
+of a row is the ticket cell, so `$PREFIX-0042` appearing in another row's `Needs` column is
+never mistaken for that row's ticket; and the ID must match the cell in full, so
+`$PREFIX-0042` does not strike `$PREFIX-00420`. Anything other than exactly one matching
+row — none, or the same ID slotted into two waves — prints the count and exits non-zero
+with the roadmap untouched and no `.tmp` left behind, because a rule 9 desync that reports
+success is worse than one that stops you. Re-running on an already-struck row is a no-op,
+not a double strike.
 
 **Roadmap consistency check** (run after creating, archiving, or re-wiring tickets):
 ```sh

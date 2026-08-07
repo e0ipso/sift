@@ -46,19 +46,40 @@ derive_prefix() {
   basename "$1" | tr -cd '[:alnum:]' | tr '[:lower:]' '[:upper:]' | cut -c1-4
 }
 
-if [ "$suggest" -eq 1 ]; then
-  candidate=$(derive_prefix "$root")
-  case "$candidate" in
-    [A-Z][A-Z0-9]*) printf '%s\n' "$candidate"; exit 0 ;;
-    *) exit 1 ;;
+# The prefix is baked into every ticket ID, filename and PREFIX-XXXX cross-reference, and
+# into the globs and regexes every later recipe builds from it, so the WHOLE value is
+# validated — 2 or more characters, the first an uppercase ASCII letter, the rest
+# uppercase ASCII letters or digits. Testing only the leading three characters let
+# `ABC!;rm` reach config.yaml, where the shell metacharacters became every downstream
+# recipe's problem.
+#
+# The allowed set is spelled out character by character instead of written `[A-Z0-9]`:
+# a glob range is collated, and under a UTF-8 locale the order is aAbBcC…zZ, so `[A-Z]`
+# also matches `b`..`z` and a lowercase prefix would slip through on exactly the machines
+# the range was meant to be portable to. An explicit list collates the same everywhere.
+#
+# `?*` after the leading letter is what enforces the minimum of two; the maximum is a
+# length test, because a glob cannot count. The first branch has already rejected every
+# character outside the set, newlines included.
+prefix_is_well_formed() {  # prefix_is_well_formed <value>
+  case "$1" in
+    ''|*[!ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789]*)  return 1 ;;
+    [ABCDEFGHIJKLMNOPQRSTUVWXYZ]?*)                return 0 ;;
+    *)                                             return 1 ;;
   esac
+}
+
+# Every prefix check runs BEFORE the first mkdir below, so a rejected value never leaves a
+# half-built tree behind.
+if [ "$suggest" -eq 1 ]; then
+  candidate=$(derive_prefix "$root")           # already <= 4 characters, so length is moot
+  prefix_is_well_formed "$candidate" || exit 1
+  printf '%s\n' "$candidate"; exit 0
 fi
 
 [ -n "$prefix" ] || { echo "error: --prefix is required (use --suggest-prefix for a default)" >&2; exit 2; }
-case "$prefix" in
-  [A-Z][A-Z0-9]|[A-Z][A-Z0-9][A-Z0-9]*) : ;;
-  *) echo "error: prefix must be 2-8 uppercase alphanumerics starting with a letter: $prefix" >&2; exit 2 ;;
-esac
+prefix_is_well_formed "$prefix" || {
+  echo "error: prefix must be 2-8 uppercase alphanumerics starting with a letter: $prefix" >&2; exit 2; }
 [ ${#prefix} -le 8 ] || { echo "error: prefix must be at most 8 characters: $prefix" >&2; exit 2; }
 # The milestone becomes a path component under .ai/sift/open, so the WHOLE value is
 # validated as lowercase kebab-case before any write. Testing only the first character

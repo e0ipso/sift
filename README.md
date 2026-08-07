@@ -203,6 +203,29 @@ Two rules the schemas cannot carry, because XSD 1.0 has no cross-field assertion
 a non-empty `resolution` is required once `status` is terminal, and `milestone` must name a
 milestone from `MILESTONES.md` that matches the ticket's folder. Check both by hand.
 
+## Mapping to a remote tracker
+
+When a ticket mirrors an issue on GitHub, GitLab or Gitea, record the issue URL in
+`source:` and translate the dimensions below. Sift keeps them as separate front-matter keys
+rather than as label strings — a tracker with one flat label field has to encode scope in
+the label name (`priority::major`), which sift does not need and must not duplicate. **A
+fact stored in both a front-matter key and a label has two sources of truth and will drift;
+front-matter wins.**
+
+| Sift front-matter | Scoped label on the tracker |
+|---|---|
+| `type: bug` | `category::bug` |
+| `type: feature` | `category::feature` |
+| `type: hardening \| test \| docs \| dx \| release` | `category::task` |
+| `priority: p1 \| p2 \| p3 \| p4` | `priority::critical \| major \| normal \| minor` |
+| `status:` | `state::*` — sift's statuses are the authority; a tracker state with no sift equivalent is dropped |
+| `resolution:` on an archived ticket | `why::*` plus the closing comment |
+| `labels:` | plain topic labels, unscoped |
+
+`labels:` stays free-form kebab-case precisely because the scoped dimensions already have
+keys. Use it for topic tags (`api`, `caching`, `onboarding`), never to restate `type`,
+`priority` or `status`.
+
 ## Rules for agents
 
 1. **Read this file before creating or moving tickets.** Follow it exactly.

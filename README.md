@@ -67,7 +67,8 @@ placeholder the same way; substitute a name from `MILESTONES.md` when you read i
 - `<PREFIX>-<NNNN>` is the ticket ID: zero-padded, sequential, **immutable, never
   reused**, globally unique across both buckets. The prefix comes from the
   *Configuration* section above. The slug may be edited; the ID may not.
-- Allocate the next ID by looking at the highest existing one (see cookbook below).
+- Allocate the next ID as the highest existing one across **both** buckets plus one —
+  never the highest existing ID itself, which is already taken (see cookbook below).
 
 ## Front-matter schema
 
@@ -283,10 +284,29 @@ export MILESTONE=$(basename "$(find .ai/sift/open -mindepth 1 -maxdepth 1 -type 
 find .ai/sift/open -name "$PREFIX-*.md" | sort
 ```
 
-**Allocate the next ID** (highest existing + 1, across both buckets):
+**Allocate the next ID** (highest existing + 1, across both buckets; prints
+`<PREFIX>-0001` on an empty tree):
 ```sh
-find .ai/sift -name "$PREFIX-*.md" | sed 's#.*/##' | grep -oE "^$PREFIX-[0-9]{4}" | sort | tail -n 1
+[ -d .ai/sift ] && find .ai/sift -name "$PREFIX-*.md" | awk -v prefix="$PREFIX" '
+  BEGIN { max = 0 }
+  {
+    name = $0
+    sub(/^.*\//, "", name)
+    if (index(name, prefix "-") != 1) next
+    rest = substr(name, length(prefix) + 2)
+    if (match(rest, /^[0-9]+/) == 0) next
+    n = substr(rest, 1, RLENGTH) + 0
+    if (n > max) max = n
+  }
+  END { printf "%s-%04d\n", prefix, max + 1 }
+'
 ```
+Numeric comparison, not lexical sort, is what makes this correct once the tree passes
+`<PREFIX>-9999`: `%04d` is a *minimum* width, so the successor of `<PREFIX>-9999` is
+`<PREFIX>-10000` rather than a truncated four-digit collision. The `[ -d .ai/sift ]`
+guard carries more weight here than in the read-only recipes: `awk`'s `END` block fires
+even when `find` printed nothing, so running this from the wrong directory would
+otherwise report `<PREFIX>-0001` — an ID that is already taken — instead of failing.
 
 **Triage view — id, title, priority for one milestone:**
 ```sh

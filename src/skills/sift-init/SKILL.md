@@ -131,10 +131,13 @@ itself is removed by deleting the directory, with nothing left behind upstream.
 
 `assets/README.md` and `assets/schemas/*.xsd` are copies of this repository's root
 `README.md` and `schemas/`. Editing the convention without updating the copies ships a
-stale spec to every repository initialized afterwards. Update both in the same change,
-and verify:
+stale spec to every repository initialized afterwards. Keep them current with one
+command — it copies the normative files, mirrors schema additions and removals, then
+exits non-zero if any drift remains:
 
 ```sh
-diff -q README.md src/skills/sift-init/assets/README.md &&
-  diff -qr schemas src/skills/sift-init/assets/schemas
+src/skills/sift-init/scripts/sync-assets.sh
 ```
+
+Run it in the same change that edits the root README or `schemas/`. Do not hand-copy
+or run a separate `diff` step; the script is the workflow.

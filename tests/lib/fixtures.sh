@@ -41,9 +41,24 @@ stub_ticket() {
   : > "$path/$4"
 }
 
+# fm_line <default-line> [caller-line…] — print the caller's line for this key
+# when it supplied one, else the default. Keeps a fixture to one line per key:
+# `ticket … 'type: feature'` has to yield a feature ticket, not a file carrying
+# both `type: bug` and `type: feature`, or a recipe that greps for one type
+# matches a fixture that claims to be the other.
+fm_line() {
+  local def="$1" key="${1%%:*}" line
+  shift
+  for line in "$@"; do
+    case "$line" in "$key":*) printf '%s\n' "$line"; return ;; esac
+  done
+  printf '%s\n' "$def"
+}
+
 # ticket <dir> <bucket> <milestone/category> <id> <slug> <title> [extra-fm-lines]
-# A complete, convention-shaped ticket file. Extra front-matter lines are
-# appended verbatim before the closing fence.
+# A complete, convention-shaped ticket file. An extra line naming one of the
+# required keys replaces that key's default; any other extra line is appended
+# verbatim before the closing fence.
 ticket() {
   local dir="$1" bucket="$2" sub="$3" id="$4" slug="$5" title="$6"; shift 6
   local milestone="${sub%%/*}" cat="${sub##*/}"
@@ -51,16 +66,21 @@ ticket() {
   mkdir -p "$d"
   {
     echo '---'
-    echo "id: $id"
-    echo "title: $title"
-    echo 'status: open'
-    echo 'type: bug'
-    echo "milestone: $milestone"
-    echo 'priority: p2'
-    echo 'effort: m'
-    echo 'created: 2026-08-01'
-    echo 'updated: 2026-08-01'
-    for line in "$@"; do echo "$line"; done
+    fm_line "id: $id" "$@"
+    fm_line "title: $title" "$@"
+    fm_line 'status: open' "$@"
+    fm_line 'type: bug' "$@"
+    fm_line "milestone: $milestone" "$@"
+    fm_line 'priority: p2' "$@"
+    fm_line 'effort: m' "$@"
+    fm_line 'created: 2026-08-01' "$@"
+    fm_line 'updated: 2026-08-01' "$@"
+    for line in "$@"; do
+      case "$line" in
+        id:*|title:*|status:*|type:*|milestone:*|priority:*|effort:*|created:*|updated:*) ;;
+        *) echo "$line" ;;
+      esac
+    done
     echo '---'
     echo
     echo "# $title"

@@ -29,6 +29,14 @@ block out of `README.md` by its anchor line and runs that text. A recipe that
 drifts from its documentation is the failure these tests exist to catch, so a
 reworded anchor is *supposed* to break them.
 
+Coverage there is per subject, not per file: `allocate-id`, `archive` and
+`move-milestone` own the recipes that write, `query` and `labels` own the ones
+that only read, and `validation` owns everything that audits a tree. The read-only
+files also assert a `tree_digest` across every recipe they run, because a query
+that mutates the tree is the one bug reading the output can never reveal. Each
+recipe is exercised on empty input as well as populated: a fresh `sift-init` tree
+is empty, so that is the first state any of them meets.
+
 ## The portability matrix
 
 The convention promises the recipes run on the Unix userland already present, on
@@ -57,6 +65,11 @@ test_case "what is being pinned"
 assert_eq "$want" "$got" "why it matters"
 summary
 ```
+
+`ticket` takes extra front-matter lines after the title. A line naming one of the
+required keys *replaces* that key's default rather than appending a second copy,
+so `ticket … 'type: feature'` yields a feature ticket instead of a file claiming
+both types — which matters the moment a recipe greps for one of them.
 
 Fold a new behaviour into the file that already owns its subject; add a file only
 for a subject none of them covers. When a test fails because the product is

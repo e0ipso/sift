@@ -263,10 +263,10 @@ No circular dependencies: the graph is a DAG rooted at task 001 and terminating 
 **Parallel Tasks:**
 - ✔️ Task 001: Create `lib.sh`, `existing-work.sh` and `reserve-ids.sh` — the card's read-only script surface
 
-### Phase 2: Roadmap writer and card references
+### ✅ Phase 2: Roadmap writer and card references
 **Parallel Tasks:**
-- Task 002: Create `roadmap-append.sh`, the card's only writing script (depends on: 001)
-- Task 003: Write `references/analysis.md` and `references/drafting-agent-prompt.md` (depends on: 001)
+- ✔️ Task 002: Create `roadmap-append.sh`, the card's only writing script (depends on: 001)
+- ✔️ Task 003: Write `references/analysis.md` and `references/drafting-agent-prompt.md` (depends on: 001)
 
 ### Phase 3: The playbook
 **Parallel Tasks:**

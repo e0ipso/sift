@@ -7,7 +7,12 @@
 # mentioned anywhere in .ai/sift/ROADMAP.md. Both are read because an ID present
 # in one but not the other means the tree is mid-repair, and IDs are never reused
 # — allocating over such an ID is unrecoverable. An empty tree yields 0, so the
-# first ID handed out is 0001. IDs past 9999 simply widen; nothing truncates.
+# first ID handed out is 0001. Past 9999 this script widens the number rather than
+# truncating it or refusing to allocate, but four digits is what the convention pins:
+# schemas/sift-common.xsd restricts a ticket ID to [A-Z][A-Z0-9]*-[0-9]{4} and the
+# README cookbook's consistency check greps for [0-9]{4}, so both would clip a
+# five-digit ID and report it as a phantom rule 9 violation. A tree that ever crosses
+# 9999 has to widen those checks in the same change.
 #
 # Nothing is written: reserving is an act of reading, and the ID only becomes real
 # when the ticket file lands.

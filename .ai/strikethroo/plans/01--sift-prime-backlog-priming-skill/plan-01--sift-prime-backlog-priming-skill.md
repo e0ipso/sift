@@ -272,9 +272,16 @@ No circular dependencies: the graph is a DAG rooted at task 001 and terminating 
 **Parallel Tasks:**
 - ✔️ Task 004: Write `SKILL.md` and register the card in `.claude-plugin/plugin.json` (depends on: 001, 002, 003)
 
-### Phase 4: Verification
+### ✅ Phase 4: Verification
 **Parallel Tasks:**
-- Task 005: Verify the finished card end to end against a materialized sift tree (depends on: 001, 002, 003, 004)
+- ✔️ Task 005: Verify the finished card end to end against a materialized sift tree (depends on: 001, 002, 003, 004)
+
+Phase 4 found six defects on its first pass and they were fixed before the phase closed. The
+load-bearing one: `roadmap-append.sh` passed cell values into `awk` with `-v`, which performs
+ANSI escape processing, so a title containing the two characters `\t` was expanded into a real
+tab **after** validation ran — writing the exact mangled multi-line row the script's own comment
+said it refused, while the new-wave path (`printf %s`) wrote the same input verbatim. Both paths
+now read their values from `ENVIRON`, and the cell check rejects any control character.
 
 ### Post-phase Actions
 

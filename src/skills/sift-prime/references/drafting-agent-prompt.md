@@ -88,7 +88,8 @@ STEP 3 — WRITE THE TICKET
 ticket's type — folders index front-matter, so the two disagreeing is a convention
 violation even though both files parse.
 
-Front-matter — all nine required keys, none omitted:
+Front-matter — the nine required keys, none omitted, then `depends_on`, which is optional
+in the convention but given to you here, so write it too:
   id: {{TICKET_ID}}
   title: {{TITLE}}
   status: open

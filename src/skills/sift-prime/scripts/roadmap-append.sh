@@ -15,7 +15,8 @@
 #
 #   <wave>   whole number >= 1
 #   <ID>     <PREFIX>-NNNN, not already present anywhere in the roadmap
-#   <title>  the ticket title, no "|" (it would break the table)
+#   <title>  the ticket title, no "|" (it would break the table) and no control
+#            character such as a tab (it would break the tab-separated read)
 #   <needs>  space- or comma-separated blocker IDs; pass "" for none
 #
 # Example:
@@ -63,11 +64,22 @@ esac
 [ -n "$TITLE" ] || die "title must not be empty"
 
 # A "|" or a newline in a cell would silently mangle the table, and a mangled row
-# is a row sift-drain cannot parse. Refuse rather than write it.
+# is a row sift-drain cannot parse. Refuse rather than write it. Any other control
+# character is refused for the same reason one step downstream: sift-drain hands
+# roadmap rows out as tab-separated fields, so a literal tab inside a cell adds a
+# field and shifts every column after it.
+#
+# The check has to hold all the way through the awk hop below, which is why the
+# values reach awk through the environment and ENVIRON rather than through -v:
+# awk's -v runs ANSI escape processing on its argument, so a two-character "\n"
+# that passed this check would become a real newline inside awk and write the
+# mangled multi-line row this check exists to refuse. ENVIRON does no such
+# processing, so what is validated here is what lands in the file.
 for cell in "$TITLE" "$NEEDS"; do
   case "$cell" in
     *'|'*) die "title and needs must not contain '|', got: $cell" ;;
     *$'\n'*) die "title and needs must not contain a newline" ;;
+    *[[:cntrl:]]*) die "title and needs must not contain a control character (a tab included), got: $cell" ;;
   esac
 done
 
@@ -96,12 +108,25 @@ if command grep -qE "$WAVE_RE" "$ROADMAP"; then
   # Every input line is printed verbatim, so a diff of before/after shows only
   # additions. Lines trailing the section's last table row (blank lines, prose)
   # are buffered and re-emitted after the new row, keeping the table contiguous.
-  awk -F'|' \
-    -v pat="$PREFIX-[0-9][0-9][0-9][0-9]" \
-    -v wave_re="$WAVE_RE" \
-    -v row_id="$ID" \
-    -v row_title="$TITLE" \
-    -v row_needs="$NEEDS" '
+  # Every string reaches awk through the environment and ENVIRON, never through
+  # -v: -v runs ANSI escape processing on its argument, so a title containing the
+  # two characters "\" and "t" would arrive inside awk as a real tab and a "\n"
+  # as a real newline — after the validation above had already passed them. The
+  # new-wave path below writes the same values with printf %s, so keeping this
+  # path escape-free is also what makes the two paths byte-identical.
+  RA_PAT="$PREFIX-[0-9][0-9][0-9][0-9]" \
+  RA_WAVE_RE="$WAVE_RE" \
+  RA_ROW_ID="$ID" \
+  RA_ROW_TITLE="$TITLE" \
+  RA_ROW_NEEDS="$NEEDS" \
+  awk -F'|' '
+    BEGIN {
+      pat       = ENVIRON["RA_PAT"]
+      wave_re   = ENVIRON["RA_WAVE_RE"]
+      row_id    = ENVIRON["RA_ROW_ID"]
+      row_title = ENVIRON["RA_ROW_TITLE"]
+      row_needs = ENVIRON["RA_ROW_NEEDS"]
+    }
     # [[:space:]], never a hand-rolled space-and-backslash-t class: POSIX leaves
     # a backslash inside a bracket expression undefined, so a strict awk reads
     # that set as {space, backslash, t} and eats a leading "t" in a title.

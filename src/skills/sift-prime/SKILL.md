@@ -148,7 +148,10 @@ exactly one file, which is what makes that safe.
 scripts/roadmap-append.sh <wave> <ID> <title> <needs>
 ```
 
-One row per file written, waves following the agreed `depends_on` edges. This is the
+One row per file written, waves following the agreed `depends_on` edges. **Append in
+ascending wave order** — a new wave's section lands at the end of the file and nothing
+inserts Wave 3 between Wave 2 and Wave 4, so appending out of order leaves the sections
+out of order. This is the
 orchestrator's job and not the agents' for one reason: a dozen agents appending to one
 file is the shared-mutable-file shape this project avoids, and rule 9's consistency check
 is what would then report the interleaved result as broken. Rule 9 makes the ticket and
@@ -174,8 +177,8 @@ Then report:
 - anything a drafting agent reported blocked, with the slate row it came from;
 - when the run was fenced, the **out-of-fence closing line** — the findings named in one
   line, with nothing written for them;
-- that **nothing was committed** and nothing was pushed; `.ai/sift` is gitignored by
-  default, so `git status` will not show the tree either;
+- that **nothing was committed** and nothing was pushed; the tree is untracked by
+  default, so the tickets this run wrote produce no diff and no commit;
 - **`sift-drain` as the next step** — it pulls exactly what this run wrote.
 
 ## Gotchas

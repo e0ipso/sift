@@ -8,11 +8,24 @@
 # and effort, so a run can be resumed without re-reading the roadmap by eye.
 #
 # Usage: scripts/wave-status.sh
-# Exit codes: 0 work remains | 1 roadmap fully drained | 2 setup error.
+# Exit codes: 0 work remains | 1 roadmap fully drained | 2 setup/usage error.
 
 set -uo pipefail
 # shellcheck source=lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+
+# The script reports the whole roadmap and takes no options, so every argument
+# is a mistake worth refusing: mid-drain, a silently ignored flag reads as "this
+# is the whole picture" when the caller believes it asked for something narrower.
+while [ $# -gt 0 ]; do
+  case "$1" in
+    *)
+      echo "usage: wave-status.sh" >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
 
 ROWS="$(roadmap_rows)"
 [ -n "$ROWS" ] || { echo "error: no ticket rows parsed from $ROADMAP" >&2; exit 2; }

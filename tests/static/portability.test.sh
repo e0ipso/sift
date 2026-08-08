@@ -63,9 +63,14 @@ test_case "no collated bracket range in a glob or case pattern"
 # The pattern below deliberately requires a *closed* bracket expression whose
 # contents are nothing but set characters, so a test like `[ "${1:-}" = "--x" ]`
 # — brackets around a comparison, hyphens in a flag — is not mistaken for one.
+# It also requires the contents not to open with `--`, which is a usage line's
+# optional long option (`[--include-blocked]`) and never a glob: a range whose
+# low end is `-` is not something anyone writes on purpose. A single leading
+# hyphen still counts, because `[-a-z]` is the idiomatic way to fold a literal
+# hyphen into a real character set and must stay covered.
 ranges="$(printf '%s\n' "$CODE" \
   | grep -vE '(sed|grep|awk|expr|tr)[[:space:]]' \
-  | grep -E '\[!?[A-Za-z0-9_-]*[A-Za-z]-[A-Za-z][A-Za-z0-9_-]*\]' || true)"
+  | grep -E '\[!?(-?[A-Za-z0-9_])([A-Za-z0-9_-]*[A-Za-z])?-[A-Za-z][A-Za-z0-9_-]*\]' || true)"
 if [ -z "$ranges" ]; then t_ok "validation patterns spell their character sets out"
 else t_fail "validation patterns spell their character sets out" \
   "$(printf '%s\n' "$ranges" | head -n 5)"; fi

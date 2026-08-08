@@ -9,14 +9,23 @@
 #   scripts/next-ticket.sh                 # next dispatchable ticket
 #   scripts/next-ticket.sh --include-blocked
 #
-# Exit codes: 0 found | 1 nothing left to dispatch | 2 setup/consistency error.
+# Exit codes: 0 found | 1 nothing left to dispatch | 2 setup/usage/consistency error.
 
 set -uo pipefail
 # shellcheck source=lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
 INCLUDE_BLOCKED=0
-[ "${1:-}" = "--include-blocked" ] && INCLUDE_BLOCKED=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --include-blocked) INCLUDE_BLOCKED=1 ;;
+    *)
+      echo "usage: next-ticket.sh [--include-blocked]" >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
 
 ROWS="$(roadmap_rows)"
 [ -n "$ROWS" ] || { echo "error: no ticket rows parsed from $ROADMAP" >&2; exit 2; }

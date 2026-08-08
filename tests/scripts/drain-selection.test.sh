@@ -222,8 +222,26 @@ next "$d"
 assert_eq 2 "$R_STATUS" "exit 2"
 assert_contains "$R_ERR" 'no ticket rows parsed from' "naming the file it read"
 
-test_case "unknown options are ignored rather than refused"
-skip "next-ticket.sh rejects an unknown option" "SFT-0017"
+test_case "an unknown option is refused rather than ignored"
+# A misspelled flag that fell through to the default selection would print a
+# ticket at exit 0, and the caller that asked for the blocked ones too would
+# read "the wave is empty" off a list that never included them (SFT-0017).
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' 'status: blocked' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+next "$d" --bogus
+assert_eq 2 "$R_STATUS" "exit 2, the usage code the rest of the family already uses"
+assert_contains "$R_ERR" 'usage: next-ticket.sh [--include-blocked]' \
+  "the usage line goes to stderr, naming the one spelling that is accepted"
+assert_eq "" "$R_OUT" "and stdout stays empty, so nothing reads as a dispatch"
+
+next "$d" --include-blocke
+assert_eq 2 "$R_STATUS" "a near-miss spelling is refused, not silently defaulted"
+assert_eq "" "$R_OUT" "in particular it does not answer as if --include-blocked were off"
+
+next "$d" --include-blocked --bogus
+assert_eq 2 "$R_STATUS" "one unrecognised argument condemns the whole command line"
+assert_eq "" "$R_OUT" "even alongside the flag that is understood"
 
 test_case "dispatching decides nothing on disk"
 d="$(newdir)"; make_tree "$d" ACME

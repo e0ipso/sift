@@ -306,11 +306,15 @@ assert_eq "" "$R_OUT" "nothing is reported as appended"
 assert_same "$before" "$(roadmap "$d")" "and the roadmap is byte-identical"
 
 test_case "the refusal holds across waves and across a struck row"
+# Rule 2 makes an ID unreusable whether or not the work finished, so ~~ around a
+# ticket cell does not free the ID: a struck row is still that ID's row.
 d="$(newdir)"; make_tree "$d" ACME
 struck_row "$d" 1 ACME-0001 'One'
 before="$(snapshot "$d")"
 append "$d" 2 ACME-0001 'One again' ''
 assert_eq 1 "$R_STATUS" "a finished ticket cannot be re-filed into a later wave"
+assert_contains "$R_ERR" 'error: ACME-0001 already has a row' \
+  "refused in the same words as an unstruck duplicate"
 assert_same "$before" "$(roadmap "$d")" "the roadmap is unchanged"
 
 test_case "a longer ID that merely starts with an existing one is not a duplicate"
@@ -324,11 +328,49 @@ assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "| 2 | ACME-00011 | Eleven thousand |  |" \
   "$(grep -F 'ACME-00011' "$(roadmap "$d")")" "the five-digit ID gets its row"
 
-test_case "an ID mentioned only in a Needs cell blocks its own row"
-# The guard greps the whole file, so a blocker named in an earlier row's Needs
-# column reads as "already has a row" and the real row can never be filed.
-skip "roadmap-append.sh files a row for an ID that only appears as a blocker" \
-  "SFT-0022: the duplicate guard matches any cell, not just the ticket cell"
+test_case "nor does a longer ID already filed shadow the shorter one"
+# The other direction of the same anchoring, and the one a narrowed guard is
+# likeliest to lose: reading a row for ACME-00011 as a row for ACME-0001 would
+# refuse a ticket that has never been filed. The second append proves the
+# narrowing did not go the other way and stop seeing that row at all.
+d="$(newdir)"; make_tree "$d" ACME
+roadmap_row "$d" 1 ACME-00011 'Eleven thousand' '-'
+append "$d" 1 ACME-0001 'One' ''
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "| 2 | ACME-0001 | One |  |" "$(grep -F '| One |' "$(roadmap "$d")")" \
+  "the four-digit ID gets its row"
+append "$d" 1 ACME-00011 'Again' ''
+assert_eq 1 "$R_STATUS" "and the five-digit row is still a row for its own ID"
+
+test_case "an ID named only in another row's Needs cell is not a duplicate"
+# SFT-0022: the guard used to grep the whole file, so a blocker named in an
+# earlier row's Needs column read as "already has a row" and the real row could
+# never be filed — halting a drafting fan-out half-written, on an error naming a
+# row that does not exist. Only the ticket cell is a row, which is the rule
+# sift-drain's roadmap_rows already applies to the same file.
+d="$(newdir)"; make_tree "$d" ACME
+roadmap_row "$d" 1 ACME-0001 'One' 'ACME-0002'
+before="$(snapshot "$d")"
+append "$d" 1 ACME-0002 'Two' ''
+assert_eq 0 "$R_STATUS" "the blocker can still be filed"
+assert_eq "| 2 | ACME-0002 | Two |  |" "$(grep -F '| Two |' "$(roadmap "$d")")" \
+  "in the documented shape"
+assert_eq 0 "$(removed_lines "$before" "$d")" "and the row that named it is untouched"
+
+test_case "an ID named only in a Title cell, or in prose, is not a duplicate"
+# Same rule, the other two places an ID can be written without owning a row: a
+# title that cross-references one, and a sentence under the table.
+d="$(newdir)"; make_tree "$d" ACME
+roadmap_row "$d" 1 ACME-0001 'Supersedes ACME-0003' '-'
+printf '\nSee ACME-0004 for background.\n' >> "$(roadmap "$d")"
+append "$d" 1 ACME-0003 'Three' ''
+assert_eq 0 "$R_STATUS" "a title mention is not a row"
+assert_eq "| 2 | ACME-0003 | Three |  |" "$(grep -F '| Three |' "$(roadmap "$d")")" \
+  "so the cross-referenced ticket gets its row"
+append "$d" 1 ACME-0004 'Four' ''
+assert_eq 0 "$R_STATUS" "and neither is a line of prose, which is not a table row at all"
+assert_eq "| 3 | ACME-0004 | Four |  |" "$(grep -F '| Four |' "$(roadmap "$d")")" \
+  "the row lands in the table, above the prose"
 
 # --- The cell validator ------------------------------------------------------
 

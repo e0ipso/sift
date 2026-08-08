@@ -74,6 +74,37 @@ for loc in C C.utf8 en_US.utf8; do
 done
 R_LOCALE=C
 
+# --- The destructive sequence, run for real (SFT-0008) -----------------------
+#
+# `ABC!;rm` is already in the rejection loop above, and the refusal is read off
+# stderr. What that never establishes is whether the payload was dangerous: a
+# canary nobody ever pointed a weapon at proves nothing about the guard. These
+# two cases fire the payload for real inside a throwaway sandbox — first
+# unguarded, so the deletion is observed happening, then through sift-init.sh,
+# so the refusal is observed preventing the same deletion.
+
+test_case "the payload a metacharacter prefix carries really does delete"
+# The positive control. The prefix is written into config.yaml and every later
+# recipe builds a glob or a regex out of it, so the whole reason the character
+# set is closed is that a value reaching that far is a value someone will
+# eventually expand. Expanded once, this one runs its own command.
+s="$(newdir)"; mkdir -p "$s/repo"
+: > "$s/canary"
+payload="AB;rm -f $s/canary"
+( eval "printf '%s\n' $payload" ) > /dev/null 2>&1
+assert_no_file "$s/canary" "expanded unquoted, the prefix executes the command riding on it"
+
+test_case "sift-init.sh refuses it, and the canary is still there"
+s="$(newdir)"; mkdir -p "$s/repo"
+: > "$s/canary"
+before="$(tree_digest "$s")"
+run_cmd "$s/repo" "$INIT" --root "$s/repo" --prefix "AB;rm -f $s/canary"
+assert_eq 2 "$R_STATUS" "exits 2"
+assert_contains "$R_ERR" "$MALFORMED" "naming the character set as the problem"
+assert_file "$s/canary" "the file the payload names survives"
+assert_no_dir "$s/repo/.ai" "no tree was built to carry the value downstream"
+assert_eq "$before" "$(tree_digest "$s")" "and the whole sandbox is byte-identical"
+
 # --- --suggest-prefix --------------------------------------------------------
 
 suggest() {  # suggest <directory basename>

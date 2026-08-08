@@ -176,6 +176,31 @@ q "$d" "$FIND_ONE"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "" "$R_OUT" "no path is invented"
 
+test_case "find a ticket wherever it lives: SFT-00420 is a different ticket"
+# SFT-0015 anchored this glob to a whole token; until now only its documented
+# text was pinned, never the behaviour. The `--` after the ID is the anchor: drop
+# it and every longer ID sharing the digits comes back too, so the agent is
+# handed two paths for a lookup that has exactly one answer — and opens whichever
+# one `find` happened to name first. Both IDs exist here, in both buckets.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0042 tenant 'Tenant caching' > /dev/null
+ticket "$d" open caching/bug SFT-00420 longer 'A longer ID sharing the digits' > /dev/null
+ticket "$d" archive caching/bug SFT-004200 longest 'Longer still' \
+  'status: done' 'resolution: "shipped"' > /dev/null
+q "$d" "$FIND_ONE"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq '.ai/sift/open/caching/bug/SFT-0042--tenant.md' "$R_OUT" \
+  "one path, SFT-0042's own — neither longer ID is a match"
+
+test_case "find a ticket wherever it lives: the longer ID alone matches nothing"
+# The other half of the same anchor: SFT-00420 must not answer for SFT-0042.
+# A recipe that reported it would send the agent to edit an unrelated ticket.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-00420 longer 'A longer ID sharing the digits' > /dev/null
+q "$d" "$FIND_ONE"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "" "$R_OUT" "the lookup finds nothing rather than the neighbouring ID"
+
 # --- Full-text search --------------------------------------------------------
 
 test_case "full-text search: matches body text, case-insensitively"

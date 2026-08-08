@@ -71,7 +71,26 @@ run stays green, and the suite keeps needing nothing but the baseline.
 No BSD host is available in CI or the dev container, so the BSD half of the
 promise is covered statically instead: `static/portability.test.sh` fails the
 build on `sed -i`, on `xargs -r`, on a `[ \t]` bracket expression in `awk`, and
-on a collated `[a-z]`-style range in a shell glob or `case` pattern.
+on a collated `[a-z]`-style range in a shell glob or `case` pattern. That file
+also carries a `skip` naming the gap, so the blind spot is reported by the suite
+rather than only described here; closing it needs a BSD runner, not an assertion.
+
+## Destructive and concurrent sequences
+
+A guard is only worth asserting if the thing it guards against would really have
+happened, so the cases that pin one build the damage first: `sift-init-milestone`
+puts a populated tree exactly where a traversing `--milestone` points and runs
+the escape unguarded before asserting the guarded run leaves it alone, and
+`sift-init-prefix` deletes a canary with the payload a rejected prefix carries
+before asserting `sift-init.sh` refuses the same string. Without that positive
+control a miscounted `..` looks identical to a guard that held.
+
+The race in `sift-init-tree` launches its writers together and reaps them with
+`wait`; the overlap is real but not forced. Forcing it would take a FIFO — a name
+the dependency contract in `static/suite-contract.test.sh` does not list — or a
+sleep-based spin, which this repo forbids, so the assertions are written to hold
+under every interleaving instead. Do not "fix" that with a sleep: the correct
+move is a narrower assertion, or a `skip` naming the ticket.
 
 ## Writing one
 

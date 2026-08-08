@@ -33,6 +33,18 @@ TICKET
   type:    {{TYPE}}   priority: {{PRIORITY}}   effort: {{EFFORT}}
   summary: {{TICKET_SUMMARY}}
 
+SHELL DISCIPLINE — applies to every step below
+ONE CALL PER INTENT, NOT PER COMMAND. Independent read-only inspection belongs in a single
+call: file reads, `git log` / `git status` / `git branch`, `ls`, `find`, `grep`, and the
+version, manifest and config checks of STEP 1 are all one call each, chained with newlines
+and separated by `echo` marker lines so the output stays attributable. Split only when a
+command's arguments genuinely depend on an earlier command's output. Most shell calls in a
+ticket do no work at all, and each one still costs a full round trip.
+NEVER BUSY-WAIT. No `sleep N` poll loops, no fixed retry ceilings, no "wait then check
+again". If something is genuinely asynchronous, use your harness's own completion signal or
+the tool's blocking wait form. A spin loop burns a turn per iteration and its ceiling is
+always either too short to succeed or too long to be cheap.
+
 STEP 1 — ORIENT
 Read {{TICKET_PATH}} in full and .ai/sift/README.md (the ticket convention — rule 9
 especially). Read the repository's agent instructions (AGENTS.md / CLAUDE.md and anything

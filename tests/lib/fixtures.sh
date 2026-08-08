@@ -33,6 +33,21 @@ roadmap_row() {
   printf '| %s | %s | %s | %s |\n' "$2" "$3" "$4" "${5:--}" >> "$1/.ai/sift/ROADMAP.md"
 }
 
+# struck_row <dir> <n> <id> <title> — a finished row in the shape rule 9 asks
+# for: the ID and the title both struck, the resolution status appended.
+struck_row() {
+  printf '| %s | ~~%s~~ | ~~%s~~ — done |  |\n' "$2" "$3" "$4" >> "$1/.ai/sift/ROADMAP.md"
+}
+
+# roadmap_wave <dir> <n> — open another "## Wave <n>" section with its header.
+roadmap_wave() {
+  {
+    printf '\n## Wave %s\n\n' "$2"
+    printf '| # | Ticket | Title | Needs |\n'
+    printf '|---|---|---|---|\n'
+  } >> "$1/.ai/sift/ROADMAP.md"
+}
+
 # stub_ticket <dir> <bucket> <milestone/category> <filename> — content-free file,
 # for recipes that only read the name (ID allocation).
 stub_ticket() {

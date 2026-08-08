@@ -21,7 +21,7 @@ on exit, including on failure; nothing in the suite writes inside the repository
 |---|---|
 | `cookbook/` | the recipes in `README.md`, run as written against throwaway trees |
 | `scripts/` | the shipped card scripts through their real command lines |
-| `static/` | the portability bans, shell lint and the XSD drafting schemas |
+| `static/` | the portability bans, shell lint, the XSD drafting schemas, and the suite's own no-dependency / determinism / cleanup contract |
 | `e2e/` | one full gate → init → allocate → archive → roadmap-check lifecycle |
 
 `cookbook/` does not paraphrase the recipes: `lib/recipes.sh` extracts the fenced
@@ -37,6 +37,22 @@ that mutates the tree is the one bug reading the output can never reveal. Each
 recipe is exercised on empty input as well as populated: a fresh `sift-init` tree
 is empty, so that is the first state any of them meets.
 
+`scripts/` is organised the same way, per subject rather than per file:
+`sift-gate`, `sift-init-prefix`, `sift-init-milestone` and `sift-init-tree` own
+the initializer's resolution, its two validators and its write path;
+`convention-assets` and `sync-assets` own the shipped spec; `reserve-ids` owns ID
+allocation; `roadmap-check` owns rule-9 consistency; `drain-selection` owns
+next-ticket/wave-status; `drain-log` owns the run log. Root and prefix resolution
+is the one contract every card script shares, so it is swept across all of them
+once, in `root-resolution`, instead of being re-asserted per file.
+
+`static/suite-contract.test.sh` holds the suite to its own promises: it runs a
+generated child test file and checks the temporary tree is gone afterwards on the
+passing, failing and died-before-summary paths, and it runs the end-to-end
+lifecycle with `PATH` pointing at a symlink farm of baseline POSIX utilities and
+nothing else. That list of utilities is the dependency contract — adding a name
+to it is a decision to depend on that tool.
+
 ## The portability matrix
 
 The convention promises the recipes run on the Unix userland already present, on
@@ -45,7 +61,9 @@ both GNU and BSD systems. Where a recipe's behaviour could turn on the shell, th
 across all of them — `bash`/`dash` × `gawk`/`mawk`/`nawk` × `C`/`C.utf8`/
 `en_US.utf8` — via `for_matrix` in `lib/recipes.sh`. Recipes built only from
 `grep`, `sed` and `find` use `for_shell_locale`, which drops the axis that has
-nothing to vary.
+nothing to vary. Every member of those axes except `bash` is an installable
+extra, so a member the machine does not have is skipped: the sweep narrows, the
+run stays green, and the suite keeps needing nothing but the baseline.
 
 No BSD host is available in CI or the dev container, so the BSD half of the
 promise is covered statically instead: `static/portability.test.sh` fails the

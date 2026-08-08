@@ -119,6 +119,11 @@ run_recipe() {
 
 # The portability matrix. `matrix_awks` is a caller-settable subset because not
 # every recipe runs awk at all.
+#
+# Every axis member is OPTIONAL and skipped when the machine does not have it:
+# dash, gawk, mawk and nawk are all installable extras, and a suite that
+# demanded them would contradict the convention it is testing. bash is the one
+# member that is always present — the harness itself runs under it.
 matrix_shells='bash dash'
 matrix_awks='gawk mawk nawk'
 matrix_locales='C C.utf8 en_US.utf8'
@@ -129,6 +134,7 @@ for_matrix() {
   local cb="$1"; shift
   local sh a l bin
   for sh in $matrix_shells; do
+    command -v "$sh" > /dev/null 2>&1 || continue
     for a in $matrix_awks; do
       bin="$(command -v "$a" || true)"
       [ -n "$bin" ] || continue
@@ -147,6 +153,7 @@ for_shell_locale() {
   local cb="$1"; shift
   local sh l
   for sh in $matrix_shells; do
+    command -v "$sh" > /dev/null 2>&1 || continue
     for l in $matrix_locales; do
       R_SHELL="$sh"; R_AWK=''; R_LOCALE="$l"; R_LABEL="$sh/$l"
       "$cb" "$@"

@@ -451,7 +451,10 @@ consumes the script as the suffix there and mangles the tree. Write `sed … "$f
 **Move a ticket to another milestone** (edit `milestone:` key too):
 ```sh
 DEST=<target-milestone>                              # a name from MILESTONES.md
-f=$(find .ai/sift/open -name "$PREFIX-0042--*.md")
+ID=$PREFIX-0042
+f=$(find .ai/sift/open -name "$ID--*.md")
+[ -n "$f" ] || { echo "move: no ticket matching $ID" >&2; false; }
+[ -f "$f" ] || { echo "move: $ID does not match exactly one ticket" >&2; false; }
 d=".ai/sift/open/$DEST/$(basename "$(dirname "$f")")"   # keep the same category
 mkdir -p "$d" && mv "$f" "$d/"
 t="$d/$(basename "$f")"
@@ -485,6 +488,19 @@ same reason `resolution:` uses it below: a replacement is re-scanned for `&` and
 A ticket whose front matter carries no `milestone:` key stops loudly with the file already
 moved, because a move that silently leaves the key behind is the desync rule 2 forbids.
 
+Both guards run before the first thing that writes — before `mkdir -p`, not merely before
+`mv`. A typo'd ID, an already-archived ticket or the wrong working directory leaves `$f`
+empty, and an unguarded run would create `open/$DEST/./`, hand the `awk` pass a directory
+instead of a file, and then report a move that never happened. An empty milestone folder is
+a phantom index entry; the folders *are* the index, so a recipe that cannot find its ticket
+has to leave the tree byte-identical. The second guard covers the state rule 2 says cannot
+exist: two files carrying one ID put both paths in `$f`, which is not a file, so `[ -f ]`
+catches it for the cost of a line rather than letting `dirname` and `mv` improvise on a
+two-line value. Its wording stays neutral because an empty `$f` is also "not exactly one".
+Both print one line naming `$ID` and fail, in the same shape as the `RESOLUTION` check
+below — `false` rather than `exit`, so pasting the block into an interactive shell does not
+close it, and `set -e` ends a scripted run at the guard.
+
 **Archive a finished ticket** — the front-matter edit, the `mv` and the `ROADMAP.md`
 strike rule 9 requires are one workflow, so run all three together:
 ```sh
@@ -492,6 +508,8 @@ ID=$PREFIX-0042
 STATUS=done                                    # done | wontfix | superseded
 RESOLUTION='Fixed in commit abc1234'           # required non-empty
 f=$(find .ai/sift/open -name "$ID--*.md")
+[ -n "$f" ] || { echo "archive: no ticket matching $ID" >&2; false; }
+[ -f "$f" ] || { echo "archive: $ID does not match exactly one ticket" >&2; false; }
 [ -n "$RESOLUTION" ] || { echo "archive: RESOLUTION must be non-empty" >&2; false; }
 RESOLUTION="$RESOLUTION" STATUS="$STATUS" TODAY="$(date +%F)" awk '
   BEGIN { in_fm = 0; wrote = 0 }
@@ -580,7 +598,13 @@ awk -v id="$ID" -v prefix="$PREFIX" -v st="$STATUS" '
   false
 }
 ```
-`$RESOLUTION` is required and checked before any rewrite: an empty value prints
+The three guards run in the order the failures matter. `$f` is checked first, because a
+recipe that cannot find the ticket has nothing to say about its contents: unguarded, the
+`awk` pass gets no file operand and complains that the *front matter* is missing — or,
+worse, reads the terminal and hangs — which sends the operator looking for a fault in a
+ticket that is not there. `[ -f ]` then rejects the state rule 2 says cannot exist, two
+files carrying one ID, before `dirname` and `mv` improvise on a two-line `$f`. `$RESOLUTION`
+is required and checked before any rewrite: an empty value prints
 `archive: RESOLUTION must be non-empty` and exits non-zero with the ticket untouched.
 All three keys are rewritten by one `awk` pass, and every rule in it is guarded by
 `in_fm`. That scoping is the point: a line-anchored `sed 's/^status: .*/…/'` also matches

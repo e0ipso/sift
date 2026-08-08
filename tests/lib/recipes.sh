@@ -62,12 +62,13 @@ recipe_folder_agreement() { readme_block '**Sanity-check folder/front-matter agr
 recipe_xmllint()          { readme_block '**Machine-check a draft'; }
 
 # The milestone move opens with a `DEST=<target-milestone>` placeholder, which is
-# a redirection rather than an assignment when run as written. Swap it, and swap
-# the worked example's ID, so a case can drive both; callers assert both landed.
+# a redirection rather than an assignment when run as written, and the worked
+# example's `ID=$PREFIX-0042`. Swap both so a case can drive them; callers assert
+# both swaps landed.
 recipe_move_milestone() {
   readme_block '**Move a ticket to another milestone**' | sed \
     -e 's|^DEST=<target-milestone>.*$|DEST=${DEST:?}|' \
-    -e 's|\$PREFIX-0042--\*\.md|$PREFIX-${NUM:?}--*.md|'
+    -e 's|^ID=\$PREFIX-0042$|ID=${ID:?}|'
 }
 
 # The archive recipe opens with three literal assignments (the worked example's

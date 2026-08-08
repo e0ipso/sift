@@ -211,13 +211,48 @@ assert_eq '"Second pass"' "$(fm "$dest" resolution)" "the second value won"
 test_case "a ticket with no front-matter fence fails loudly"
 d="$(newdir)"; make_tree "$d"
 mkdir -p "$d/.ai/sift/open/backlog/bug"
-printf '# Just a heading\n\nNo front matter here.\n' \
-  > "$d/.ai/sift/open/backlog/bug/SFT-0042--bare.md"
+bare="$d/.ai/sift/open/backlog/bug/SFT-0042--bare.md"
+printf '# Just a heading\n\nNo front matter here.\nstatus: quoted in prose.\n' > "$bare"
+before="$d/bare.before"; cp "$bare" "$before"
 roadmap_row "$d" 1 SFT-0042 'Bare' '-'
 archive "$d" SFT-0042 done 'Landed'
 assert_ne 0 "$R_STATUS" "exits non-zero"
 assert_contains "$R_ERR" 'no front-matter found to hold resolution' "names the missing field"
-assert_file "$d/.ai/sift/open/backlog/bug/SFT-0042--bare.md" "the ticket is not archived"
+assert_file "$bare" "the ticket is not archived"
+assert_same "$before" "$bare" "and not one byte of it was rewritten on the way out"
+
+# --- Front-matter scoping (SFT-0016) -----------------------------------------
+
+test_case "body lines beginning with status: or updated: are left alone"
+# The rewrites are anchored to the start of a line, so they have to be scoped to
+# the front-matter block as well, or a ticket whose body quotes a key at column 0
+# has that prose silently replaced by a front-matter line. The `---` horizontal
+# rule is in the fixture because it is legal markdown and must not re-open the
+# region; a ticket documenting this convention is the likeliest place for both.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open backlog/bug SFT-0042 prose 'Prose ticket')"
+{
+  printf '\n## Direction\n'
+  printf 'status: open is what the body claims.\n'
+  printf 'updated: never, says the body.\n'
+  printf 'resolution: also quoted here.\n'
+  printf '\n---\n\n'
+  printf 'status: and again, after a horizontal rule.\n'
+} >> "$f"
+body() { awk 'p { print } /^---$/ && NR > 1 && !p { p = 1 }' "$1"; }
+before="$d/body.before"; body "$f" > "$before"
+roadmap_row "$d" 1 SFT-0042 'Prose ticket' '-'
+archive "$d" SFT-0042 done 'Landed'
+dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--prose.md"
+after="$d/body.after"; body "$dest" > "$after"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_same "$before" "$after" "every byte after the closing fence is unchanged"
+assert_eq "done" "$(fm "$dest" status)" "the front-matter status was still rewritten"
+assert_eq "$TODAY" "$(fm "$dest" updated)" "…and updated"
+assert_eq '"Landed"' "$(fm "$dest" resolution)" "…and resolution was inserted"
+assert_eq 1 "$(grep -c "^status: done$" "$dest")" "exactly one status line was written"
+assert_eq 1 "$(grep -c "^updated: $TODAY\$" "$dest")" "exactly one updated line was written"
+assert_eq 1 "$(grep -c '^resolution: "Landed"$' "$dest")" "exactly one resolution line"
 
 # --- Portability matrix ------------------------------------------------------
 

@@ -435,8 +435,35 @@ f=$(find .ai/sift/open -name "$PREFIX-0042--*.md")
 d=".ai/sift/open/$DEST/$(basename "$(dirname "$f")")"   # keep the same category
 mkdir -p "$d" && mv "$f" "$d/"
 t="$d/$(basename "$f")"
-sed "s/^milestone: .*/milestone: $DEST/" "$t" > "$t.tmp" && mv "$t.tmp" "$t"
+DEST="$DEST" awk '
+  BEGIN { in_fm = 0; wrote = 0 }
+  NR == 1 && /^---$/ { in_fm = 1; print; next }   # front matter starts at line 1 only
+  in_fm && /^---$/ { in_fm = 0; print; next }     # …and ends at the first closing fence
+  in_fm && /^milestone:/ {
+    print "milestone: " ENVIRON["DEST"]
+    wrote = 1
+    next
+  }
+  { print }
+  END {
+    if (!wrote) {
+      print "move: no milestone: key in the front matter" > "/dev/stderr"
+      exit 1
+    }
+  }
+' "$t" > "$t.tmp" && mv "$t.tmp" "$t" || {
+  rm -f "$t.tmp"
+  echo "MILESTONE NOT UPDATED in $t: the file moved, set the key by hand" >&2
+  false
+}
 ```
+The rewrite is confined to the leading front-matter block, so a body line that quotes
+`milestone:` at column 0 — which a ticket discussing this convention will — survives
+byte-for-byte, and a `---` horizontal rule further down cannot re-open the region. `awk`
+string concatenation puts `$DEST` in place rather than a `sed` replacement text, for the
+same reason `resolution:` uses it below: a replacement is re-scanned for `&` and `\1`.
+A ticket whose front matter carries no `milestone:` key stops loudly with the file already
+moved, because a move that silently leaves the key behind is the desync rule 2 forbids.
 
 **Archive a finished ticket** — the front-matter edit, the `mv` and the `ROADMAP.md`
 strike rule 9 requires are one workflow, so run all three together:
@@ -446,9 +473,7 @@ STATUS=done                                    # done | wontfix | superseded
 RESOLUTION='Fixed in commit abc1234'           # required non-empty
 f=$(find .ai/sift/open -name "$ID--*.md")
 [ -n "$RESOLUTION" ] || { echo "archive: RESOLUTION must be non-empty" >&2; false; }
-sed -e "s/^status: .*/status: $STATUS/" \
-    -e "s/^updated: .*/updated: $(date +%F)/" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-RESOLUTION="$RESOLUTION" awk '
+RESOLUTION="$RESOLUTION" STATUS="$STATUS" TODAY="$(date +%F)" awk '
   BEGIN { in_fm = 0; wrote = 0 }
   function emit_res(   v) {
     v = ENVIRON["RESOLUTION"]
@@ -459,13 +484,15 @@ RESOLUTION="$RESOLUTION" awk '
     print "resolution: \"" v "\""
     wrote = 1
   }
-  /^---$/ {
-    if (!in_fm) { in_fm = 1; print; next }
+  NR == 1 && /^---$/ { in_fm = 1; print; next }   # front matter starts at line 1 only
+  in_fm && /^---$/ {                              # …and ends at the first closing fence
     if (!wrote) emit_res()                  # insert before closing fence when absent
     in_fm = 0
     print
     next
   }
+  in_fm && /^status:/  { print "status: "  ENVIRON["STATUS"]; next }
+  in_fm && /^updated:/ { print "updated: " ENVIRON["TODAY"];  next }
   in_fm && /^resolution:[[:space:]]*/ {      # rewrite existing (incl. empty) line
     emit_res()
     next
@@ -535,13 +562,19 @@ awk -v id="$ID" -v prefix="$PREFIX" -v st="$STATUS" '
 ```
 `$RESOLUTION` is required and checked before any rewrite: an empty value prints
 `archive: RESOLUTION must be non-empty` and exits non-zero with the ticket untouched.
-`status:` and `updated:` stay on `sed` because those values are recipe-controlled fixed
-strings; `resolution:` goes through a separate `awk` insert-or-replace that reads the
-value from `ENVIRON` and concatenates the new line, so `&`, `/`, `|` and `[` survive
-byte-for-byte — a `sed` replacement would re-scan them. Inside the front-matter block the
-pass rewrites an existing `resolution:` line (including `resolution: ""`) and, when the
-key is absent, inserts exactly one line before the closing `---`; a second run therefore
-never duplicates the key. A ticket with no front-matter fence fails loudly rather than
+All three keys are rewritten by one `awk` pass, and every rule in it is guarded by
+`in_fm`. That scoping is the point: a line-anchored `sed 's/^status: .*/…/'` also matches
+the body, so a ticket whose `## Direction` opens a line with `status:` — routine in a
+repository that documents this convention — has that sentence silently replaced by a
+front-matter line, visible only in `git diff`, at the moment an operator stops reading the
+ticket. `in_fm` is set only by a `---` on line 1 and cleared by the first closing fence, so
+a `---` horizontal rule in the body cannot re-open the region either. Values come from
+`ENVIRON` and are concatenated rather than substituted, so `&`, `/`, `|` and `[` survive
+byte-for-byte — a `sed` replacement text would re-scan them. `status:` and `updated:` are
+rewritten where they already sit, exactly once each; `resolution:` is insert-or-replace,
+rewriting an existing line (including `resolution: ""`) or inserting exactly one line
+before the closing `---` when the key is absent, so a second run never duplicates it. A
+ticket with no front-matter fence fails loudly, with the file untouched, rather than
 archiving without the required field.
 
 The strike keys off the immutable `$ID`, never the title or the slug, and it rewrites

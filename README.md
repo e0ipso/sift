@@ -614,13 +614,23 @@ never vouches for a missing `<PREFIX>-0042`.
 
 **Validate front-matter across the tree** (files missing a required key). Same tree
 guard as above; when every required key is present the loop prints only the section
-headers and exits 0:
+headers and exits 0 — including on a tree that holds no tickets at all:
 ```sh
 [ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; exit 1; }
 for k in id title status type milestone priority effort created updated; do
-  echo "== missing $k:"; grep -rL "^$k:" .ai/sift/open .ai/sift/archive --include="$PREFIX-*.md"
+  echo "== missing $k:"
+  grep -rL "^$k:" .ai/sift/open .ai/sift/archive --include="$PREFIX-*.md" || [ $? -eq 1 ]
 done
 ```
+`|| [ $? -eq 1 ]` neutralises one status and only one: grep's "nothing was selected",
+which is the answer a tree with no ticket files gives — both GNU and BSD `grep` exit 1
+when the search matched nothing, and the loop's last command decides the block's status.
+Without it a freshly initialised tree reports failure for being empty, and under `set -e`
+the run stops after the first of the nine headers. A genuine `grep` failure — status 2,
+which is what a missing or unreadable `.ai/sift/archive` produces — is *not* absorbed, so
+the block can never print nine clean headers for a tree it only half read. A blanket
+`|| true` would absorb that too, and the tree guard above exists precisely to stop this
+recipe reporting clean on a tree it did not read.
 
 **Find bug tickets missing the `## Expected behaviour` section** (the backfill list after
 adopting the type-specific templates — add the section to each, or accept it as debt):

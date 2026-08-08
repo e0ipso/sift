@@ -88,12 +88,18 @@ assert_eq 'SFT-0043--nopriority.md' \
 assert_not_contains "$R_OUT" 'SFT-0042--complete.md' "the complete ticket is not listed"
 
 test_case "a ticket-less tree is not a validation failure"
-# Known product bug, filed as SFT-0013: on a tree with no tickets `grep -rL`
-# searches no files and exits 1, so the recipe exits 1 too — indistinguishable
-# from the "I read nothing" failure SFT-0010 just introduced. Skipped rather
-# than asserted so the suite stays green with a named known issue; the ticket's
-# acceptance criteria turn this back into an assertion.
-skip "empty tree exits 0 with headers only" "SFT-0013"
+# SFT-0013: a tree with no tickets is the state every repository is in right
+# after sift-init, and `grep -rL` answers it with "nothing selected" — status 1
+# on both GNU and BSD. That is an empty backlog, not a tree the recipe failed to
+# read, so it has to be indistinguishable from a populated tree with nothing
+# wrong: nine headers, no file, exit 0.
+d="$(newdir)"; make_tree "$d"
+validate "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq 9 "$(printf '%s\n' "$R_OUT" | grep -c '^== missing ')" \
+  "all nine headers print — under set -e the run is not truncated at the first"
+assert_eq "" "$(headers_only "$R_OUT")" "no file is listed"
+assert_eq "" "$R_ERR" "and nothing is written to stderr"
 
 test_case "no .ai/sift: front-matter validation diagnoses and fails"
 d="$(newdir)"

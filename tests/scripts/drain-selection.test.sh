@@ -43,22 +43,23 @@ next() {  # next <root> [args…]
 
 wave_status() { run_cmd "$1" env SIFT_ROOT="$1" "$STATUS"; }
 
-# out_key <key> — the value of one "key: value" line from the report's header.
+# out_key <key> — the value of one "key: value" line of the report, header or
+# echoed front-matter alike. One reader covers both because every key in the
+# report is unique within an invocation: the lookup's own state moved to
+# `result:` so that `status:` could mean only the ticket's (SFT-0018).
 out_key() {
   printf '%s\n' "$R_OUT" | awk -v k="$1" '
     index($0, k ": ") == 1 { sub("^" k ": ", ""); print; exit }
     $0 == k ":" { print ""; exit }'
 }
 
-# fm_key <key> — one front-matter value out of the block echoed after `file:`.
-# Read positionally rather than by name because the report opens with its own
-# `status:` line — the run's, not the ticket's — and a reader that took the
-# first match would report "found" as a ticket status (SFT-0018).
-fm_key() {
-  printf '%s\n' "$R_OUT" | awk -v k="$1" '
-    index($0, "file: ") == 1 { infm = 1; next }
-    infm && index($0, k ": ") == 1 { sub("^" k ": ", ""); print; exit }
-    infm && $0 == k ":" { print ""; exit }'
+# dup_keys — every "key:" printed more than once by one invocation, so key
+# uniqueness is counted rather than eyeballed. Indented and parenthesised
+# payload lines under `skipped:` are values, not keys, and do not qualify.
+dup_keys() {
+  printf '%s\n' "$R_OUT" | awk '
+    /^[A-Za-z_][A-Za-z0-9_]*:( |$)/ { k = $1; sub(":$", "", k); n[k]++ }
+    END { for (k in n) if (n[k] > 1) print k }' | LC_ALL=C sort
 }
 
 # squeeze <text> — collapse runs of spaces so a column-aligned table can be
@@ -80,7 +81,7 @@ roadmap_row "$d" 2 ACME-0002 'Two' 'ACME-0001'
 roadmap_row "$d" 3 ACME-0003 'Three' 'ACME-0002'
 next "$d"
 assert_eq 0 "$R_STATUS" "exits 0"
-assert_eq "found" "$(out_key status)" "the run found something to dispatch"
+assert_eq "found" "$(out_key result)" "the run found something to dispatch"
 assert_eq "ACME-0002" "$(out_key ticket)" "the struck row was stepped over"
 assert_eq "1" "$(out_key wave)" "the wave is reported"
 assert_eq "2" "$(out_key order)" "and the row's own number, not its position in the parse"
@@ -90,19 +91,26 @@ assert_eq "$d/.ai/sift/open/backlog/feature/ACME-0002--two.md" "$(out_key file)"
 test_case "the report carries everything needed to size the work"
 # The orchestrator reads these keys instead of the ticket file, so a dropped key
 # is a dispatch made blind.
-assert_eq "ACME-0002" "$(fm_key id)" "id comes from the front-matter, not the filename"
-assert_eq "Two" "$(fm_key title)" "title"
-assert_eq "open" "$(fm_key status)" "status: open is the dispatchable state"
-assert_eq "feature" "$(fm_key type)" "type"
-assert_eq "backlog" "$(fm_key milestone)" "milestone"
-assert_eq "p1" "$(fm_key priority)" "priority"
-assert_eq "s" "$(fm_key effort)" "effort"
-assert_eq "[ACME-0001]" "$(fm_key depends_on)" \
+assert_eq "ACME-0002" "$(out_key id)" "id comes from the front-matter, not the filename"
+assert_eq "Two" "$(out_key title)" "title"
+assert_eq "open" "$(out_key status)" "status: open is the dispatchable state"
+assert_eq "feature" "$(out_key type)" "type"
+assert_eq "backlog" "$(out_key milestone)" "milestone"
+assert_eq "p1" "$(out_key priority)" "priority"
+assert_eq "s" "$(out_key effort)" "effort"
+assert_eq "[ACME-0001]" "$(out_key depends_on)" \
   "depends_on rides along verbatim: it is the truth the roadmap order is checked against"
-assert_eq "[caching, api]" "$(fm_key labels)" "labels"
+assert_eq "[caching, api]" "$(out_key labels)" "labels"
 
-test_case "the run's own status and the ticket's share one key name"
-skip "next-ticket.sh reports the run state under a key of its own" "SFT-0018"
+test_case "the run's own state and the ticket's status are different keys"
+# The report is a parsed interface, so one key may mean only one thing. It used
+# to open with `status: found` and then echo `status: open`, and a reader taking
+# the first match got the lookup's state where it asked for the ticket's — a
+# plausible wrong answer rather than an error (SFT-0018).
+assert_eq "found" "$(out_key result)" "the lookup answers under result:"
+assert_eq "open" "$(out_key status)" "leaving status: to mean the ticket's, and only that"
+assert_not_contains "$R_OUT" 'status: found' "the collision is gone from the found path"
+assert_eq "" "$(dup_keys)" "and no key at all is printed twice in one invocation"
 
 test_case "the wave's remaining work is counted, and named"
 assert_eq "2" "$(out_key remaining_in_wave)" "the struck row is not remaining"
@@ -116,7 +124,7 @@ roadmap_row "$d" 1 ACME-0001 'One' '-'
 next "$d"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_contains "$R_OUT" 'labels:' "an absent key is reported empty rather than omitted"
-assert_eq "" "$(fm_key depends_on)" "so is depends_on"
+assert_eq "" "$(out_key depends_on)" "so is depends_on"
 
 # --- next-ticket.sh: the skip rules ------------------------------------------
 
@@ -131,12 +139,14 @@ assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "ACME-0002" "$(out_key ticket)" "the blocked row was passed over"
 assert_contains "$R_OUT" 'ACME-0001 (status: blocked)' \
   "and named under skipped:, so the wave is not silently short"
+assert_eq "" "$(dup_keys)" \
+  "a report carrying both front-matter and a skipped block still repeats no key"
 
 test_case "--include-blocked dispatches it anyway"
 next "$d" --include-blocked
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "ACME-0001" "$(out_key ticket)" "the blocked ticket is chosen"
-assert_eq "blocked" "$(fm_key status)" "with its real status, not a laundered one"
+assert_eq "blocked" "$(out_key status)" "with its real status, not a laundered one"
 assert_not_contains "$R_OUT" 'skipped:' "nothing was skipped this time"
 
 test_case "an in-progress ticket is dispatchable"
@@ -189,8 +199,9 @@ ticket "$d" archive backlog/bug ACME-0001 one 'One' \
 struck_row "$d" 1 ACME-0001 'One'
 next "$d"
 assert_eq 1 "$R_STATUS" "exit 1 distinguishes 'nothing left' from 'something broke'"
-assert_eq "none" "$(out_key status)" "status: none"
+assert_eq "none" "$(out_key result)" "result: none"
 assert_contains "$R_OUT" 'the roadmap is drained' "with the reason in plain words"
+assert_eq "" "$(dup_keys)" "the drained report repeats no key either"
 
 test_case "a wave of nothing but blocked tickets ends the run and says why"
 # Exit 1 with an empty skipped list would send the operator looking for tickets
@@ -202,7 +213,8 @@ roadmap_row "$d" 1 ACME-0001 'One' '-'
 roadmap_row "$d" 2 ACME-0002 'Two' '-'
 next "$d"
 assert_eq 1 "$R_STATUS" "exits 1"
-assert_eq "none" "$(out_key status)" "nothing is dispatchable"
+assert_eq "none" "$(out_key result)" "nothing is dispatchable"
+assert_eq "" "$(dup_keys)" "the skipped block names statuses in its payload, not as keys"
 assert_contains "$R_OUT" 'ACME-0001 (status: blocked)' "both blockers are listed"
 assert_contains "$R_OUT" 'ACME-0002 (status: blocked)' "so the operator can go unblock one"
 

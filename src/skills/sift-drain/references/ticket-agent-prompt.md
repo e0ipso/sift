@@ -15,6 +15,11 @@ every clause is a hard-won constraint.
 | `{{TEST_SCOPE_HINT}}` | test files you expect to be relevant, or "agent's judgment" |
 | `{{SCRIPTS_DIR}}` | absolute path of this skill's `scripts/` directory |
 
+`next-ticket.sh` states whether it found anything under `result:` — `result: found` at
+exit 0, `result: none` at exit 1 when the roadmap is drained and there is nothing to
+substitute here. The `status:` line in that report is always the chosen ticket's own
+front-matter value, so read the two keys for the two different questions.
+
 ---
 
 ## Template

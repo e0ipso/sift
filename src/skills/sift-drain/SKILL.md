@@ -71,7 +71,10 @@ scripts/drain-log.sh dispatch|return|report  # per-ticket runtime and idle attri
 
 They find the project root by walking up from `$PWD` for `.ai/sift/ROADMAP.md` and read
 the prefix from `.ai/sift/config/config.yaml`; override with `SIFT_ROOT` / `SIFT_PREFIX`.
-`next-ticket.sh` skips `status: blocked` tickets (`--include-blocked` to override).
+`next-ticket.sh` skips `status: blocked` tickets (`--include-blocked` to override). It
+reports the lookup's own state as `result: found` or `result: none` — never as `status:`,
+which in that report is always the chosen ticket's own front-matter value, so every key
+means exactly one thing.
 `drain-log.sh dispatch <TICKET>` and `drain-log.sh return <TICKET> <STATUS>` append one row
 each to `.ai/sift/RUNLOG.md`, which the first dispatch creates and nothing ever rewrites;
 `drain-log.sh report` reads it back as a per-ticket table of agent runtime and the idle gap

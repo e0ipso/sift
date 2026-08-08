@@ -331,8 +331,11 @@ for m in .ai/sift/open/*/; do printf '%-28s %s\n' "$(basename "$m")" "$(find "$m
 
 **Find a ticket wherever it lives:**
 ```sh
-find .ai/sift -name "$PREFIX-0042*"
+find .ai/sift -name "$PREFIX-0042--*.md"
 ```
+The `--` is what makes this one ticket rather than a family: a bare `$PREFIX-0042*` glob
+also matches `$PREFIX-00420--*.md` and every longer ID sharing those leading digits, which
+is a live case once a tree passes `<PREFIX>-9999`.
 
 **Full-text search (e.g. every ticket touching one symbol or subsystem):**
 ```sh
@@ -403,8 +406,14 @@ done
 
 **Who depends on `$PREFIX-0042`:**
 ```sh
-grep -rl "$PREFIX-0042" .ai/sift --include="$PREFIX-*.md" | grep -v "$PREFIX-0042--"
+grep -rlE "$PREFIX-0042([^0-9]|$)" .ai/sift --include="$PREFIX-*.md" | grep -v "$PREFIX-0042--"
 ```
+`([^0-9]|$)` is the whole-ID anchor, and it is the difference between an answer and a
+guess: a bare substring search reports `$PREFIX-00420` and every longer ID as a dependent
+of `$PREFIX-0042`, purely because each such ticket carries its own ID in its front matter.
+Since `depends_on` — not `ROADMAP.md` — decides whether a ticket is safe to start or
+archive, a phantom dependent inverts that call. The trailing `grep -v` still drops the
+target's own file, which legitimately matches its own ID.
 
 **Pick the next thing to work on** (open, p1, not blocked):
 ```sh
@@ -556,7 +565,7 @@ closed when `.ai/sift` is missing; a consistent tree stays silent:
 # Every ticket (open or archived) must appear in ROADMAP.md ...
 find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sed 's#.*/##' \
   | grep -oE "^$PREFIX-[0-9]+" | sort -u | while read -r id; do
-    grep -q "$id" .ai/sift/ROADMAP.md || echo "NOT IN ROADMAP: $id"
+    grep -qE "$id([^0-9]|$)" .ai/sift/ROADMAP.md || echo "NOT IN ROADMAP: $id"
   done
 # ... and every roadmap ID must correspond to a ticket file somewhere.
 grep -oE "$PREFIX-[0-9]+" .ai/sift/ROADMAP.md | sort -u | while read -r id; do
@@ -566,7 +575,9 @@ done
 Extraction matches the whole numeric suffix (`[0-9]+`), not a fixed four digits, so an ID
 that has grown past `<PREFIX>-9999` is captured whole rather than truncated. Four digits
 remain the *rendering* width when allocating a new ID (`%04d` above); these recipes only
-read IDs back.
+read IDs back. Both directions compare whole IDs for the same reason: the forward lookup
+anchors with `([^0-9]|$)` and the reverse one with `$id--`, so a row for `<PREFIX>-00420`
+never vouches for a missing `<PREFIX>-0042`.
 
 **Validate front-matter across the tree** (files missing a required key). Same tree
 guard as above; when every required key is present the loop prints only the section

@@ -359,3 +359,37 @@ and `SKILL.md`; 004 edits `tests/scripts/` only — so they run concurrently wit
 ### Execution Summary
 - Total Phases: 3
 - Total Tasks: 4
+
+### ⚠️ Execution Halted at the Code Review Gate
+
+All three phases completed and every POST_EXECUTION gate passed: `tests/run.sh` green at
+225 tests / 768 assertions / 0 failures, all four tasks `completed`, and every Self
+Validation step executed live. Commits `1967d8c`, `5a2c2f6`, `a0bc07d`.
+
+The plan is **not** archived because round 1 of the code review gate returned
+`decision.kind: round-failed`. The reviewer harness (`codex`) ran but wrote no
+`review/round-1/review.xml`, and its output carried no findings document between the
+dispatch's fallback delimiters. `findings.json` holds only the failure record
+(`status: findings-absent`), so there is nothing to apply. A round with no findings
+document cannot be read as a round with no findings, so the round is uncertified rather
+than clean.
+
+Next step: re-run `code-review.cjs 2 claude 1` once the reviewer harness can write its
+findings document, or record the gate as unavailable and archive deliberately.
+
+**Noteworthy Events:**
+
+- Task 004 could not register `drain-log.sh` in the shared `SCRIPTS` sweep in
+  `tests/scripts/root-resolution.test.sh`. That list splits on whitespace so an entry
+  carries one argument, and the `check_found` case asserts exit status ≠ 2; every
+  one-argument invocation of `drain-log.sh` exits 2 against that fixture. Rather than plant
+  a script-specific prop into a shared sweep or weaken the assertion, the root-resolution
+  contract is asserted directly in `drain-log.test.sh` instead.
+- `tests/scripts/root-resolution.test.sh` (untracked SFT-0008 work) shipped without its
+  executable bit and had therefore never run. Setting the bit revealed four real failures in
+  it. With the user's explicit authorization, both defects were fixed: the `check_found`
+  fixture lacked a ticket and roadmap row, and the `SIFT_PREFIX` case asserted behaviour the
+  product does not have — `roadmap-check.sh` filters both roadmap rows and ticket files by
+  `$PREFIX`, so 0/0 under an overridden prefix is consistent and exit 0 is correct. No
+  product script was changed. That file is deliberately left **uncommitted**: it is
+  SFT-0008's deliverable, not this plan's.

@@ -250,13 +250,10 @@ race() {
 claims() { grep -l "^  created  $2\$" "$1"/w*.log 2>/dev/null | wc -l | tr -d ' '; }
 
 test_case "the tree itself is claimed by exactly one racing writer"
-# The lock's one real guarantee, and the only one that survives every
-# interleaving. It deliberately does NOT extend to the files inside: the script
-# says so in as many words, because `mkdir` covers the directory and a loser can
-# reach a `cp` the winner is also running. Several writers reporting they created
-# README.md is therefore expected, not a defect — what would be a defect is two
-# of them believing they got a FRESH tree, because the fresh path is the one that
-# writes the tracking policy and skips every "existing tree" repair.
+# The lock's own guarantee: `mkdir` covers the directory, and the fresh path it
+# hands the winner is the one that writes the tracking policy and skips every
+# "existing tree" repair. Two writers believing they got a FRESH tree is the
+# defect this rules out.
 raced="$(newdir)"; out="$(newdir)"
 race "$raced" "$out"
 n="$(claims "$out" '.ai/sift/')"
@@ -265,29 +262,44 @@ then t_ok "no two writers report creating .ai/sift/"
 else t_fail "no two writers report creating .ai/sift/" "writers claiming a fresh tree: $n"; fi
 
 test_case "a raced tree survives the race"
-# SFT-0030: two of the properties this case exists to assert do not hold. A
-# loser reaching `cp` at the same moment as the winner dies with a raw
-# `cp: … File exists` and exit 2, because GNU cp opens a destination it believes
-# absent with O_EXCL rather than overwriting it; and when the writer that dies is
-# the one that won the lock, `.ai/sift/.gitignore` is never written and no later
-# repair will ever write it, because it is fresh-only by design. Both are
-# reproducible at roughly one race in twenty here. Asserting them would make this
-# file fail on a schedule, so they are named and skipped instead.
-skip "every writer in a race exits 0" "SFT-0030"
-skip "a raced tree keeps the .gitignore its winner was writing" "SFT-0030"
+# SFT-0030. Every write is staged in a temp file beside its destination and
+# published with `ln`, whose EEXIST arbitrates the tie: exactly one writer
+# creates a given path and every other one keeps what it found. Both properties
+# below hold under every interleaving, from full overlap to complete
+# serialisation, which is why they are assertions and no longer skips.
+#
+# Before the fix, a loser reaching `cp` alongside the winner died with a raw
+# `cp: … File exists` and exit 2 — GNU cp opens a destination it believes absent
+# with O_EXCL rather than overwriting it — and when the dying writer was the one
+# holding the lock it took `.ai/sift/.gitignore` with it permanently, because
+# that file is fresh-only by design and no repair ever restores it. Measured at
+# 75 non-zero exits and 19 trees with no `.gitignore` in 200 eight-way races.
+rcs="$(cat "$out"/w*.rc | LC_ALL=C sort -u | tr '\n' ' ')"
+assert_eq "0 " "$rcs" "every writer in a race exits 0"
+assert_not_contains "$(cat "$out"/w*.log)" 'cp:' \
+  "and none of them printed a raw utility diagnostic"
+assert_eq '*
+!.gitignore' "$(cat "$raced/.ai/sift/.gitignore" 2>/dev/null)" \
+  "a raced tree keeps the .gitignore its winner was writing"
+
+# The atomicity itself, stated as a count: `ln` cannot let two writers create the
+# same path, so the file the whole race converges on has exactly one author.
+n="$(claims "$out" '.ai/sift/README.md')"
+assert_eq 1 "$n" "exactly one writer reports creating README.md"
 
 test_case "one sequential repair puts a raced tree back to a complete one"
-# The recovery contract, which is deterministic: after the race, a single init
-# fills whatever is missing, and the result matches an uncontended tree entry for
-# entry. `.gitignore` is excluded because SFT-0030 can lose it permanently.
+# The recovery contract: after the race, a single init fills whatever is missing,
+# and the result matches an uncontended tree entry for entry — `.gitignore`
+# included, now that winning the race is no longer what decides whether it
+# exists.
 reference="$(newdir)"
 init "$reference"
 run_cmd "$raced" "$INIT" --root "$raced" --prefix ACME
 assert_eq 0 "$R_STATUS" "the repair run exits 0"
 assert_contains "$R_OUT" 'gate: READY' "and the repaired tree passes the gate"
 
-rel_digest() {  # rel_digest <root> — tree_digest, root-relative, .gitignore aside
-  ( cd "$1" && tree_digest . ) | grep -v '^\./\.ai/sift/\.gitignore '
+rel_digest() {  # rel_digest <root> — tree_digest, root-relative
+  ( cd "$1" && tree_digest . )
 }
 assert_eq "$(rel_digest "$reference")" "$(rel_digest "$raced")" \
   "every file an uncontended init writes is present, and byte-identical"

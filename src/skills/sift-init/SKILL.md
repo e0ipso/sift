@@ -107,7 +107,9 @@ Re-running repairs what is missing and touches nothing else, so an interrupted i
 an `INCOMPLETE` gate result take the identical command. The tree is claimed with a bare
 `mkdir` rather than `mkdir -p`: it fails when the directory exists, so one syscall is
 both the "already there?" test and the lock that lets exactly one of several concurrent
-agents create the tree.
+agents create the tree. Each file inside is published the same way — staged in a
+temporary file beside its destination, then linked into place, so a losing writer keeps
+what it finds instead of failing, and no reader ever sees a half-written file.
 
 ## After initializing
 

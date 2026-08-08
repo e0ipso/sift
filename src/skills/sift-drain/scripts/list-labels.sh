@@ -8,6 +8,12 @@
 #   scripts/list-labels.sh --counts     # label<TAB>ticket-count, sorted by label
 #   scripts/list-labels.sh --open       # open/ bucket only
 #
+# A label that is not kebab-case is still listed — it is in the tree, and a
+# listing that hid it would send an operator hunting for a label the discovery
+# tool denied existed — but it earns a warning on stderr naming the ticket that
+# carries it, because `tickets-by-label.sh` refuses such a label as a lookup
+# argument. stdout stays the machine-readable list in both modes.
+#
 # Exit codes: 0 success | 2 setup error.
 
 set -uo pipefail
@@ -34,10 +40,28 @@ SEARCH_FLAG=""
 while read -r dir; do
   find "$dir" -name "$PREFIX-*.md" 2>/dev/null
 done < <(ticket_search_dirs $SEARCH_FLAG) | sort | while read -r f; do
-  fm_labels "$f"
+  # De-duplicate within the ticket, so `labels: [api, api]` is one ticket
+  # carrying api rather than two mentions of it, and flag anything the lookup
+  # would refuse while the file it came from is still in hand.
+  fm_labels "$f" | awk -v t="${f#"$ROOT/"}" -v kebab='^[a-z0-9]+(-[a-z0-9]+)*$' '
+    !seen[$0]++ {
+      print
+      if ($0 !~ kebab) {
+        printf "warning: %s: not kebab-case, tickets-by-label.sh will refuse it: %s\n",
+          t, $0 > "/dev/stderr"
+      }
+    }
+  '
 done | {
   if [ "$COUNTS" = "1" ]; then
-    sort | uniq -c | awk '{ printf "%s\t%s\n", $2, $1 }' | sort -k1,1
+    # Strip the count off the FRONT of the `uniq -c` line and keep the rest as
+    # the label. Reading the label back as a field would truncate it at its
+    # first blank; the count is a leading run of padding, digits and one blank,
+    # and the padding width changes as soon as a count reaches ten. The input
+    # to `uniq -c` is already sorted and `uniq` preserves that order, so no
+    # re-sort is needed — and `sort -k1,1` would key on the same truncation.
+    sort | uniq -c |
+      awk '{ n = $1; sub(/^[[:space:]]*[0-9]+[[:space:]]+/, ""); printf "%s\t%s\n", $0, n }'
   else
     sort -u
   fi

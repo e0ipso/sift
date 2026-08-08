@@ -122,13 +122,68 @@ labels "$d" --count
 assert_eq 2 "$R_STATUS" "a near-miss spelling is refused, not silently defaulted"
 assert_eq "" "$R_OUT" "in particular it does not answer as if --counts were off"
 
-test_case "a label carrying whitespace is reported differently by the two modes"
-# The bare listing prints "Foo Bar" and --counts prints "Foo": the count path
-# reads the label back out of `uniq -c` with awk's $2, which stops at the first
-# blank. Filed rather than pinned, because pinning it would make the wrong
-# answer the contract.
-skip "list-labels.sh --counts reports the same label set as the bare listing" \
-  "SFT-0023: a label containing a blank is truncated at the blank in --counts"
+test_case "a label carrying whitespace reaches both modes whole (SFT-0023)"
+# The count path used to read the label back out of `uniq -c` with awk's $2,
+# which stops at the first blank, so "Foo Bar" was reported as "Foo" — a label
+# no ticket carries, handed out by the one tool an agent uses to discover a tree
+# it has not read. The two modes are one answer with a column added, so they are
+# asserted against each other: R_OUT is compared whole rather than through
+# flat(), because a listing joined on blanks cannot tell "Foo Bar" from two
+# labels named Foo and Bar.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open v1/bug ACME-0001 alpha 'Alpha' 'labels: [Foo Bar, api]' > /dev/null
+ticket "$d" open v1/bug ACME-0002 beta 'Beta' 'labels: [api]' > /dev/null
+ticket "$d" archive v1/bug ACME-0003 gamma 'Gamma' \
+  'status: done' 'resolution: "Shipped"' 'labels: [Foo Bar, zed one]' > /dev/null
+labels "$d"
+assert_eq 0 "$R_STATUS" "bare exits 0"
+assert_eq "Foo Bar
+api
+zed one" "$R_OUT" "the bare listing prints each label as written"
+labels "$d" --counts
+assert_eq 0 "$R_STATUS" "--counts exits 0"
+assert_eq "2" "$(tsv_widths)" "every row is still exactly two tab-separated fields"
+assert_eq "Foo Bar	2
+api	2
+zed one	1" "$R_OUT" "the same label set, in the same order, with the count appended"
+labels "$d" --counts --open
+assert_eq "Foo Bar	1
+api	2" "$R_OUT" "--open narrows a blank-carrying label the same way it narrows any other"
+
+test_case "a label the lookup would refuse is listed anyway, and warned about"
+# tickets-by-label.sh refuses a non-kebab label as an argument, so the listing
+# names the ticket to fix rather than hiding the label: a discovery tool that
+# silently dropped it would send an operator hunting for something the tree
+# plainly contains. The warning is stderr-only in both modes, so stdout stays a
+# TSV a caller can read without filtering.
+labels "$d" --counts
+assert_contains "$R_ERR" 'ACME-0001--alpha.md' "the warning names a ticket carrying it"
+assert_contains "$R_ERR" 'Foo Bar' "and the label it objects to"
+assert_not_contains "$R_OUT" 'warning' "with no warning text on stdout to break a reader"
+labels "$d"
+assert_contains "$R_ERR" 'Foo Bar' "the bare listing warns identically"
+by_label "$d" 'Foo Bar'
+assert_eq 2 "$R_STATUS" "and the warning is honest: the lookup does refuse that label"
+
+test_case "the count counts tickets across the width uniq -c re-pads at"
+# `uniq -c` right-aligns its count in a padded column, so the run in front of
+# the label is blanks, digits and a blank — and the widths shift the moment a
+# count reaches ten. ACME-0013 names api twice, which is one ticket carrying the
+# label, not two mentions of it.
+d="$(newdir)"; make_tree "$d" ACME
+i=1
+while [ "$i" -le 12 ]; do
+  n="$(printf 'ACME-%04d' "$i")"
+  ticket "$d" open v1/bug "$n" "t$i" "T$i" 'labels: [api]' > /dev/null
+  i=$((i + 1))
+done
+ticket "$d" open v1/bug ACME-0013 dup 'Dup' 'labels: [api, api]' > /dev/null
+ticket "$d" open v1/bug ACME-0014 solo 'Solo' 'labels: [zeta]' > /dev/null
+labels "$d" --counts
+assert_eq "api	13 zeta	1" "$(flat)" \
+  "thirteen carriers, the double mention folded into one, and no digit ate a character"
+assert_eq "2" "$(tsv_widths)" "the record shape holds at a two-digit count"
+assert_eq "" "$R_ERR" "every label here is kebab-case, so nothing is warned about"
 
 # --- tickets-by-label.sh: the lookup -----------------------------------------
 

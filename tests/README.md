@@ -42,9 +42,12 @@ is empty, so that is the first state any of them meets.
 the initializer's resolution, its two validators and its write path;
 `convention-assets` and `sync-assets` own the shipped spec; `reserve-ids` owns ID
 allocation; `roadmap-check` owns rule-9 consistency; `drain-selection` owns
-next-ticket/wave-status; `drain-log` owns the run log. Root and prefix resolution
-is the one contract every card script shares, so it is swept across all of them
-once, in `root-resolution`, instead of being re-asserted per file.
+next-ticket/wave-status; `drain-log` owns the run log; `labels` owns the drain's
+label index (list-labels/tickets-by-label); `prime-backlog` owns the two ends of
+a priming pass, existing-work's dedupe corpus and roadmap-append's write. Root
+and prefix resolution is the one contract every card script shares, so it is
+swept across all of them once, in `root-resolution`, instead of being
+re-asserted per file.
 
 `static/suite-contract.test.sh` holds the suite to its own promises: it runs a
 generated child test file and checks the temporary tree is gone afterwards on the

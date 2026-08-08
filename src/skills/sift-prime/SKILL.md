@@ -92,12 +92,35 @@ it, and a slate they have to re-reject is a slate they stop reading. Match on su
 matter, not title strings, and when an archived `resolution` kills a candidate, quote that
 line back to the user verbatim.
 
+### Synthesize milestones
+
+After dedupe and before presenting the slate, run one read-only milestone-planning
+sub-agent using `references/milestone-planner-prompt.md`. Give it the surviving findings,
+the existing milestone names and descriptions, and any scope fence. The planner reads the
+project's stated-intent sources and returns outcome-based milestone proposals plus one
+assignment for every survivor. The orchestrator works from that report and does not inspect
+the source to second-guess it.
+
+`backlog` is a temporary unclassified bucket, not the default for a shaped slate. When it
+is the only existing milestone and the survivors express more than one coherent outcome,
+the planner must propose named milestones. An all-`backlog` slate is allowed only when the
+planner gives a concrete rationale that the orchestrator shows to the user. Never invent a
+fixed milestone count: one outcome may be right, and several may be right. Cluster by the
+project result the work delivers, never mechanically by ticket `type` or directory.
+
+Every proposed name must be kebab-case, repository-specific rather than convention-wide,
+and durable enough to describe an outcome instead of one implementation step. Keep a
+survivor in `backlog` only when the available evidence genuinely cannot classify it, and
+name that exception in the slate.
+
 ## Phase 2 — Negotiate
 
 Present the survivors as a slate: title, `type`, `priority`, `effort`, milestone, the
 one-line rationale and the citation behind each row, plus the `depends_on` edges you
 propose between them and the waves those edges imply. Name what dedupe dropped and why.
-Then ask, and change what the user asks you to change.
+Present every new milestone with its short outcome description before the ticket rows. If
+the slate leaves everything in `backlog`, include the milestone planner's explicit
+rationale. Then ask, and change what the user asks you to change.
 
 **The slate lives in the conversation and nowhere else.** No scratch file, no `.prime/`
 directory, no drafts written "pending approval", nothing under `.ai/sift` until the user
@@ -129,11 +152,13 @@ or a weak `## Direction`, a collision cannot be repaired afterwards by any `find
 migration. The script takes its high-water mark from the ticket filenames *and*
 `ROADMAP.md`, so an ID present in only one of them is still respected.
 
-**Milestones.** Default to the names already in `MILESTONES.md`. A `milestone` value not
-listed there is a convention violation the drafting agent has no authority to fix. If the
-agreed work needs a new milestone, propose it in the slate, and on agreement write it into
+**Milestones.** Use the milestone assignments agreed in the slate; do not collapse them
+back to the names that happened to exist before analysis. A `milestone` value not listed
+in `MILESTONES.md` is a convention violation the drafting agent has no authority to fix.
+For every agreed new milestone, write its heading and outcome description into
 `MILESTONES.md` and create its `open/<milestone>/` folder in the same change (rule 8) —
-before dispatching anything into it.
+before dispatching anything into it. Retain `backlog` for genuinely unclassified work,
+not as the bootstrap default.
 
 **Fan out.** One drafting agent per agreed slate row, using
 `references/drafting-agent-prompt.md` verbatim: the template, its placeholder table, and
@@ -201,5 +226,7 @@ Then report:
 - **`references/analysis.md`** — the goal-gap sweep: the sources of stated intent, the
   evidence bar, the scope fence, the seven sweep dimensions, the finding format sweep
   agents return, and the dedupe procedure against both buckets.
+- **`references/milestone-planner-prompt.md`** — the read-only outcome clustering pass
+  that assigns every surviving finding before slate negotiation.
 - **`references/drafting-agent-prompt.md`** — the canonical per-row drafting sub-agent
   prompt, its placeholder table, and the retry for an agent that returns blocked.

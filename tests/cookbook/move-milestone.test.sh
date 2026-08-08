@@ -8,8 +8,9 @@
 # it: no moved file left claiming its old milestone, no rewritten key left in
 # the old folder.
 #
-# It is also the cookbook's worked example of the `sed … > tmp && mv` form that
-# stands in for the banned `sed -i`, so the `.tmp` file's fate is pinned here.
+# It is also the cookbook's smallest worked example of the `… > tmp && mv` form
+# that stands in for the banned `sed -i`, so the `.tmp` file's fate is pinned
+# here.
 
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
@@ -81,12 +82,44 @@ assert_eq 2 "$(diff "$before" "$dest" | grep -c '^[<>]')" \
   "exactly one line differs in the whole file"
 
 test_case "a body line beginning with milestone: is left alone"
-# Known product bug, filed as SFT-0016: the substitution is anchored to the
-# start of the line but not scoped to the front-matter block, so a ticket whose
-# body quotes a key at column 0 has that prose silently rewritten. The archive
-# recipe rewrites `status:` and `updated:` the same way, which is why the ticket
-# covers both recipes rather than this one alone.
-skip "prose beginning with a key name survives the rewrite" "SFT-0016"
+# SFT-0016: the rewrite is anchored to the start of a line, so it has to be
+# scoped to the front-matter block as well, or a ticket whose body quotes a key
+# at column 0 has that prose silently replaced. The `---` horizontal rule is in
+# the fixture because it is legal markdown and must not re-open the region.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open caching/bug SFT-0042 prose 'Prose ticket')"
+{
+  printf '\n## Direction\n'
+  printf 'milestone: caching is what the body claims.\n'
+  printf '\n---\n\n'
+  printf 'milestone: and again, after a horizontal rule.\n'
+} >> "$f"
+body() { awk 'p { print } /^---$/ && NR > 1 && !p { p = 1 }' "$1"; }
+before="$d/body.before"; body "$f" > "$before"
+move "$d" 0042 platform
+dest="$d/.ai/sift/open/platform/bug/SFT-0042--prose.md"
+after="$d/body.after"; body "$dest" > "$after"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "platform" "$(fm "$dest" milestone)" "the front-matter key was rewritten"
+assert_same "$before" "$after" "every byte after the closing fence is unchanged"
+assert_eq 1 "$(grep -c '^milestone: platform$' "$dest")" \
+  "exactly one line in the file was rewritten"
+
+test_case "a ticket with no front-matter milestone: key fails loudly"
+# The awk pass cannot invent the key, and a move that silently leaves the
+# front matter disagreeing with the folder is the desync rule 2 forbids.
+d="$(newdir)"; make_tree "$d"
+mkdir -p "$d/.ai/sift/open/caching/bug"
+printf '# Bare\n\nNo front matter here.\nmilestone: quoted in prose.\n' \
+  > "$d/.ai/sift/open/caching/bug/SFT-0042--bare.md"
+before="$d/bare.before"; cp "$d/.ai/sift/open/caching/bug/SFT-0042--bare.md" "$before"
+move "$d" 0042 platform
+dest="$d/.ai/sift/open/platform/bug/SFT-0042--bare.md"
+assert_ne 0 "$R_STATUS" "exits non-zero"
+assert_contains "$R_ERR" 'no milestone: key in the front matter' "says what is missing"
+assert_contains "$R_ERR" 'MILESTONE NOT UPDATED' "tells the operator the file already moved"
+assert_same "$before" "$dest" "the prose line is not rewritten in its place"
+assert_eq "" "$(find "$d/.ai/sift" -name '*.tmp')" "no half-written temp file survives"
 
 test_case "a ticket that does not exist changes nothing"
 d="$(newdir)"; make_tree "$d"
@@ -110,7 +143,8 @@ assert_file "$d/.ai/sift/open/caching/bug/SFT-0042--tenant.md" "the ticket is st
 assert_eq "$digest_before" "$(tree_digest "$d/.ai/sift")" "and identical byte for byte"
 
 # --- Portability matrix ------------------------------------------------------
-# Built from find, sed and mv only, so the awk axis has nothing to vary.
+# SFT-0016 moved the front-matter rewrite from sed onto awk to scope it, so the
+# awk axis now has something to vary and the sweep is the full matrix.
 
 matrix_case() {
   local d
@@ -123,7 +157,7 @@ matrix_case() {
      [ -z "$(find "$d/.ai/sift" -name '*.tmp')" ]
   then t_ok "$R_LABEL"; else t_fail "$R_LABEL" "status=$R_STATUS" "stderr=$R_ERR"; fi
 }
-test_case "the move round trip works on every shell × locale"
-for_shell_locale matrix_case
+test_case "the move round trip works on every shell × awk × locale"
+for_matrix matrix_case
 
 summary

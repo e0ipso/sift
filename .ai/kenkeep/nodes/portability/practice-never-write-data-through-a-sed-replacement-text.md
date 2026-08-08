@@ -31,9 +31,12 @@ author typed, build the new line with `awk` string concatenation and print it.
 `awk` concatenation is byte-transparent — there is no replacement grammar to
 re-scan — and it costs nothing extra, since the recipes already rewrite through
 `"$f.tmp"` plus `mv`. The cookbook's **Archive a finished ticket** recipe in
-`README.md` is the worked example: it keeps `sed` for the fixed front-matter keys
-it controls (`status:`, `updated:`) and switches to a single `awk` pass to strike
-the `ROADMAP.md` row, because the row carries the ticket's title.
+`README.md` is the worked example: one `awk` pass writes the front-matter keys and
+a second strikes the `ROADMAP.md` row, and both read their values from `ENVIRON`
+rather than interpolating them into a script. SFT-0016 finished the migration by
+moving `status:`, `updated:` and the move recipe's `milestone:` off `sed` as well
+— nominally for scoping, but the re-scan hazard applied to the operator-supplied
+`$DEST` too, and `DEST='a&b'` really did come back as `milestone: amilestone: oldb`.
 
 The same reasoning rules out the mirror-image trap of escaping the data before
 handing it to `sed`. Escaping is another parser to get right on every platform,

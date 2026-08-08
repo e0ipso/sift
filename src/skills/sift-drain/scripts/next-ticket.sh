@@ -5,6 +5,11 @@
 # is not ~~struck~~ (i.e. not archived) and not `status: blocked`, together with
 # its file path and the front-matter the orchestrator needs to size the work.
 #
+# The lookup reports its own state under `result: found|none`, never under
+# `status:` — that key belongs to the echoed front-matter, and one key meaning
+# two things in one report is how a first-match parser reads "found" as a ticket
+# status. Every key printed here is unique within an invocation; keep it so.
+#
 # Usage:
 #   scripts/next-ticket.sh                 # next dispatchable ticket
 #   scripts/next-ticket.sh --include-blocked
@@ -60,7 +65,7 @@ while IFS=$'\t' read -r wave order id struck _title; do
 done <<< "$ROWS"
 
 if [ -z "$CHOSEN_ID" ]; then
-  echo "status: none"
+  echo "result: none"
   echo "note: every roadmap row is struck or skipped — the roadmap is drained"
   [ -n "$SKIPPED" ] && printf 'skipped:\n%s' "$SKIPPED"
   exit 1
@@ -69,7 +74,7 @@ fi
 REMAINING="$(printf '%s\n' "$ROWS" | awk -F'\t' -v w="$CHOSEN_WAVE" '$1 == w && $4 == 0 { printf "%s ", $3 }')"
 REMAINING_COUNT="$(printf '%s\n' "$ROWS" | awk -F'\t' -v w="$CHOSEN_WAVE" '$1 == w && $4 == 0' | wc -l | tr -d ' ')"
 
-echo "status: found"
+echo "result: found"
 echo "wave: $CHOSEN_WAVE"
 echo "order: $CHOSEN_ORDER"
 echo "ticket: $CHOSEN_ID"

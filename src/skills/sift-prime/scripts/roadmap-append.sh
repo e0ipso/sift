@@ -14,7 +14,8 @@
 #   scripts/roadmap-append.sh <wave> <ID> <title> <needs>
 #
 #   <wave>   whole number >= 1
-#   <ID>     <PREFIX>-NNNN, not already present anywhere in the roadmap
+#   <ID>     <PREFIX>-NNNN, not already the ticket cell of a roadmap row (being
+#            named as another row's blocker or in its title is not a row)
 #   <title>  the ticket title, no "|" (it would break the table) and no control
 #            character such as a tab (it would break the tab-separated read)
 #   <needs>  space- or comma-separated blocker IDs; pass "" for none
@@ -84,11 +85,54 @@ for cell in "$TITLE" "$NEEDS"; do
 done
 
 # --- Duplicate ID -----------------------------------------------------------
+# One definition of "a roadmap row", shared by the duplicate check and the append
+# hop below, so the two cannot disagree about what they are looking at. The digit
+# run is greedy rather than exactly four so a five-digit ID reads out whole: with
+# a fixed four, ACME-00011 would surrender the ID ACME-0001 it does not have.
+ROW_ID_PAT="$PREFIX-[0-9][0-9][0-9][0-9][0-9]*"
+
 # Rule 2 makes IDs immutable and never reused, so a second row for an ID already
 # in the file means the caller lost track of what it wrote. Fail loudly: silently
 # skipping would leave the caller believing a row exists in a wave where it does
-# not. The trailing guard keeps TEST-0001 from matching TEST-00011.
-if command grep -qE "(^|[^A-Za-z0-9])$ID([^0-9]|\$)" "$ROADMAP"; then
+# not.
+#
+# "Already in the file" means a ROW, not a mention. This is the rule sift-drain's
+# lib.sh roadmap_rows already applies, restated here because the two cards ship
+# separately and must still agree: only markdown table lines count, and within a
+# line only the FIRST cell holding an ID is the ticket cell. An ID named in a
+# Needs cell, quoted in a Title or written in the prose around the table belongs
+# to somebody else's row and must never block its own. A struck row does count
+# for its own ID — rule 2 makes an ID unreusable whether or not the work finished,
+# and ~~ delimiters are not identifier characters, so it falls out of the same
+# whole-token rule rather than needing a case of its own.
+#
+# awk, not a second grep: one parse of the table, in the same shape and through
+# the same pattern as the append hop below, is what keeps this check from drifting
+# away from the thing it is guarding.
+if ROW_ID_PAT="$ROW_ID_PAT" RA_ID="$ID" awk -F'|' '
+    BEGIN { pat = ENVIRON["ROW_ID_PAT"]; want = ENVIRON["RA_ID"] }
+    # The ID a cell holds, or "" when it holds none. Whole-token on the left so a
+    # suffix of a longer word is not an ID, and [[:alnum:]] rather than a spelled
+    # range so a UTF-8 locale cannot re-collate the set; whole-token on the right
+    # comes free from the greedy digit run, which cannot stop mid-number.
+    function cell_id(s,   id, before) {
+      while (match(s, pat)) {
+        id = substr(s, RSTART, RLENGTH)
+        before = (RSTART > 1) ? substr(s, RSTART - 1, 1) : ""
+        if (before !~ /[[:alnum:]]/) return id
+        s = substr(s, RSTART + RLENGTH)
+      }
+      return ""
+    }
+    !/^[[:space:]]*\|/ { next }
+    NF < 3 { next }
+    {
+      cell = 0
+      for (i = 1; i <= NF; i++) if ($i ~ pat) { cell = i; break }
+      if (cell && cell_id($cell) == want) { found = 1; exit }
+    }
+    END { exit (found ? 0 : 1) }
+  ' "$ROADMAP"; then
   echo "error: $ID already has a row in $ROADMAP" >&2
   echo "hint: IDs are never reused and a ticket gets exactly one row (README rule 9)" >&2
   exit 1
@@ -114,7 +158,7 @@ if command grep -qE "$WAVE_RE" "$ROADMAP"; then
   # as a real newline — after the validation above had already passed them. The
   # new-wave path below writes the same values with printf %s, so keeping this
   # path escape-free is also what makes the two paths byte-identical.
-  RA_PAT="$PREFIX-[0-9][0-9][0-9][0-9]" \
+  RA_PAT="$ROW_ID_PAT" \
   RA_WAVE_RE="$WAVE_RE" \
   RA_ROW_ID="$ID" \
   RA_ROW_TITLE="$TITLE" \

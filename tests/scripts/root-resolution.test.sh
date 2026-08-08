@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+# lib.sh — the root and prefix resolution every card script shares (SFT-0008).
+#
+# sift-drain and sift-prime each carry a lib.sh, and the top half of the two is
+# the same block: resolve the project root, insist on a ROADMAP.md, resolve the
+# prefix. Every case below is swept across scripts from BOTH cards, because two
+# copies of a contract that drift apart is the failure this file exists to catch
+# — a card that resolves a different root than its sibling allocates IDs into a
+# tree the other one cannot see.
+#
+# Sandboxing: SIFT_ROOT always points into TMPROOT, and where the upward walk is
+# the thing under test, $PWD does. The first case proves no .ai/sift exists above
+# TMPROOT, so a walk can never reach the repository running the suite.
+
+set -u
+DIR="$(cd "$(dirname "$0")" && pwd -P)"
+. "$DIR/../lib/harness.sh"
+. "$DIR/../lib/recipes.sh"
+. "$DIR/../lib/fixtures.sh"
+
+DRAIN="$REPO_ROOT/src/skills/sift-drain/scripts"
+PRIME="$REPO_ROOT/src/skills/sift-prime/scripts"
+
+# Every script that sources a lib.sh, with the minimum arguments that get it past
+# its own usage check — so the failure under test is always the shared block.
+SCRIPTS="$DRAIN/next-ticket.sh:
+$DRAIN/wave-status.sh:
+$DRAIN/roadmap-check.sh:
+$DRAIN/list-labels.sh:
+$DRAIN/tickets-by-label.sh:caching
+$PRIME/reserve-ids.sh:1"
+
+# sweep <description> <workdir> <env-assignment…> -- expectations are asserted by
+# the caller-supplied check() function, which sees R_STATUS/R_OUT/R_ERR.
+sweep() {  # sweep <workdir> <check-fn> [env assignments…]
+  local dir="$1" check="$2"; shift 2
+  local entry script arg
+  for entry in $SCRIPTS; do
+    script="${entry%%:*}"
+    arg="${entry#*:}"
+    if [ -n "$arg" ]; then
+      run_cmd "$dir" env "$@" "$script" "$arg"
+    else
+      run_cmd "$dir" env "$@" "$script"
+    fi
+    "$check" "$(basename "$script")"
+  done
+}
+
+# --- The sandbox itself ------------------------------------------------------
+
+test_case "no sift tree exists above the temporary tree"
+trees=''
+d="$TMPROOT"
+while :; do
+  [ -d "$d/.ai/sift" ] && trees="$trees $d"
+  parent="$(dirname "$d")"
+  [ "$parent" = "$d" ] && break
+  d="$parent"
+done
+assert_eq "" "$trees" "the upward walk from TMPROOT cannot reach a real sift tree"
+
+# --- SIFT_ROOT ---------------------------------------------------------------
+
+test_case "an unreadable SIFT_ROOT is refused by every script"
+root="$(newdir)"
+check_unreadable() {
+  if [ "$R_STATUS" -eq 2 ] &&
+     case "$R_ERR" in *'SIFT_ROOT is not a readable directory'*) true ;; *) false ;; esac
+  then t_ok "$1 exits 2 and names the variable"
+  else t_fail "$1 rejects an unreadable SIFT_ROOT" "status=$R_STATUS" "stderr=$R_ERR"; fi
+}
+sweep "$root" check_unreadable SIFT_ROOT="$root/nowhere"
+
+test_case "a SIFT_ROOT with no tree under it is refused by every script"
+check_no_tree() {
+  if [ "$R_STATUS" -eq 2 ] &&
+     case "$R_ERR" in *'no .ai/sift/ directory under SIFT_ROOT'*) true ;; *) false ;; esac
+  then t_ok "$1 exits 2 rather than treating an empty directory as an empty backlog"
+  else t_fail "$1 rejects a treeless SIFT_ROOT" "status=$R_STATUS" "stderr=$R_ERR"; fi
+}
+sweep "$root" check_no_tree SIFT_ROOT="$root"
+
+test_case "no tree at or above \$PWD is refused by every script"
+check_no_walk() {
+  if [ "$R_STATUS" -eq 2 ] &&
+     case "$R_ERR" in *'no .ai/sift/ directory found at or above'*) true ;; *) false ;; esac &&
+     case "$R_ERR" in *'set SIFT_ROOT='*) true ;; *) false ;; esac
+  then t_ok "$1 exits 2 with the escape hatch in the hint"
+  else t_fail "$1 refuses to guess a root" "status=$R_STATUS" "stderr=$R_ERR"; fi
+}
+sweep "$root" check_no_walk PATH="$PATH"
+
+# --- The upward walk ---------------------------------------------------------
+
+test_case "the walk finds the tree from any depth below it"
+root="$(newdir)"
+make_tree "$root" ACME
+# A bare tree would make next-ticket.sh and wave-status.sh exit 2 on their own
+# empty-roadmap precondition, which is indistinguishable from a failed walk. One
+# ticket and its row give every swept script something real to read, so a 2 here
+# can only mean the root was not resolved.
+ticket "$root" open v1/bug ACME-0001 alpha 'Alpha' 'labels: [caching]' > /dev/null
+roadmap_row "$root" 1 ACME-0001 'Alpha' '-'
+mkdir -p "$root/pkg/api/src/deep"
+check_found() {
+  if [ "$R_STATUS" -ne 2 ]
+  then t_ok "$1 resolved the tree from four directories down"
+  else t_fail "$1 resolved the tree" "status=$R_STATUS" "stderr=$R_ERR"; fi
+}
+sweep "$root/pkg/api/src/deep" check_found PATH="$PATH"
+
+test_case "a nested .git does not stop the walk"
+# In a monorepo, a subproject's own VCS marker must not shadow the parent's sift
+# tree: the .ai/sift DIRECTORY is the marker, and nothing else is.
+mkdir "$root/pkg/.git"
+run_cmd "$root/pkg/api" env PATH="$PATH" "$DRAIN/roadmap-check.sh"
+assert_eq 0 "$R_STATUS" "roadmap-check.sh still resolves the parent tree"
+assert_contains "$R_OUT" 'OK: 1 roadmap rows / 1 ticket files' "and reads it"
+
+test_case "a tree with no ROADMAP.md reports that specifically"
+# An initialised tree missing its roadmap is a rule-9 problem to repair, not a
+# "there is no project here" — conflating the two sends the operator to init.
+root="$(newdir)"
+make_tree "$root" ACME
+rm "$root/.ai/sift/ROADMAP.md"
+check_no_roadmap() {
+  if [ "$R_STATUS" -eq 2 ] &&
+     case "$R_ERR" in *'has no ROADMAP.md'*) true ;; *) false ;; esac &&
+     case "$R_ERR" in *'rule 9'*) true ;; *) false ;; esac
+  then t_ok "$1 exits 2 naming the missing roadmap and the rule behind it"
+  else t_fail "$1 names the missing roadmap" "status=$R_STATUS" "stderr=$R_ERR"; fi
+}
+sweep "$root" check_no_roadmap SIFT_ROOT="$root"
+
+# --- Prefix resolution -------------------------------------------------------
+
+test_case "the configured prefix is what the scripts use"
+root="$(newdir)"
+make_tree "$root" ACME
+ticket "$root" open v1/bug ACME-0001 alpha 'Alpha' 'labels: [caching]' > /dev/null
+roadmap_row "$root" 1 ACME-0001 'Alpha' '-'
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/roadmap-check.sh"
+assert_eq 0 "$R_STATUS" "roadmap-check.sh exits 0"
+assert_contains "$R_OUT" 'OK: 1 roadmap rows / 1 ticket files' "it counted the ACME ticket"
+
+test_case "a quoted prefix in config.yaml is unwrapped"
+for quoted in '"ACME"' "'ACME'"; do
+  printf 'prefix: %s\n' "$quoted" > "$root/.ai/sift/config/config.yaml"
+  run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/roadmap-check.sh"
+  if [ "$R_STATUS" -eq 0 ] &&
+     case "$R_OUT" in *'1 roadmap rows / 1 ticket files'*) true ;; *) false ;; esac
+  then t_ok "prefix: $quoted resolves to ACME"
+  else t_fail "prefix: $quoted" "status=$R_STATUS" "stdout=$R_OUT"; fi
+done
+printf 'prefix: ACME\n' > "$root/.ai/sift/config/config.yaml"
+
+test_case "SIFT_PREFIX overrides the configured value"
+run_cmd "$root" env SIFT_ROOT="$root" SIFT_PREFIX=ZZZZ "$DRAIN/roadmap-check.sh"
+# The override has to reach the row filter AND the file glob, not just one: with
+# PREFIX=ZZZZ the ACME row is not a ticket row and the ACME file is not a ticket
+# file, so 0/0 is the consistent answer. The case above saw 1/1 on the same tree,
+# which is what makes this 0/0 evidence the override landed.
+assert_eq 0 "$R_STATUS" "exits 0: under ZZZZ there is nothing left to be inconsistent about"
+assert_contains "$R_OUT" 'OK: 0 roadmap rows / 0 ticket files' \
+  "the ACME row and the ACME file both stop counting"
+run_cmd "$root" env SIFT_ROOT="$root" SIFT_PREFIX=ZZZZ "$PRIME/reserve-ids.sh" 1
+assert_eq 0 "$R_STATUS" "reserve-ids.sh exits 0"
+assert_eq "ZZZZ-0001" "$R_OUT" "and allocates under the overridden prefix, from both cards' lib.sh"
+
+test_case "with no config the prefix is inferred from the ticket filenames"
+rm "$root/.ai/sift/config/config.yaml"
+run_cmd "$root" env SIFT_ROOT="$root" "$PRIME/reserve-ids.sh" 1
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "ACME-0002" "$R_OUT" "the majority filename prefix is adopted, and the mark is respected"
+
+test_case "a prefix that cannot be determined at all is an error, not a guess"
+root="$(newdir)"
+make_tree "$root" ACME
+rm "$root/.ai/sift/config/config.yaml"
+check_no_prefix() {
+  if [ "$R_STATUS" -eq 2 ] &&
+     case "$R_ERR" in *'cannot determine the ticket prefix'*) true ;; *) false ;; esac &&
+     case "$R_ERR" in *'export SIFT_PREFIX'*) true ;; *) false ;; esac
+  then t_ok "$1 exits 2 with both ways to fix it"
+  else t_fail "$1 refuses to guess a prefix" "status=$R_STATUS" "stderr=$R_ERR"; fi
+}
+sweep "$root" check_no_prefix SIFT_ROOT="$root"
+
+summary

@@ -1,0 +1,254 @@
+#!/usr/bin/env bash
+# roadmap-check.sh — the rule-9 gate, through its real command line (SFT-0008).
+#
+# Rule 9 makes the roadmap row and the ticket file one change, and this script
+# is the only thing in the system that can tell whether that held. It checks in
+# BOTH directions, and both directions matter for different reasons: a ticket
+# with no row is work the drain will never dispatch, and a row with no ticket is
+# a dispatch that dies at the first `ticket_file` lookup.
+#
+# Every violation class gets its own case, because they are reported from four
+# separate loops and a regression in one is invisible from the others. The
+# fixtures are deliberately one violation each: the count in the FAIL line is
+# part of the contract, so a case that tripped two checks at once could not
+# assert it.
+#
+# The cookbook's own consistency recipe is pinned separately, against the text
+# extracted from README.md, by cookbook/roadmap-consistency.test.sh. This file
+# pins the shipped script, which reports strictly more than the recipe does.
+#
+# Sandboxing: SIFT_ROOT always points into TMPROOT. Root and prefix resolution
+# (exit 2) is swept across this script and its siblings by root-resolution.test.sh.
+
+set -u
+DIR="$(cd "$(dirname "$0")" && pwd -P)"
+. "$DIR/../lib/harness.sh"
+. "$DIR/../lib/recipes.sh"
+. "$DIR/../lib/fixtures.sh"
+
+CHECK="$REPO_ROOT/src/skills/sift-drain/scripts/roadmap-check.sh"
+
+check() { run_cmd "$1" env SIFT_ROOT="$1" "$CHECK"; }
+
+# archived <dir> <id> <slug> <title> [extra front-matter…]
+archived() {
+  local d="$1" id="$2" slug="$3" title="$4"; shift 4
+  ticket "$d" archive backlog/bug "$id" "$slug" "$title" \
+    'status: done' 'resolution: "Fixed in abc1234"' "$@" > /dev/null
+}
+
+# --- Consistent trees --------------------------------------------------------
+
+test_case "an empty tree is consistent, and says so with two zeroes"
+# The state a fresh sift-init leaves behind. A check that divided by the number
+# of rows, or that read "nothing found" as "nothing to compare", would fail here.
+d="$(newdir)"; make_tree "$d"
+check "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_contains "$R_OUT" 'OK: 0 roadmap rows / 0 ticket files are rule-9 consistent' \
+  "both counts are reported, not suppressed"
+
+test_case "an open ticket with an unstruck row is consistent"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'One' > /dev/null
+roadmap_row "$d" 1 SFT-0001 'One' '-'
+check "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_contains "$R_OUT" 'OK: 1 roadmap rows / 1 ticket files' "one of each, matched"
+
+test_case "every terminal status is consistent once archived and struck"
+# done, wontfix and superseded are the three ways a ticket leaves open/, and all
+# three need a resolution. A check that only knew about `done` would silently
+# pass a wontfix ticket with no closing line.
+for st in done wontfix superseded; do
+  d="$(newdir)"; make_tree "$d"
+  ticket "$d" archive backlog/bug SFT-0001 one 'One' \
+    "status: $st" 'resolution: "Closed out"' > /dev/null
+  struck_row "$d" 1 SFT-0001 'One'
+  check "$d"
+  if [ "$R_STATUS" -eq 0 ]
+  then t_ok "status: $st in archive/ with a struck row is consistent"
+  else t_fail "status: $st is a terminal status" "status=$R_STATUS" "stdout=$R_OUT"; fi
+done
+
+test_case "every open status is consistent while the row is unstruck"
+# in-progress and blocked live in open/ — they are states of actionable work,
+# not terminal ones, and a check that only accepted `open` would push a drain
+# into archiving a ticket it had merely started.
+for st in open in-progress blocked; do
+  d="$(newdir)"; make_tree "$d"
+  ticket "$d" open backlog/bug SFT-0001 one 'One' "status: $st" > /dev/null
+  roadmap_row "$d" 1 SFT-0001 'One' '-'
+  check "$d"
+  if [ "$R_STATUS" -eq 0 ]
+  then t_ok "status: $st in open/ with an unstruck row is consistent"
+  else t_fail "status: $st is an open status" "status=$R_STATUS" "stdout=$R_OUT"; fi
+done
+
+# --- One violation class per case --------------------------------------------
+
+test_case "a ticket file with no roadmap row is reported"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0042 unlisted 'Unlisted' > /dev/null
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" \
+  '- MISSING FROM ROADMAP: SFT-0042 (open) -> .ai/sift/open/backlog/bug/SFT-0042--unlisted.md' \
+  "the bucket and the repository-relative path are both named"
+assert_contains "$R_OUT" 'FAIL: 1 rule-9 violation(s) across 0 roadmap rows / 1 ticket files' \
+  "one violation, counted against both totals"
+
+test_case "a roadmap row with no ticket file is reported"
+d="$(newdir)"; make_tree "$d"
+roadmap_row "$d" 7 SFT-0042 'Ghost' '-'
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" '+ STALE IN ROADMAP: SFT-0042 (wave 1, order 7) has no ticket file' \
+  "the wave and the row's own number locate it in the file"
+
+test_case "an archived ticket whose row is not struck is reported"
+d="$(newdir)"; make_tree "$d"
+archived "$d" SFT-0001 one 'One'
+roadmap_row "$d" 1 SFT-0001 'One' '-'
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" '! ARCHIVED BUT NOT STRUCK: SFT-0001 (wave 1, order 1)' \
+  "the half-done rule-9 change is named"
+
+test_case "a struck row whose ticket is still open is reported"
+# The mirror image: the row says finished and the file says otherwise. Left
+# alone, the drain skips the row forever and the ticket is never dispatched.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'One' > /dev/null
+struck_row "$d" 1 SFT-0001 'One'
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" '! STRUCK BUT STILL OPEN: SFT-0001 (wave 1, order 1)' "named"
+
+test_case "an archived ticket with no resolution is reported"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" archive backlog/bug SFT-0001 one 'One' 'status: done' > /dev/null
+struck_row "$d" 1 SFT-0001 'One'
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" '! ARCHIVED WITHOUT RESOLUTION: SFT-0001' \
+  "the required key is checked for content, not just presence"
+
+test_case "an empty resolution counts as no resolution"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" archive backlog/bug SFT-0001 one 'One' 'status: done' 'resolution:' > /dev/null
+struck_row "$d" 1 SFT-0001 'One'
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" '! ARCHIVED WITHOUT RESOLUTION: SFT-0001' "a bare key is not a resolution"
+
+test_case "the same ID in two rows is reported once, with the count"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'One' > /dev/null
+roadmap_row "$d" 1 SFT-0001 'One' '-'
+roadmap_row "$d" 2 SFT-0001 'One again' '-'
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" '! DUPLICATE ROADMAP ROW: SFT-0001 appears 2 times' \
+  "IDs are never reused, so a second row means the caller lost track"
+assert_contains "$R_OUT" 'FAIL: 1 rule-9 violation(s) across 2 roadmap rows / 1 ticket files' \
+  "the duplicate is one violation, not one per row"
+
+test_case "a status that contradicts its bucket is reported, both ways round"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'One' 'status: done' > /dev/null
+roadmap_row "$d" 1 SFT-0001 'One' '-'
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" "! BUCKET/STATUS MISMATCH: SFT-0001 is in open/ with status 'done'" \
+  "a terminal status in open/ is a folder that lies"
+
+d="$(newdir)"; make_tree "$d"
+ticket "$d" archive backlog/bug SFT-0001 one 'One' > /dev/null
+struck_row "$d" 1 SFT-0001 'One'
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" "! BUCKET/STATUS MISMATCH: SFT-0001 is in archive/ with status 'open'" \
+  "and an open status in archive/ is the same lie inverted"
+
+# --- Row parsing -------------------------------------------------------------
+
+test_case "an ID in the Needs column is a dependency, not a row"
+# Only the FIRST cell holding an ID is the ticket cell. If the Needs column also
+# registered, every blocker would acquire a phantom second row and the duplicate
+# check would fire on a perfectly consistent tree.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'One' > /dev/null
+ticket "$d" open backlog/bug SFT-0002 two 'Two' 'depends_on: [SFT-0001]' > /dev/null
+roadmap_row "$d" 1 SFT-0001 'One' '-'
+roadmap_row "$d" 2 SFT-0002 'Two' 'SFT-0001'
+check "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_contains "$R_OUT" 'OK: 2 roadmap rows / 2 ticket files' "two rows, not three"
+
+test_case "an ID mentioned in prose is not a row"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'One' > /dev/null
+roadmap_row "$d" 1 SFT-0001 'One' '-'
+printf '\nSFT-0099 was considered and dropped.\n' >> "$d/.ai/sift/ROADMAP.md"
+check "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_not_contains "$R_OUT" 'SFT-0099' "a sentence is not a table row"
+
+test_case "table rows outside every wave section are not rows"
+# `## Notes` closes the wave, so what follows is prose the drain cannot dispatch
+# from. The ticket underneath it therefore reads as missing from the roadmap —
+# which is the honest answer, not a silent pass.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'One' > /dev/null
+{
+  printf '\n## Notes\n\n'
+  printf '| # | Ticket | Title | Needs |\n|---|---|---|---|\n'
+  printf '| 1 | SFT-0001 | One | |\n'
+} >> "$d/.ai/sift/ROADMAP.md"
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" '- MISSING FROM ROADMAP: SFT-0001' "the row under ## Notes did not count"
+assert_contains "$R_OUT" '0 roadmap rows' "and the total agrees"
+
+test_case "a roadmap with no wave headings is read as a single wave 1"
+d="$(newdir)"; make_tree "$d"
+{
+  printf '# Roadmap\n\n'
+  printf '| # | Ticket | Title | Needs |\n|---|---|---|---|\n'
+} > "$d/.ai/sift/ROADMAP.md"
+ticket "$d" open backlog/bug SFT-0001 one 'One' > /dev/null
+roadmap_row "$d" 1 SFT-0001 'One' '-'
+roadmap_row "$d" 2 SFT-0002 'Two' '-'
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" '+ STALE IN ROADMAP: SFT-0002 (wave 1, order 2)' \
+  "an unheaded table still yields locatable rows"
+
+# --- Several violations at once ----------------------------------------------
+
+test_case "violations accumulate and are all reported"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'Unlisted' > /dev/null
+archived "$d" SFT-0002 two 'Two'
+roadmap_row "$d" 1 SFT-0002 'Two' '-'
+roadmap_row "$d" 2 SFT-0003 'Ghost' '-'
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" '- MISSING FROM ROADMAP: SFT-0001' "the unlisted ticket"
+assert_contains "$R_OUT" '! ARCHIVED BUT NOT STRUCK: SFT-0002' "the unstruck archive row"
+assert_contains "$R_OUT" '+ STALE IN ROADMAP: SFT-0003' "the ghost row"
+assert_contains "$R_OUT" 'FAIL: 3 rule-9 violation(s) across 2 roadmap rows / 2 ticket files' \
+  "all three are counted in one run, so one pass fixes the tree"
+
+# --- The read-only contract --------------------------------------------------
+
+test_case "the check reports and never repairs"
+# It is run inside the same change that archives a ticket, so a check that
+# quietly fixed what it found would make the change unreviewable.
+before="$(tree_digest "$d")"
+check "$d"
+assert_eq 1 "$R_STATUS" "the violation run"
+assert_eq "$before" "$(tree_digest "$d")" "not one byte of the tree changed"
+
+summary

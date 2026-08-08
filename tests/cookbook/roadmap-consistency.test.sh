@@ -57,6 +57,41 @@ roadmap_row "$d" 1 SFT-0042 'Ghost' '-'
 check "$d"
 assert_contains "$R_OUT" 'STALE IN ROADMAP: SFT-0042' "names the stale row"
 
+# --- Whole-token ID matching (SFT-0015) --------------------------------------
+# Both directions of the check look an ID up in the other half of the tree, and
+# both used to do it by substring. SFT-0015 anchored them — the forward lookup
+# with `([^0-9]|$)`, the reverse with the filename's `--` — but only the
+# documented text was pinned, never the behaviour. A tree holding SFT-0042 and
+# SFT-00420 at once is the only shape that can tell an anchored match from a
+# lucky one, so both cases below build exactly that and assert the WHOLE output:
+# a finding these recipes fail to print is invisible to `assert_contains`.
+
+test_case "a row for SFT-00420 does not stand in for SFT-0042"
+# The regression: the forward grep matched SFT-0042 inside the string SFT-00420,
+# so an unlisted ticket was reported as listed — silence where rule 9 is broken,
+# which is the one answer this check must never give.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0042 short 'Short ID' > /dev/null
+ticket "$d" open backlog/bug SFT-00420 longer 'A longer ID sharing the digits' > /dev/null
+roadmap_row "$d" 1 SFT-00420 'A longer ID sharing the digits' '-'
+check "$d"
+assert_eq 0 "$R_STATUS" "exits 0 — it reports, it does not gate"
+assert_eq 'NOT IN ROADMAP: SFT-0042' "$R_OUT" \
+  "SFT-0042 is reported unlisted, and the ticket that really has a row is not"
+
+test_case "neither direction is rescued by an ID that merely starts the same"
+# The mirror image, which exercises both loops in one tree: the roadmap lists
+# only SFT-0042 and only SFT-00420 has a file. An unanchored check would call
+# this consistent in both directions and print nothing at all.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-00420 longer 'A longer ID sharing the digits' > /dev/null
+roadmap_row "$d" 1 SFT-0042 'Short ID' '-'
+check "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq 'NOT IN ROADMAP: SFT-00420
+STALE IN ROADMAP: SFT-0042' "$R_OUT" \
+  "the unlisted ticket and the ticketless row are both named, one finding each"
+
 test_case "no .ai/sift: diagnoses and fails instead of reporting clean"
 d="$(newdir)"
 check "$d"

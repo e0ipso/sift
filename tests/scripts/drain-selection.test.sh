@@ -41,7 +41,10 @@ next() {  # next <root> [args…]
   run_cmd "$root" env SIFT_ROOT="$root" "$NEXT" "$@"
 }
 
-wave_status() { run_cmd "$1" env SIFT_ROOT="$1" "$STATUS"; }
+wave_status() {  # wave_status <root> [args…]
+  local root="$1"; shift
+  run_cmd "$root" env SIFT_ROOT="$root" "$STATUS" "$@"
+}
 
 # out_key <key> — the value of one "key: value" line of the report, header or
 # echoed front-matter alike. One reader covers both because every key in the
@@ -173,6 +176,10 @@ assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "ACME-0002" "$(out_key ticket)" "the archived ticket is not re-dispatched"
 assert_contains "$R_OUT" 'ACME-0001 (archived but roadmap row not struck)' \
   "the violation is reported rather than absorbed"
+assert_eq "" "$(dup_keys)" \
+  "and this skipped block repeats no key either — SFT-0018 holds on every report shape"
+assert_eq "found" "$(out_key result)" "the lookup's own state is still the only result:"
+assert_eq "open" "$(out_key status)" "and status: is still the dispatched ticket's"
 
 test_case "waves are dispatched in order, and only the current one is counted"
 d="$(newdir)"; make_tree "$d" ACME
@@ -334,6 +341,26 @@ d="$(newdir)"; make_tree "$d" ACME
 wave_status "$d"
 assert_eq 2 "$R_STATUS" "exit 2"
 assert_contains "$R_ERR" 'no ticket rows parsed from' "naming the file it read"
+
+test_case "wave-status.sh takes no options, and says so instead of ignoring one"
+# SFT-0017 gave both drain helpers the same refusal; only next-ticket.sh's was
+# asserted. wave-status.sh reports the WHOLE roadmap, so a silently swallowed
+# flag is worse here than there: the caller that thought it had asked for one
+# wave reads a full-roadmap table as the answer to a narrower question. The
+# refusal has to reach stderr and leave stdout empty, or a pipeline consuming
+# the table sees a truncated report rather than nothing at all.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug ACME-0001 one 'One' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+wave_status "$d" anything
+assert_eq 2 "$R_STATUS" "exit 2, the usage code the rest of the family uses"
+assert_contains "$R_ERR" 'usage: wave-status.sh' "the usage line goes to stderr"
+assert_eq "" "$R_OUT" "and stdout is empty, so no table can be read off a refusal"
+
+wave_status "$d" --wave 1
+assert_eq 2 "$R_STATUS" "a plausible-looking option is refused, not interpreted"
+assert_eq "" "$R_OUT" "in particular it does not answer as if the whole roadmap were asked for"
+assert_contains "$R_ERR" 'usage: wave-status.sh' "with the same one-line usage"
 
 test_case "reporting progress changes nothing"
 d="$(newdir)"; make_tree "$d" ACME

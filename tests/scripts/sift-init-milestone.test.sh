@@ -52,6 +52,60 @@ assert_no_dir "$TMPROOT/evil" "nothing landed beside the project"
 assert_no_dir "$root/../evil" "nor one level up from it"
 assert_no_dir "$root/.ai" "nor inside it"
 
+# --- The destructive sequence, run for real (SFT-0008) -----------------------
+#
+# Every case above proves the refusal happens. None proves the refusal MATTERS:
+# they assert that nothing landed at a path chosen by the test, which a guard
+# that did nothing would also satisfy if the test simply miscounted the `..`.
+# A throwaway tree is the disposable environment for settling that, so these two
+# cases build a sandbox with a populated sift tree sitting exactly where the
+# traversal points, run the escape for real to prove it reaches, and only then
+# assert that the guarded run leaves every path and every byte of it alone.
+
+# inventory <dir> — every path under <dir>, directories included. tree_digest
+# reads files only, so a traversal that created nothing but an empty directory
+# beside the project would slip straight past it.
+inventory() { find "$1" | LC_ALL=C sort; }
+
+# victim_sandbox — <sandbox>/victim holds a populated sift tree with a ticket in
+# it; <sandbox>/repo is the uninitialised project whose init is about to be
+# pointed at it. From <sandbox>/repo/.ai/sift/open, four levels up is <sandbox>.
+victim_sandbox() {
+  local s
+  s="$(newdir)"
+  mkdir -p "$s/victim/.ai/sift/open/backlog/bug" "$s/repo"
+  printf -- '---\nid: VIC-0001\n---\n\n# Someone else'\''s work\n' \
+    > "$s/victim/.ai/sift/open/backlog/bug/VIC-0001--precious.md"
+  printf '# Roadmap\n\n## Wave 1\n' > "$s/victim/.ai/sift/ROADMAP.md"
+  printf '%s\n' "$s"
+}
+
+ESCAPE='../../../../victim/.ai/sift/open/pwned'
+
+test_case "the traversal a rejected milestone asks for really does escape"
+# The positive control. `mkdir -p "$sift/open/$milestone"` is the line the
+# initializer runs once the milestone is accepted; run it unguarded and the
+# directory appears inside the neighbouring project. Without this, the case
+# below could pass because the path was wrong rather than because a guard held.
+s="$(victim_sandbox)"
+mkdir -p "$s/repo/.ai/sift/open/$ESCAPE"
+if [ -d "$s/victim/.ai/sift/open/pwned" ]
+then t_ok "unguarded, the milestone resolves inside the tree next door"
+else t_fail "unguarded, the milestone resolves inside the tree next door" \
+  "$(inventory "$s" | head -n 20)"; fi
+
+test_case "the guard holds where a real tree would have been damaged"
+s="$(victim_sandbox)"
+before_paths="$(inventory "$s")"
+before_bytes="$(tree_digest "$s")"
+init_milestone "$s/repo" "$ESCAPE"
+assert_eq 2 "$R_STATUS" "exits 2"
+assert_contains "$R_ERR" 'milestone must be lowercase kebab-case' "with the diagnostic"
+assert_eq "$before_paths" "$(inventory "$s")" \
+  "not one path was created anywhere in the sandbox, empty directories included"
+assert_eq "$before_bytes" "$(tree_digest "$s")" \
+  "and the ticket in the tree next door is byte-identical"
+
 test_case "the default milestone is backlog"
 root="$(newdir)"
 run_cmd "$root" "$INIT" --root "$root" --prefix SFT

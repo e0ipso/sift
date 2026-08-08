@@ -22,19 +22,19 @@ RECIPE="$(recipe_move_milestone)"
 
 test_case "recipe is extracted from README.md and parameterised"
 assert_contains "$RECIPE" 'DEST=${DEST:?}' "the target milestone is driven by the test"
-assert_contains "$RECIPE" '$PREFIX-${NUM:?}--*.md' "…and the worked example's ID"
+assert_contains "$RECIPE" 'ID=${ID:?}' "…and the worked example's ID"
 assert_contains "$RECIPE" '> "$t.tmp" && mv "$t.tmp" "$t"' \
   "the documented temp-file form stands in for sed -i"
 assert_not_contains "$RECIPE" 'sed -i' "the banned flag appears nowhere in it"
 
-move() {  # move <dir> <num> <dest>
-  run_recipe "$1" "$RECIPE" PREFIX=SFT NUM="$2" DEST="$3"
+move() {  # move <dir> <id> <dest>
+  run_recipe "$1" "$RECIPE" PREFIX=SFT ID="$2" DEST="$3"
 }
 
 test_case "the file moves and the milestone key follows it"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open caching/bug SFT-0042 tenant 'tenant caching & sharding' > /dev/null
-move "$d" 0042 platform
+move "$d" SFT-0042 platform
 dest="$d/.ai/sift/open/platform/bug/SFT-0042--tenant.md"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_no_file "$d/.ai/sift/open/caching/bug/SFT-0042--tenant.md" "the old path is gone"
@@ -45,7 +45,7 @@ assert_eq 1 "$(grep -c '^milestone:' "$dest")" "exactly one milestone key"
 test_case "the category is preserved across the move"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open caching/hardening SFT-0042 harden 'Harden' > /dev/null
-move "$d" 0042 platform
+move "$d" SFT-0042 platform
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_file "$d/.ai/sift/open/platform/hardening/SFT-0042--harden.md" \
   "hardening/ on both sides — only the milestone segment changed"
@@ -54,14 +54,14 @@ test_case "the destination milestone is created when it does not exist yet"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open caching/bug SFT-0042 first 'First' > /dev/null
 assert_no_dir "$d/.ai/sift/open/brand-new" "the fixture has no such milestone"
-move "$d" 0042 brand-new
+move "$d" SFT-0042 brand-new
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_file "$d/.ai/sift/open/brand-new/bug/SFT-0042--first.md" "mkdir -p made the path"
 
 test_case "no .tmp file is left in the tree"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open caching/bug SFT-0042 tenant 'Tenant' > /dev/null
-move "$d" 0042 platform
+move "$d" SFT-0042 platform
 assert_eq "" "$(find "$d/.ai/sift" -name '*.tmp')" \
   "the temp file was renamed over the target, not left behind"
 assert_eq "" "$(find "$d/.ai/sift" -name '*.md.tmp')" \
@@ -72,7 +72,7 @@ d="$(newdir)"; make_tree "$d"
 f="$(ticket "$d" open caching/bug SFT-0042 tenant 'tenant caching & sharding' \
   'priority: p1' 'labels: [caching]')"
 before="$d/before.md"; cp "$f" "$before"
-move "$d" 0042 platform
+move "$d" SFT-0042 platform
 dest="$d/.ai/sift/open/platform/bug/SFT-0042--tenant.md"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "tenant caching & sharding" "$(fm "$dest" title)" "the title is unchanged"
@@ -96,7 +96,7 @@ f="$(ticket "$d" open caching/bug SFT-0042 prose 'Prose ticket')"
 } >> "$f"
 body() { awk 'p { print } /^---$/ && NR > 1 && !p { p = 1 }' "$1"; }
 before="$d/body.before"; body "$f" > "$before"
-move "$d" 0042 platform
+move "$d" SFT-0042 platform
 dest="$d/.ai/sift/open/platform/bug/SFT-0042--prose.md"
 after="$d/body.after"; body "$dest" > "$after"
 assert_eq 0 "$R_STATUS" "exits 0"
@@ -113,7 +113,7 @@ mkdir -p "$d/.ai/sift/open/caching/bug"
 printf '# Bare\n\nNo front matter here.\nmilestone: quoted in prose.\n' \
   > "$d/.ai/sift/open/caching/bug/SFT-0042--bare.md"
 before="$d/bare.before"; cp "$d/.ai/sift/open/caching/bug/SFT-0042--bare.md" "$before"
-move "$d" 0042 platform
+move "$d" SFT-0042 platform
 dest="$d/.ai/sift/open/platform/bug/SFT-0042--bare.md"
 assert_ne 0 "$R_STATUS" "exits non-zero"
 assert_contains "$R_ERR" 'no milestone: key in the front matter' "says what is missing"
@@ -122,12 +122,34 @@ assert_same "$before" "$dest" "the prose line is not rewritten in its place"
 assert_eq "" "$(find "$d/.ai/sift" -name '*.tmp')" "no half-written temp file survives"
 
 test_case "a ticket that does not exist changes nothing"
+# SFT-0021: the guard sits before `mkdir -p`, not merely before `mv`. An
+# unguarded run reported a move that never happened and left an empty
+# `open/$DEST/` behind — a milestone folder with no ticket in it, which is the
+# phantom index entry SFT-0014 removed from the read side.
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open caching/bug SFT-0001 present 'Present' > /dev/null
 digest_before="$(tree_digest "$d/.ai/sift")"
-move "$d" 0042 platform
+move "$d" SFT-0042 platform
 assert_ne 0 "$R_STATUS" "exits non-zero rather than moving something else"
+assert_contains "$R_ERR" 'move: no ticket matching SFT-0042' "one line, naming the ID"
+assert_not_contains "$R_ERR" 'MILESTONE NOT UPDATED' "it does not claim the file moved"
+assert_no_dir "$d/.ai/sift/open/platform" "no empty milestone folder is left behind"
+assert_eq "" "$(find "$d" -name '*.tmp')" "and no temp file anywhere in the working tree"
 assert_eq "$digest_before" "$(tree_digest "$d/.ai/sift")" "not one byte of the tree changed"
+
+test_case "two files carrying one ID refuse rather than improvise"
+# Rule 2 makes a duplicate ID impossible, which is exactly why an unguarded
+# `$f` holding two paths would go unnoticed: `dirname` and `mv` would each read
+# the two-line value their own way.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0042 one 'One' > /dev/null
+ticket "$d" open backlog/bug SFT-0042 two 'Two' > /dev/null
+digest_before="$(tree_digest "$d/.ai/sift")"
+move "$d" SFT-0042 platform
+assert_ne 0 "$R_STATUS" "exits non-zero"
+assert_contains "$R_ERR" 'move: SFT-0042 does not match exactly one ticket' "says which ID is ambiguous"
+assert_no_dir "$d/.ai/sift/open/platform" "no destination folder was created"
+assert_eq "$digest_before" "$(tree_digest "$d/.ai/sift")" "both tickets are where they were"
 
 test_case "moving to the milestone it already sits in refuses, safely"
 # mv declines to move a file onto itself, so the && chain stops before the
@@ -136,7 +158,7 @@ test_case "moving to the milestone it already sits in refuses, safely"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open caching/bug SFT-0042 tenant 'Tenant' > /dev/null
 digest_before="$(tree_digest "$d/.ai/sift")"
-move "$d" 0042 caching
+move "$d" SFT-0042 caching
 assert_ne 0 "$R_STATUS" "exits non-zero"
 assert_contains "$R_ERR" 'are the same file' "mv says why"
 assert_file "$d/.ai/sift/open/caching/bug/SFT-0042--tenant.md" "the ticket is still there"
@@ -150,7 +172,7 @@ matrix_case() {
   local d
   d="$(newdir)"; make_tree "$d"
   ticket "$d" open caching/bug SFT-0042 tenant 'tenant caching & sharding' > /dev/null
-  move "$d" 0042 platform
+  move "$d" SFT-0042 platform
   local dest="$d/.ai/sift/open/platform/bug/SFT-0042--tenant.md"
   if [ "$R_STATUS" -eq 0 ] && [ -f "$dest" ] &&
      [ "$(fm "$dest" milestone)" = platform ] &&
@@ -159,5 +181,23 @@ matrix_case() {
 }
 test_case "the move round trip works on every shell × awk × locale"
 for_matrix matrix_case
+
+# The missing-ticket guard is `[ … ] || { echo …; false; }`, which never reaches
+# awk, so the sweep that matters for it is shell × locale: `false` inside a `||`
+# has to end the run under dash's `set -e` exactly as it does under bash's, or
+# the tree is only untouched on one of them.
+missing_case() {
+  local d digest
+  d="$(newdir)"; make_tree "$d"
+  ticket "$d" open caching/bug SFT-0001 present 'Present' > /dev/null
+  digest="$(tree_digest "$d/.ai/sift")"
+  move "$d" SFT-0042 platform
+  if [ "$R_STATUS" -ne 0 ] && [ ! -d "$d/.ai/sift/open/platform" ] &&
+     [ "$digest" = "$(tree_digest "$d/.ai/sift")" ] &&
+     printf '%s\n' "$R_ERR" | grep -q 'move: no ticket matching SFT-0042'
+  then t_ok "$R_LABEL"; else t_fail "$R_LABEL" "status=$R_STATUS" "stderr=$R_ERR"; fi
+}
+test_case "the missing-ticket guard stops the run on every shell × locale"
+for_shell_locale missing_case
 
 summary

@@ -196,6 +196,38 @@ assert_contains "$R_ERR" 'archive: RESOLUTION must be non-empty' "explains why"
 assert_file "$f" "the ticket is still in open/"
 assert_eq "$digest_before" "$(tree_digest "$d/.ai/sift")" "not one byte of the tree changed"
 
+test_case "a ticket that does not exist changes nothing"
+# SFT-0021: `$f` is checked before `$RESOLUTION` and before the awk pass, so the
+# first thing reported is the absence of the ticket. Unguarded, awk got no file
+# operand and blamed the *front matter* of a file that is not there — and, with a
+# terminal on stdin, waited for one to be typed.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 present 'Present' > /dev/null
+roadmap_row "$d" 1 SFT-0001 'Present' '-'
+digest_before="$(tree_digest "$d/.ai/sift")"
+archive "$d" SFT-0042 done 'Fixed in commit abc1234'
+assert_ne 0 "$R_STATUS" "exits non-zero"
+assert_contains "$R_ERR" 'archive: no ticket matching SFT-0042' "one line, naming the ID"
+assert_not_contains "$R_ERR" 'no front-matter found' "it does not blame a missing file's contents"
+assert_not_contains "$R_ERR" 'ROADMAP NOT UPDATED' "and never reaches the roadmap strike"
+assert_eq "" "$(find "$d" -name '*.tmp')" "no temp file anywhere in the working tree"
+assert_eq "$digest_before" "$(tree_digest "$d/.ai/sift")" "not one byte of the tree changed"
+
+test_case "two files carrying one ID refuse rather than improvise"
+# Rule 2 makes a duplicate ID impossible, which is exactly why an unguarded `$f`
+# holding two paths would go unnoticed: the awk pass, the `sed` that derives
+# `dest` and `mv` would each read the two-line value their own way.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0042 one 'One' > /dev/null
+ticket "$d" open platform/bug SFT-0042 two 'Two' > /dev/null
+roadmap_row "$d" 1 SFT-0042 'One' '-'
+digest_before="$(tree_digest "$d/.ai/sift")"
+archive "$d" SFT-0042 done 'Fixed'
+assert_ne 0 "$R_STATUS" "exits non-zero"
+assert_contains "$R_ERR" 'archive: SFT-0042 does not match exactly one ticket' \
+  "says which ID is ambiguous"
+assert_eq "$digest_before" "$(tree_digest "$d/.ai/sift")" "both tickets are where they were"
+
 test_case "a second archiving pass does not duplicate the key"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open backlog/bug SFT-0042 twice 'Twice' > /dev/null
@@ -272,5 +304,23 @@ matrix_case() {
 }
 test_case "archive round trip on every shell × awk × locale"
 for_matrix matrix_case
+
+# The missing-ticket guard never reaches awk, so its axis is shell × locale:
+# `false` inside a `||` has to end the run under dash's `set -e` exactly as it
+# does under bash's, or the tree is only untouched on one of them.
+missing_case() {
+  local d digest
+  d="$(newdir)"; make_tree "$d"
+  ticket "$d" open backlog/bug SFT-0001 present 'Present' > /dev/null
+  roadmap_row "$d" 1 SFT-0001 'Present' '-'
+  digest="$(tree_digest "$d/.ai/sift")"
+  archive "$d" SFT-0042 done 'Fixed'
+  if [ "$R_STATUS" -ne 0 ] &&
+     [ "$digest" = "$(tree_digest "$d/.ai/sift")" ] &&
+     printf '%s\n' "$R_ERR" | grep -q 'archive: no ticket matching SFT-0042'
+  then t_ok "$R_LABEL"; else t_fail "$R_LABEL" "status=$R_STATUS" "stderr=$R_ERR"; fi
+}
+test_case "the missing-ticket guard stops the run on every shell × locale"
+for_shell_locale missing_case
 
 summary

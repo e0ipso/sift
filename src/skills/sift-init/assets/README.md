@@ -326,8 +326,18 @@ grep -rl '^priority: p1' .ai/sift/open        # all critical tickets
 
 **Count open tickets per milestone:**
 ```sh
-for m in .ai/sift/open/*/; do printf '%-28s %s\n' "$(basename "$m")" "$(find "$m" -name "$PREFIX-*.md" | wc -l)"; done
+for m in .ai/sift/open/*/; do
+  [ -d "$m" ] || continue
+  printf '%-28s %s\n' "$(basename "$m")" "$(find "$m" -name "$PREFIX-*.md" | wc -l)"
+done
 ```
+The `[ -d "$m" ] || continue` guard is what keeps an `open/` with no milestone folder
+silent. A glob that matches nothing is passed through *literally* by every POSIX shell,
+so without the guard the loop runs once for the string `.ai/sift/open/*/`, invents a
+milestone named `*` with a count of `0`, and leaves `find` complaining on stderr. The
+test is `-d`, not `nullglob`: `shopt` is a bash builtin, and these recipes are meant to
+survive being pasted into `dash` or any other POSIX shell. A milestone folder that
+exists but holds no ticket is a real answer and still reports `0`.
 
 **Find a ticket wherever it lives:**
 ```sh

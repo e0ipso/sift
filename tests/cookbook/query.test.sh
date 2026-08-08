@@ -142,11 +142,16 @@ assert_eq "caching 0" "$(printf '%s\n' "$R_OUT" | awk '{ print $1, $2 }')" "repo
 assert_eq "" "$R_ERR" "and says nothing on stderr"
 
 test_case "count open tickets per milestone: an empty open/ reports no milestones"
-# Known product bug, filed as SFT-0014: with no milestone directory at all the
-# unmatched glob is passed through literally, so the recipe invents a milestone
-# called "*" and find complains about it on stderr. A fresh sift-init tree is in
-# exactly that state, so this is the first thing a new user can hit.
-skip "empty open/ prints nothing and no find error" "SFT-0014"
+# SFT-0014: with no milestone directory at all the unmatched glob is passed
+# through literally, so the recipe used to invent a milestone called "*" and
+# find complained about it on stderr. The `[ -d "$m" ] || continue` guard is
+# POSIX rather than `shopt -s nullglob`, which dash does not have — the shell
+# axis of the matrix below runs this same recipe under it.
+d="$(newdir)"; make_tree "$d"
+q "$d" "$COUNT"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "" "$R_OUT" "no milestone is invented"
+assert_eq "" "$R_ERR" "and find is never handed the unmatched pattern"
 
 # --- Lookup ------------------------------------------------------------------
 

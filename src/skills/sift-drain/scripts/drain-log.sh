@@ -13,9 +13,15 @@
 # The log is append-only: the header is written once, when the file does not yet
 # exist, and rows are appended with `>>` and never rewritten.
 #
+# `report` reads the log back and prints, per ticket, the agent runtime and the
+# idle gap that preceded its dispatch as two separate figures. Separating them is
+# the point: a merge-timestamp gap folds operator idle time and dropped
+# connections into what looks like agent work.
+#
 # Usage:
 #   scripts/drain-log.sh dispatch <TICKET>
 #   scripts/drain-log.sh return <TICKET> <STATUS>
+#   scripts/drain-log.sh report
 #
 # Exit codes: 0 success | 2 setup/usage error.
 
@@ -26,7 +32,147 @@ set -uo pipefail
 usage() {
   echo "usage: drain-log.sh dispatch <TICKET>" >&2
   echo "       drain-log.sh return <TICKET> <STATUS>" >&2
+  echo "       drain-log.sh report" >&2
   exit 2
+}
+
+LOG="$SIFT/RUNLOG.md"
+
+# Read the log back and print the per-ticket attribution table.
+#
+# All arithmetic is integer arithmetic on the `epoch` column. The `utc` column is
+# never parsed back into a number and `date` is never used for arithmetic, since
+# `date -d` is GNU-only and `date -v` is BSD-only.
+report() {
+  [ -f "$LOG" ] || {
+    echo "error: no run log at $LOG" >&2
+    echo "hint: a run log is created by the first 'drain-log.sh dispatch <TICKET>' of a drain" >&2
+    exit 2
+  }
+
+  awk -F'|' -v logpath="${LOG#"$ROOT/"}" '
+    # Every character class here is [[:space:]]. POSIX leaves a backslash inside
+    # a bracket expression undefined, so a strict awk reads a space-backslash-t
+    # class as {space, backslash, t} and eats the leading "t" of a value.
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+
+    # Seconds, plus a human-readable form once the figure stops being obvious.
+    function human(d,   h, m, s) {
+      if (d < 60) return d "s"
+      h = int(d / 3600); m = int((d % 3600) / 60); s = d % 60
+      if (h > 0) return d "s (" h "h" m "m" s "s)"
+      return d "s (" m "m" s "s)"
+    }
+
+    # Print one padded line with its trailing padding removed, so an empty last
+    # column never leaves trailing whitespace behind.
+    function row(line) { sub(/[[:space:]]+$/, "", line); print line }
+
+    function note_add(k, text) {
+      rnote[k] = (rnote[k] == "") ? text : rnote[k] "; " text
+    }
+
+    # runtime < 0 means "no duration": incomplete, orphaned or corrupt. Such a
+    # record is never counted in the median.
+    function push(id, runtime, idle_text, status, text,   k) {
+      k = ++nrec
+      rid[k] = id; rrt[k] = runtime; ridle[k] = idle_text; rst[k] = status
+      rnote[k] = ""
+      if (text != "") note_add(k, text)
+      return k
+    }
+
+    !/^[[:space:]]*\|/ { next }        # table rows only
+    NF < 7 { next }                    # a well-formed row is | a | b | c | d | e |
+    {
+      event = trim($2); ticket = trim($3); epoch = trim($5); status = trim($6)
+      if (event != "dispatch" && event != "return") next   # header and separator
+
+      if (epoch !~ /^[0-9]+$/) {
+        push(ticket, -1, "-", status, "CORRUPT (unreadable epoch \"" epoch "\")")
+        next
+      }
+      epoch = epoch + 0
+
+      if (event == "dispatch") {
+        # A dispatch while another ticket is still open means that one never
+        # returned. This is the signature of an interrupted connection, and it
+        # must read as incomplete rather than inherit a duration.
+        if (open_id != "") push(open_id, -1, "-", "-", "INCOMPLETE (no return row)")
+        open_id = ticket; open_epoch = epoch
+        next
+      }
+
+      if (open_id == "") {
+        push(ticket, -1, "-", status, "ORPHAN (return with no dispatch row)")
+        next
+      }
+      if (open_id != ticket) {
+        push(open_id, -1, "-", "-", "INCOMPLETE (no return row)")
+        push(ticket, -1, "-", status, "ORPHAN (return with no dispatch row)")
+        open_id = ""
+        next
+      }
+
+      runtime = epoch - open_epoch
+      idle_text = "-"
+      idle_note = ""
+      if (have_prev) {
+        idle = open_epoch - prev_return
+        if (idle < 0) { idle_text = "CORRUPT"; idle_note = "CORRUPT (negative idle gap)" }
+        else idle_text = human(idle)
+      }
+      if (runtime < 0) {
+        k = push(ticket, -1, idle_text, status, "CORRUPT (negative runtime)")
+      } else {
+        k = push(ticket, runtime, idle_text, status, "")
+      }
+      if (idle_note != "") note_add(k, idle_note)
+
+      prev_return = epoch; have_prev = 1
+      open_id = ""
+    }
+
+    END {
+      if (open_id != "") push(open_id, -1, "-", "-", "INCOMPLETE (no return row)")
+
+      if (nrec == 0) {
+        print "no drain events recorded in " logpath
+        exit 0
+      }
+
+      # Median definition: sort the completed runtimes ascending and take element
+      # int((n + 1) / 2) counting from 1 — the LOWER of the two middle values when
+      # the count is even. Incomplete, orphaned and corrupt records contribute
+      # nothing to n.
+      n = 0
+      for (i = 1; i <= nrec; i++) if (rrt[i] >= 0) v[++n] = rrt[i]
+      for (i = 2; i <= n; i++) {           # insertion sort: POSIX awk has no asort
+        key = v[i]
+        for (j = i - 1; j >= 1 && v[j] > key; j--) v[j + 1] = v[j]
+        v[j + 1] = key
+      }
+      median = (n > 0) ? v[int((n + 1) / 2)] : -1
+
+      for (i = 1; i <= nrec; i++)
+        if (rrt[i] >= 0 && median > 0 && rrt[i] > 10 * median)
+          note_add(i, "SLOW (" int(rrt[i] / median) "x median)")
+
+      fmt = "%-12s  %-18s  %-18s  %-10s  %s"
+      row(sprintf(fmt, "ticket", "runtime", "idle", "status", "note"))
+      row(sprintf(fmt, "------------", "------------------", "------------------", "----------", "----"))
+      for (i = 1; i <= nrec; i++)
+        row(sprintf(fmt, rid[i], (rrt[i] >= 0) ? human(rrt[i]) : "-", ridle[i], rst[i], rnote[i]))
+
+      print ""
+      if (n > 0)
+        print "median runtime: " human(median) " across " n " completed ticket(s) of " nrec
+      else
+        print "median runtime: - (no completed tickets of " nrec ")"
+      print "note: runtime is stamped by the orchestrator around the dispatch, so it"
+      print "      includes a few seconds of dispatch overhead and is an upper bound."
+    }
+  ' "$LOG"
 }
 
 MODE="${1:-}"
@@ -41,13 +187,16 @@ case "$MODE" in
     [ $# -eq 3 ] || usage
     STATUS="$3"
     ;;
+  report)
+    [ $# -eq 1 ] || usage
+    report
+    exit $?
+    ;;
   *) usage ;;
 esac
 
 [ -n "$TICKET" ] || usage
 [ -n "$STATUS" ] || usage
-
-LOG="$SIFT/RUNLOG.md"
 
 [ -f "$LOG" ] || {
   {

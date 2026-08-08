@@ -335,10 +335,10 @@ each depend only on 001 and 002.
 - ✔️ Task 001: Create `drain-log.sh` with its `dispatch` and `return` write modes, establishing
   the `RUNLOG.md` five-column row format every later task consumes. — `completed`
 
-### Phase 2: Read the log back
+### ✅ Phase 2: Read the log back
 **Parallel Tasks:**
-- Task 002: Add the `report` mode that separates agent runtime from operator idle time
-  (depends on: 001)
+- ✔️ Task 002: Add the `report` mode that separates agent runtime from operator idle time
+  (depends on: 001) — `completed`
 
 ### Phase 3: Document and cover
 **Parallel Tasks:**

@@ -2,7 +2,7 @@
 id: 4
 group: "sift-drain-time-attribution"
 dependencies: [1, 2]
-status: "pending"
+status: "completed"
 created: 2026-08-08
 skills:
   - bash

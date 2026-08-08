@@ -28,6 +28,10 @@ script precisely so every card agrees on where `.ai/sift` lives.
 You implement nothing. Every line of code, every test, and every piece of ticket
 bookkeeping happens inside a sub-agent.
 
+Invoking a shipped script is not implementing. `next-ticket.sh`, `roadmap-check.sh` and
+`drain-log.sh` are all called, never reimplemented — so stamping the run log means running
+`drain-log.sh`, and writing a row into `RUNLOG.md` yourself is a breach of this rule.
+
 You read exactly three things: `.ai/sift/ROADMAP.md`, the one ticket file you are sizing,
 and — when building a wave gate's coverage list — the `resolution` lines of that wave's
 archived tickets. Never open source files, diffs, or raw test output; the structured
@@ -62,11 +66,16 @@ scripts/wave-status.sh    # per-wave done/remaining + current wave
 scripts/roadmap-check.sh  # rule-9 consistency, non-zero on violation
 scripts/list-labels.sh    # every label in use (--counts, --open)
 scripts/tickets-by-label.sh <label>  # tickets carrying one label (--open, --paths)
+scripts/drain-log.sh dispatch|return|report  # per-ticket runtime and idle attribution
 ```
 
 They find the project root by walking up from `$PWD` for `.ai/sift/ROADMAP.md` and read
 the prefix from `.ai/sift/config/config.yaml`; override with `SIFT_ROOT` / `SIFT_PREFIX`.
 `next-ticket.sh` skips `status: blocked` tickets (`--include-blocked` to override).
+`drain-log.sh dispatch <TICKET>` and `drain-log.sh return <TICKET> <STATUS>` append one row
+each to `.ai/sift/RUNLOG.md`, which the first dispatch creates and nothing ever rewrites;
+`drain-log.sh report` reads it back as a per-ticket table of agent runtime and the idle gap
+before each dispatch, and flags incomplete, orphaned and unusually slow records.
 Run `roadmap-check.sh` after **every** ticket agent returns — non-zero means the agent
 broke rule 9 and needs a follow-up dispatch to fix the bookkeeping.
 
@@ -79,32 +88,36 @@ error-prone; never re-propose it.
    **Priority beats row order:** pull a newly filed p1 forward immediately — above all,
    anything blocking test infrastructure — and p2 crash / data-integrity tickets ahead of
    p3/p4 stragglers.
-2. Dispatch **one** sub-agent to take the ticket end to end: branch off the local
+2. Run `drain-log.sh dispatch <TICKET>` as the last thing before the dispatch, so the
+   stamp bounds agent runtime rather than your own deliberation.
+3. Dispatch **one** sub-agent to take the ticket end to end: branch off the local
    integration branch → implement → scoped verification → archive per rule 9 → merge
    locally. Use `references/ticket-agent-prompt.md` verbatim; do not re-derive it.
-3. **Model policy.** Default to the session's model tier. Escalate to the strongest tier
+4. **Model policy.** Default to the session's model tier. Escalate to the strongest tier
    available for `effort: l|xl`, for architecturally sensitive work (public API, ADRs,
    structural hubs), and for wave-gate test batches. Never downgrade to a cheap or fast
    tier to save tokens — a bad merge costs more than the model did.
-4. **Never `git push`** — not you, not any sub-agent. Local branches, local merges.
-5. **No planning-skill detours, no TDD cycle.** The agent implements directly, then
+5. **Never `git push`** — not you, not any sub-agent. Local branches, local merges.
+6. **No planning-skill detours, no TDD cycle.** The agent implements directly, then
    verifies.
-6. **No per-ticket test authoring, three exceptions.** Tests are batched at the wave
+7. **No per-ticket test authoring, three exceptions.** Tests are batched at the wave
    gate; a ticket with test acceptance criteria records the **waiver** in its
    `resolution`, and the gate builds its coverage list from those resolutions. The
    exceptions: a `type: test` ticket, whose deliverable *is* the tests; a canary/pin test
    the ticket itself asks for; and minimal edits to **existing** tests whose assertions
    pin behaviour this ticket intentionally changes. Every such edit is explained in the
    report.
-7. **Scoped verification only** — this is where the wall-clock savings live. The agent
+8. **Scoped verification only** — this is where the wall-clock savings live. The agent
    runs the project's lint, static analysis and unit/integration commands over **only**
    what it touched, plus a live pre-fix reproduction where feasible and live acceptance on
    throwaway fixtures it fully cleans up. Full suites run at the gate, never per ticket.
-8. **Nothing goes to an external tracker.** No agent files, comments on, or patches an
+9. **Nothing goes to an external tracker.** No agent files, comments on, or patches an
    upstream project. An upstream fix worth making becomes a local `type: dx` ticket,
    surfaced to the user, who files it.
-9. After the agent returns: post a **one-line progress update**, run `roadmap-check.sh`,
-   and **surface every self-filed ticket to the user** — non-negotiable, every time.
+10. The moment the agent returns, before anything else, run
+    `drain-log.sh return <TICKET> <STATUS>` with the `status:` its report gave. Then post a
+    **one-line progress update**, run `roadmap-check.sh`, and **surface every self-filed
+    ticket to the user** — non-negotiable, every time.
 
 **If a sub-agent stalls** waiting for an answer, resume it rather than abandoning the
 ticket (recipe in `references/run-management.md`). Sub-agents never edit this skill's own
@@ -179,7 +192,7 @@ Prompt templates: `references/wave-gate.md`.
 ## Final report at run end
 
 Roadmap state from `wave-status.sh`; every blocked ticket and why; every ticket filed
-during the run.
+during the run; the timing table from `drain-log.sh report`.
 
 ## Additional resources
 

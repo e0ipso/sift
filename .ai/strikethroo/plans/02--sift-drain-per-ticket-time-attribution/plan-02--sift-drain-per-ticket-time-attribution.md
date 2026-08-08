@@ -340,12 +340,13 @@ each depend only on 001 and 002.
 - ✔️ Task 002: Add the `report` mode that separates agent runtime from operator idle time
   (depends on: 001) — `completed`
 
-### Phase 3: Document and cover
+### ✅ Phase 3: Document and cover
 **Parallel Tasks:**
-- Task 003: Document `RUNLOG.md` in `README.md`, re-sync the `sift-init` asset copy, and wire
-  `drain-log.sh` into `SKILL.md` (depends on: 001, 002)
-- Task 004: Add `tests/scripts/drain-log.test.sh` and register the script in the shared
-  root-resolution sweep (depends on: 001, 002)
+- ✔️ Task 003: Document `RUNLOG.md` in `README.md`, re-sync the `sift-init` asset copy, and wire
+  `drain-log.sh` into `SKILL.md` (depends on: 001, 002) — `completed`
+- ✔️ Task 004: Add `tests/scripts/drain-log.test.sh` and register the script in the shared
+  root-resolution sweep (depends on: 001, 002) — `completed`, with the sweep registration
+  deliberately omitted (see Noteworthy Events)
 
 Tasks 003 and 004 touch disjoint files — 003 edits `README.md`, the `sift-init` asset copy
 and `SKILL.md`; 004 edits `tests/scripts/` only — so they run concurrently without contention.

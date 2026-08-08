@@ -33,6 +33,7 @@ placeholder the same way; substitute a name from `MILESTONES.md` when you read i
 ├── README.md                  ← this convention (read it before touching tickets)
 ├── MILESTONES.md              ← what each milestone means, in intended order
 ├── ROADMAP.md                 ← advisory resolution order (tickets' depends_on is the truth)
+├── RUNLOG.md                  ← append-only drain run log; diagnostic, never ticket state
 ├── schemas/                   ← XSD drafting schemas (authoring aid; see "Drafting a ticket")
 │   ├── sift-common.xsd
 │   ├── bug-ticket.xsd
@@ -53,6 +54,11 @@ placeholder the same way; substitute a name from `MILESTONES.md` when you read i
   coarse lifecycle; the `status` front-matter key is the fine-grained truth.
 - **The hierarchy below the bucket is `<milestone>/<category>/`.** Both values are
   duplicated in front-matter so `grep` works even when a file has been moved.
+- **`RUNLOG.md` is written by the drain, never by hand.** The drain appends one row per
+  ticket dispatch and per ticket return, and the file is created on the first dispatch —
+  a freshly initialized tree has none. It is diagnostic timing only: it records nothing
+  about a ticket that the ticket file does not already say, so never read ticket state
+  out of it.
 - **The tree is untracked by default.** The shipped `.gitignore` is `*` and
   `!.gitignore`, so the backlog stays local and git history stays free of ticket churn.
   Delete that file to track tickets instead; nothing else in the convention depends on

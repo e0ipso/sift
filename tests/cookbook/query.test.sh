@@ -29,8 +29,9 @@ test_case "every recipe under test is the documented text"
 assert_contains "$LIST_OPEN" 'find .ai/sift/open -name "$PREFIX-*.md" | sort' "list open"
 assert_contains "$TRIAGE" 'grep -rl' "triage"
 assert_contains "$COUNT" 'for m in .ai/sift/open/*/;' "count per milestone"
-assert_contains "$FIND_ONE" 'find .ai/sift -name "$PREFIX-0042*"' "find one ticket"
+assert_contains "$FIND_ONE" 'find .ai/sift -name "$PREFIX-0042--*.md"' "find one ticket"
 assert_contains "$FULLTEXT" "grep -ril 'cache invalidation'" "full-text search"
+assert_contains "$DEPENDENTS" 'grep -rlE "$PREFIX-0042([^0-9]|$)"' "dependents are whole-ID matched"
 assert_contains "$DEPENDENTS" 'grep -v "$PREFIX-0042--"' "dependents"
 assert_contains "$NEXT" "grep -q '^status: blocked'" "pick next"
 assert_contains "$MILESTONE_SETUP" 'export MILESTONE=' "milestone export"
@@ -215,11 +216,22 @@ q "$d" "$DEPENDENTS"
 assert_not_contains "$R_OUT" 'ROADMAP.md' "--include keeps the search to ticket files"
 
 test_case "who depends on SFT-0042: SFT-00420 is a different ticket"
-# Known product bug, filed as SFT-0015: the search is a bare substring match, so
-# every ticket whose own ID merely starts with SFT-0042 — SFT-00420 and beyond —
-# is reported as a dependent. The archive recipe already defends the same
-# boundary ("SFT-0042 does not strike SFT-00420"); this one does not.
-skip "a longer ID sharing the leading digits is not a dependent" "SFT-0015"
+# SFT-0015: the search used to be a bare substring match, so every ticket whose
+# own ID merely starts with SFT-0042 — SFT-00420 and beyond — was reported as a
+# dependent, purely because its own front matter carries that ID. The anchor has
+# to reject the longer ID without narrowing the real matches, so the same tree
+# also holds the ID alone in a depends_on array and among several others.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0042 base 'Base' > /dev/null
+ticket "$d" open caching/bug SFT-00420 longer 'A longer ID sharing the digits' > /dev/null
+ticket "$d" open caching/bug SFT-0043 lone 'Lone dependency' \
+  'depends_on: [SFT-0042]' > /dev/null
+ticket "$d" open caching/bug SFT-0044 among 'One of several' \
+  'depends_on: [SFT-0041, SFT-0042, SFT-0050]' > /dev/null
+q "$d" "$DEPENDENTS"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq 'SFT-0043--lone.md SFT-0044--among.md ' "$(names "$R_OUT")" \
+  "both real dependents, never SFT-00420 and never SFT-0042's own file"
 
 # --- Pick the next thing -----------------------------------------------------
 

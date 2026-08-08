@@ -130,6 +130,9 @@ AGREEMENT="$(recipe_folder_agreement)"
 test_case "the agreement recipe is the documented text"
 assert_contains "$AGREEMENT" 'case "$f" in */"$m"/*)' "the folder match is a case pattern"
 assert_contains "$AGREEMENT" 'MISMATCH:' "the diagnostic it prints"
+assert_contains "$AGREEMENT" 'NR == 1 && /^---[[:space:]]*$/' "it walks the front-matter fence"
+assert_contains "$AGREEMENT" 'NO MILESTONE:' "…and has a second, distinct diagnostic"
+assert_not_contains "$AGREEMENT" "grep -m1 '^milestone:'" "no unscoped whole-file read"
 
 agree() { run_recipe "$1" "$AGREEMENT" PREFIX=SFT; }
 
@@ -157,6 +160,79 @@ d="$(newdir)"; make_tree "$d"
 agree "$d"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "" "$R_OUT" "prints nothing"
+
+# SFT-0020: the check used to read the milestone with `grep -m1 '^milestone:'`,
+# which searches the whole file. On the one ticket the check exists to catch —
+# front matter with no `milestone:` key — the first match was a body line quoting
+# the key at column 0, so the folder was scored against a sentence and the tree
+# reported clean. The two cases below are that defect from both sides.
+
+test_case "a ticket whose front matter omits milestone: is reported, whatever its body says"
+d="$(newdir)"; make_tree "$d"
+mkdir -p "$d/.ai/sift/open/caching/bug"
+{ echo '---'; echo 'id: SFT-0001'; echo 'title: No milestone'; echo 'status: open'
+  echo 'type: bug'; echo 'priority: p2'; echo 'effort: m'
+  echo 'created: 2026-08-01'; echo 'updated: 2026-08-01'; echo '---'; echo
+  echo '## Problem'; echo 'milestone: caching is what the body claims.'; } \
+  > "$d/.ai/sift/open/caching/bug/SFT-0001--nokey.md"
+agree "$d"
+assert_eq 0 "$R_STATUS" "exits 0 — it reports rather than fails"
+assert_contains "$R_OUT" 'NO MILESTONE: .ai/sift/open/caching/bug/SFT-0001--nokey.md' \
+  "the missing key is its own finding, not silence"
+assert_eq 0 "$(printf '%s\n' "$R_OUT" | grep -c '^MISMATCH:')" \
+  "and not folded into MISMATCH: there is no key to disagree with the folder"
+
+test_case "a milestone: key with an empty value is reported the same way"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0001 empty 'Empty' 'milestone:' > /dev/null
+agree "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_contains "$R_OUT" 'NO MILESTONE:' "an empty value is nothing to compare against"
+
+test_case "a body line quoting milestone: at column 0 never decides the check"
+d="$(newdir)"; make_tree "$d"
+# Correct front matter, a body that claims another milestone: still silent.
+g="$(ticket "$d" open caching/bug SFT-0001 ok 'Ok')"
+printf '\nmilestone: platform is only prose here.\n' >> "$g"
+# Wrong front matter, a body that agrees with the folder: still reported, and
+# reported against the key rather than the prose.
+g="$(ticket "$d" open caching/bug SFT-0002 wrong 'Wrong' 'milestone: platform')"
+printf '\nmilestone: caching is only prose here.\n' >> "$g"
+agree "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq 1 "$(printf '%s\n' "$R_OUT" | grep -c .)" "exactly one finding"
+assert_contains "$R_OUT" 'SFT-0002--wrong.md (says platform)' "scored on the front matter"
+assert_not_contains "$R_OUT" 'SFT-0001' "prose below the fence is not front matter"
+
+test_case "a file with no front-matter fence is reported, not misread"
+d="$(newdir)"; make_tree "$d"
+mkdir -p "$d/.ai/sift/open/caching/bug"
+printf '# Bare\n\nmilestone: caching\n' > "$d/.ai/sift/open/caching/bug/SFT-0001--bare.md"
+agree "$d"
+assert_contains "$R_OUT" 'NO MILESTONE:' "no fence means no front matter to read"
+
+agreement_matrix_case() {
+  local d="$1"
+  agree "$d"
+  if [ "$R_STATUS" -eq 0 ] &&
+     [ "$(printf '%s\n' "$R_OUT" | grep -c '^NO MILESTONE:')" -eq 1 ] &&
+     [ "$(printf '%s\n' "$R_OUT" | grep -c '^MISMATCH:')" -eq 1 ]
+  then t_ok "$R_LABEL"
+  else t_fail "$R_LABEL" "status=$R_STATUS" "stdout=$R_OUT"; fi
+}
+test_case "the fence walk holds on every shell × awk × locale"
+# The recipe grew an awk pass with this fix, so it earns the full matrix rather
+# than the grep/sed/find sweep the rest of this file uses.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0001 ok 'Ok' > /dev/null
+ticket "$d" open caching/bug SFT-0002 wrong 'Wrong' 'milestone: platform' > /dev/null
+mkdir -p "$d/.ai/sift/open/caching/bug"
+{ echo '---'; echo 'id: SFT-0003'; echo 'title: No milestone'; echo 'status: open'
+  echo 'type: bug'; echo 'priority: p2'; echo 'effort: m'
+  echo 'created: 2026-08-01'; echo 'updated: 2026-08-01'; echo '---'; echo
+  echo 'milestone: caching is what the body claims.'; } \
+  > "$d/.ai/sift/open/caching/bug/SFT-0003--nokey.md"
+for_matrix agreement_matrix_case "$d"
 
 # --- The section-backfill lists ----------------------------------------------
 

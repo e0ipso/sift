@@ -408,11 +408,21 @@ find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r 
     }
   ' "$f"
 done | while read -r f; do
-  id=$(grep -m1 '^id:' "$f" | awk '{print $2}')
-  title=$(grep -m1 '^title:' "$f" | sed 's/^title:[[:space:]]*//')
-  printf '%s  %s  %s\n' "$id" "$title" "$f"
+  awk '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
+    infm && /^---[[:space:]]*$/ { exit }
+    infm && /^id:/    { id = $2; next }
+    infm && /^title:/ { title = $0; sub(/^title:[[:space:]]*/, "", title); next }
+    END { printf "%s  %s  %s\n", id, title, FILENAME }
+  ' "$f"
 done
 ```
+The display line walks the same fence as the filter above it rather than reaching for
+`grep -m1 '^id:'`. `-m1` is not a scope: it stops at the first match *anywhere* in the
+file, so a ticket whose front matter omits `title:` renders whatever body sentence quotes
+the key at column 0 — and a repository that documents this convention writes such
+sentences for a living. Reading both keys in one `awk` pass also replaces four processes
+per file with one.
 
 **Who depends on `$PREFIX-0042`:**
 ```sh
@@ -670,7 +680,29 @@ fi
 **Sanity-check folder/front-matter agreement:**
 ```sh
 find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | while read -r f; do
-  m=$(grep -m1 '^milestone:' "$f" | awk '{print $2}')
-  case "$f" in */"$m"/*) ;; *) echo "MISMATCH: $f (says $m)";; esac
+  m=$(awk '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
+    infm && /^---[[:space:]]*$/ { exit }
+    infm && /^milestone:/ { print $2; exit }
+  ' "$f")
+  if [ -z "$m" ]; then
+    echo "NO MILESTONE: $f"
+  else
+    case "$f" in */"$m"/*) ;; *) echo "MISMATCH: $f (says $m)";; esac
+  fi
 done
 ```
+The milestone is read by walking the leading `---` fence, the same way the label recipes
+and the move/archive rewrites do. `grep -m1 '^milestone:'` searched the whole file, and it
+failed on precisely the ticket this check exists to catch: front matter with no
+`milestone:` key at all, whose first match is then a body line quoting the key at column 0.
+The folder got compared against a sentence, and a ticket missing a required key was
+reported as clean.
+
+The two findings are kept apart because they are different repairs. `MISMATCH:` means the
+front matter is authoritative and the file is in the wrong directory — fix it with the
+milestone move above. `NO MILESTONE:` means there is nothing to compare against: the key is
+absent, or present with an empty value, so the front-matter validation and the move recipe
+will both fail on this ticket too, and the fix is to write the key. Folding the second into
+the first would report a ticket as filed under the wrong milestone when it claims no
+milestone at all.

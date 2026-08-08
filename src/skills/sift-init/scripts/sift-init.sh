@@ -109,16 +109,94 @@ note_created() { created="${created}  created  ${1}
 note_kept()    { kept="${kept}  kept     ${1}
 "; }
 
+# --- Atomic create-if-absent ------------------------------------------------
+# Every scaffolding write goes through install_file or write_file, and both are
+# create-if-absent: that is what lets a second run repair a partial tree without
+# clobbering an operator's edits.
+#
+# `[ -e "$dest" ]` and then `cp` is a check-then-act, and the window between the
+# two is wide enough to lose a race in. GNU `cp` opens a destination it believes
+# absent with O_EXCL rather than truncating, so of two writers that pass the `-e`
+# test together the second does not overwrite — it dies with
+# `cp: cannot create regular file '…': File exists` (SFT-0030). The `-e` test
+# survives as a fast path, because the common case is a repair that writes
+# nothing at all, but it no longer decides anything on its own: the write lands
+# in a temporary file BESIDE its destination and is published with `ln`, whose
+# EEXIST makes one syscall serve as both the "already there?" test and the
+# create — exactly the trick the `mkdir` lock below plays on the directory.
+#
+# `ln` and not a bare `mv`: `mv` overwrites, and create-if-absent is the whole
+# repair contract. Losing the link race is therefore not a failure, it is the
+# "kept" branch — some other writer put identical bytes there first.
+#
+# The temporary file lives in the destination's own directory, never `$TMPDIR`:
+# neither a hard link nor an atomic rename can cross a filesystem.
+#
+# Publishing a fully written file under its final name in one step also closes a
+# second window SFT-0030 names: `sift-gate.sh` parses `prefix:` out of
+# `config/config.yaml`, and a writer that skipped the file on the `-e` test could
+# reach that read while the file existed but was still empty.
+
+# new_temp <directory> — an empty private file beside the destination, with the
+# permissions the umask would have given a freshly created file. `mktemp` makes
+# it 0600 and neither `cp` onto an existing file nor `> "$tmp"` widens that, so
+# without the chmod every shipped file would land 0600. A symbolic mode with no
+# "who" is masked by the umask, which is precisely the rule being restored.
+new_temp() {
+  local tmp
+  mkdir -p "$1" || return 2
+  tmp=$(mktemp "$1/.sift-init.XXXXXX") || return 2
+  chmod +rw "$tmp" || { rm -f "$tmp"; return 2; }
+  printf '%s\n' "$tmp"
+}
+
+# publish <temp path> <relative destination> — consumes the temp file either way.
+publish() {
+  if ln "$1" "$sift/$2" 2>/dev/null; then
+    rm -f "$1"; note_created ".ai/sift/$2"; return 0
+  fi
+  if [ -e "$sift/$2" ]; then
+    rm -f "$1"; note_kept ".ai/sift/$2"; return 0
+  fi
+  # No link and no destination: a filesystem with no hard links at all (FAT, a
+  # few FUSE mounts). Fall back to the rename the cookbook documents as the
+  # portable replacement for `sed -i` — still one step and still atomic, only
+  # without EEXIST to arbitrate a tie. Reached solely where `ln` cannot work,
+  # so it is never worse than the check-then-act it replaces.
+  if mv "$1" "$sift/$2" 2>/dev/null; then note_created ".ai/sift/$2"; return 0; fi
+  rm -f "$1"
+  echo "error: cannot create $sift/$2" >&2
+  return 2
+}
+
+install_file() {  # install_file <source> <relative destination>
+  local tmp
+  if [ -e "$sift/$2" ]; then note_kept ".ai/sift/$2"; return 0; fi
+  tmp=$(new_temp "$(dirname "$sift/$2")") || {
+    echo "error: cannot stage $sift/$2" >&2; return 2; }
+  cp "$1" "$tmp" || { rm -f "$tmp"; echo "error: cannot read $1" >&2; return 2; }
+  publish "$tmp" "$2"
+}
+
+write_file() {   # write_file <relative destination>  (body on stdin)
+  local tmp
+  if [ -e "$sift/$1" ]; then note_kept ".ai/sift/$1"; cat > /dev/null; return 0; fi
+  tmp=$(new_temp "$(dirname "$sift/$1")") || {
+    cat > /dev/null; echo "error: cannot stage $sift/$1" >&2; return 2; }
+  cat > "$tmp" || { rm -f "$tmp"; echo "error: cannot write $sift/$1" >&2; return 2; }
+  publish "$tmp" "$1"
+}
+
 # --- Claim the tree ---------------------------------------------------------
 # Bare mkdir, never `mkdir -p`: it fails when the directory exists, which makes one
 # syscall serve as both the "already there?" test and the lock. Exactly one of N
 # concurrent agents wins it and the losers fall through to the repair path — the
 # concurrency shape the convention requires.
 #
-# The lock covers the directory, not each file: a loser racing the winner can write a
-# file the winner is also writing. Harmless here because both write identical bytes,
-# and the alternative (flock) is Linux-only. No ticket is ever at risk — this script
-# only ever creates scaffolding that does not yet exist.
+# The lock covers the directory, not each file, and it does not need to: every
+# file below is published atomically, so a loser racing the winner onto the same
+# path keeps what it finds instead of failing. No ticket is ever at risk — this
+# script only ever creates scaffolding that does not yet exist.
 
 mkdir -p "$root/.ai" || exit 2
 if mkdir "$sift" 2>/dev/null; then
@@ -130,30 +208,6 @@ else
   note_kept ".ai/sift/ (existing tree — repairing)"
 fi
 
-install_file() {  # install_file <source> <relative destination>
-  if [ -e "$sift/$2" ]; then note_kept ".ai/sift/$2"; return 0; fi
-  mkdir -p "$(dirname "$sift/$2")" || return 2
-  cp "$1" "$sift/$2" || return 2
-  note_created ".ai/sift/$2"
-}
-
-write_file() {   # write_file <relative destination>  (body on stdin)
-  if [ -e "$sift/$1" ]; then note_kept ".ai/sift/$1"; cat > /dev/null; return 0; fi
-  mkdir -p "$(dirname "$sift/$1")" || return 2
-  cat > "$sift/$1" || return 2
-  note_created ".ai/sift/$1"
-}
-
-# --- The convention itself, copied never generated --------------------------
-# README.md and schemas/ are the normative spec. A regenerated paraphrase is spec
-# drift, so they ship as card assets and are copied byte for byte.
-
-install_file "$assets/README.md" "README.md" || exit 2
-for x in "$assets"/schemas/*.xsd; do
-  [ -f "$x" ] || continue
-  install_file "$x" "schemas/$(basename "$x")" || exit 2
-done
-
 # --- Tracking policy --------------------------------------------------------
 # Self-contained: the tree ignores itself rather than the repository's root
 # .gitignore reaching down into it, so init never edits a file it does not own.
@@ -161,9 +215,16 @@ done
 # ONLY on a fresh tree. Repairs leave it alone and sift-gate.sh does not list it as a
 # required entry — otherwise an absence that means "I chose to track my tickets" would
 # read as a defect and be undone on every repair.
+#
+# It is written HERE, first, immediately after the mkdir that claimed the tree and
+# before any other write: the fresh path belongs to the lock's winner alone, so a
+# winner that died further down used to take this file with it permanently — every
+# later run is a repair, and a repair never restores it (SFT-0030). Nothing between
+# the mkdir and this write can fail now, so "fresh tree" and "has a .gitignore" can
+# no longer come apart.
 
 if [ "$fresh" -eq 1 ]; then
-  write_file ".gitignore" <<'EOF'
+  write_file ".gitignore" <<'EOF' || exit 2
 *
 !.gitignore
 EOF
@@ -174,6 +235,16 @@ else
     note_kept ".ai/sift/.gitignore (absent — tracking is the user's choice)"
   fi
 fi
+
+# --- The convention itself, copied never generated --------------------------
+# README.md and schemas/ are the normative spec. A regenerated paraphrase is spec
+# drift, so they ship as card assets and are copied byte for byte.
+
+install_file "$assets/README.md" "README.md" || exit 2
+for x in "$assets"/schemas/*.xsd; do
+  [ -f "$x" ] || continue
+  install_file "$x" "schemas/$(basename "$x")" || exit 2
+done
 
 # --- Per-repository configuration -------------------------------------------
 

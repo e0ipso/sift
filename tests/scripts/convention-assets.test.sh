@@ -123,4 +123,67 @@ assert_same "$REPO_ROOT/README.md" "$root/.ai/sift/README.md" \
   "and the tree carries the normative spec again, byte for byte"
 assert_contains "$R_OUT" 'gate: READY' "a refreshed tree still passes the gate"
 
+# --- An installed schema the card no longer ships (SFT-0035) -----------------
+#
+# The drift check above walks the SHIPPED set, so it is blind in one direction:
+# a schema in the tree with no counterpart in the card is never mentioned. The
+# documented refresh shares the blind spot — `cp` overwrites what still ships and
+# steps over the rest — so following the remedy to the letter still leaves the
+# tree carrying a schema the convention no longer defines, and a drafter that
+# finds it will draft against it. Reported as `orphan` rather than `stale`:
+# there is no shipped copy for the bytes to differ from, and the remedy is a
+# deletion the initializer refuses to perform. The tree entering this block is
+# the refreshed, fully current one the case above left behind.
+
+test_case "a schema the card no longer ships is named, and only that one"
+assert_not_contains "$R_OUT" '  orphan ' \
+  "a tree holding exactly the shipped set says nothing"
+
+# Build the damage first: a schema withdrawn from the convention after this tree
+# was initialised looks exactly like a file the `cp` refresh stepped over, which
+# is the state the check exists to catch. Without it, a check that never fires
+# is indistinguishable from one that holds.
+printf '<?xml version="1.0"?>\n<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>\n' \
+  > "$root/.ai/sift/schemas/legacy-ticket.xsd"
+orphan_digest="$(tree_digest "$root/.ai/sift")"
+orphan_paths="$(find "$root/.ai/sift" | LC_ALL=C sort)"
+
+run_cmd "$root" "$INIT" --root "$root" --prefix SFT
+assert_eq 0 "$R_STATUS" "the run over a tree holding it still exits 0"
+assert_contains "$R_OUT" 'orphan   .ai/sift/schemas/legacy-ticket.xsd' \
+  "the withdrawn schema is named, in the report's column shape"
+assert_contains "$R_OUT" 'no longer defines it' "with what the finding means"
+assert_not_contains "$R_OUT" 'orphan   .ai/sift/schemas/task-ticket.xsd' \
+  "a schema the card still ships is not"
+assert_not_contains "$R_OUT" '  stale ' \
+  'and it is not folded into stale, whose cp remedy could not fix it'
+
+test_case "the remedy is an rm the operator runs, and says why it is not run for them"
+assert_contains "$R_OUT" "  rm $root/.ai/sift/schemas/legacy-ticket.xsd" \
+  "the deletion is printed with the path resolved, ready to paste"
+assert_contains "$R_OUT" 'must never make on its own' \
+  "with the reason the initializer will not run it"
+assert_contains "$R_OUT" 'added a schema of its own' \
+  "which is that the file may be one this repository owns"
+
+test_case "reporting an orphan schema writes nothing and deletes nothing"
+# The regression guard on a check that must never repair. A deletion is the most
+# tempting repair in the script and the most expensive one to get wrong, so this
+# pins bytes and paths both: the digest reads files only, and a file removed —
+# or a temp file staged beside one — is a change only the inventory can see.
+assert_eq "$orphan_digest" "$(tree_digest "$root/.ai/sift")" \
+  "not one byte of the tree changed"
+assert_eq "$orphan_paths" "$(find "$root/.ai/sift" | LC_ALL=C sort)" \
+  "and no file was added or removed"
+assert_file "$root/.ai/sift/schemas/legacy-ticket.xsd" \
+  "the schema the initializer refused to delete is still there"
+
+test_case "removing it by hand makes the report go quiet"
+rm "$root/.ai/sift/schemas/legacy-ticket.xsd"
+run_cmd "$root" "$INIT" --root "$root" --prefix SFT
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_not_contains "$R_OUT" '  orphan ' "nothing is reported once the sets agree again"
+assert_not_contains "$R_OUT" 'legacy-ticket' "and the withdrawn name is gone from the report"
+assert_contains "$R_OUT" 'gate: READY' "the tree still passes the gate"
+
 summary

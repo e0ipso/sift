@@ -800,3 +800,12 @@ initializer that silently replaced an annotated spec would be a worse failure th
 drift it was fixing. `diff` them first if you have written anything into either — that
 annotation is the only thing a refresh can cost you. A tree whose copy is current gets no
 `stale` line at all.
+
+The refresh copies, so it cannot remove: `cp` overwrites the schemas that still ship and
+steps over any other file in `schemas/`, which means a schema the convention has since
+withdrawn survives every refresh you run. The initializer reports that case separately, as
+an `orphan` line naming the file, followed by the `rm` that answers it — a command to run,
+not an action it takes, because nothing on disk distinguishes a withdrawn schema from one
+this repository added for itself, and deleting a file it did not create is the one repair
+an initializer must never make on its own. Check which of the two it is before you run the
+`rm`; the card's `assets/schemas/` is the list of names that still ship.

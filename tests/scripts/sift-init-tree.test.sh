@@ -169,7 +169,7 @@ assert_contains "$R_OUT" 'sift-init.sh --root PATH --prefix ABCD' "the usage lin
 # --help prints a fixed line range out of the header comment, so a paragraph
 # added above the last one silently truncates the usage text unless the range
 # moves with it. Anchoring on the final paragraph is what catches that.
-assert_contains "$R_OUT" 'listed as `stale`' "through to the end of the header block"
+assert_contains "$R_OUT" 'must never make on its own.' "through to the end of the header block"
 assert_no_dir "$root/.ai" "asking for help materialises nothing"
 
 # --- Rejected arguments arriving at a tree with real work in it (SFT-0008) ---

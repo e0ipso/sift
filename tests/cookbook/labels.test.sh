@@ -25,7 +25,8 @@ FILTER="$(recipe_labels_filter)"
 
 test_case "recipes are extracted from README.md and the filter is parameterised"
 assert_contains "$LIST" 'infm && /^labels:/' "the list recipe carries the parser"
-assert_contains "$COUNT" 'uniq -c' "the count recipe tallies"
+assert_contains "$COUNT" 'sub(/^[[:space:]]*[0-9]+[[:space:]]+/' \
+  "the count recipe strips uniq -c's count off the front instead of reading a field"
 assert_contains "$FILTER" 'LABEL=${LABEL?}' "the worked example's label is driven by the test"
 assert_contains "$FILTER" 'if (a[i] == want)' "the filter compares whole labels, not substrings"
 
@@ -50,6 +51,13 @@ lbl() {  # lbl <dir> <recipe> [VAR=VAL…]
 }
 
 one_line() { printf '%s\n' "$1" | tr '\n' ' '; }
+
+# The count recipe's rows are read back by label rather than compared whole,
+# because two labels differing in case sort one way under C and the other under
+# en_US — and because a listing joined on blanks cannot tell "Foo Bar" from two
+# labels named Foo and Bar.
+count_of() { printf '%s\n' "$R_OUT" | awk -F'\t' -v l="$1" '$1 == l { print $2 }'; }
+rows()     { printf '%s\n' "$R_OUT" | grep -c .; }
 
 # --- Listing labels ----------------------------------------------------------
 
@@ -137,9 +145,38 @@ ticket "$d" open caching/bug SFT-0002 b 'B' 'labels: [caching]' > /dev/null
 ticket "$d" open caching/bug SFT-0003 c 'C' 'labels: [caching, perf]' > /dev/null
 lbl "$d" "$COUNT"
 assert_eq 0 "$R_STATUS" "exits 0"
-assert_eq 3 "$(printf '%s\n' "$R_OUT" | awk -F'\t' '$1 == "caching" { print $2 }')" "caching: 3"
-assert_eq 2 "$(printf '%s\n' "$R_OUT" | awk -F'\t' '$1 == "perf" { print $2 }')" "perf: 2"
-assert_eq 2 "$(printf '%s\n' "$R_OUT" | grep -c .)" "one row per label, no others"
+assert_eq 3 "$(count_of caching)" "caching: 3"
+assert_eq 2 "$(count_of perf)" "perf: 2"
+assert_eq 2 "$(rows)" "one row per label, no others"
+
+test_case "a label carrying a blank is counted whole, and a repeat is one carrier"
+# SFT-0028: the tail used to be `uniq -c | awk '{ print $2, $1 }' | sort -k1,1`,
+# which reported "Foo Bar" as "Foo" — a label no ticket carries — and counted
+# `labels: [api, api]` as two mentions rather than one carrier. Both defects are
+# invisible in the output unless a fixture contains a blank and a repeat.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0001 a 'A' 'labels: [Foo Bar, api]' > /dev/null
+ticket "$d" open caching/bug SFT-0002 b 'B' 'labels: [api, api]' > /dev/null
+lbl "$d" "$COUNT"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq 1 "$(count_of 'Foo Bar')" "everything after the label's first blank survives"
+assert_eq 2 "$(count_of api)" "two tickets carry api; SFT-0002's repeat is one of them"
+assert_eq 2 "$(rows)" "two rows — no phantom row named Bar"
+
+test_case "the count is the listing with a column added, label for label"
+# The two recipes are meant to be one answer, so the label sets are diffed
+# rather than eyeballed: the listing ends in `sort -u` and the count inherits
+# `uniq`'s order over the same sorted input, so the rows line up one for one.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0001 a 'A' 'labels: [Foo Bar, api]' > /dev/null
+ticket "$d" open caching/bug SFT-0002 b 'B' 'labels: [api, zed one]' > /dev/null
+ticket "$d" archive caching/bug SFT-0003 c 'C' 'status: done' 'resolution: "x"' \
+  'labels: [Foo Bar]' > /dev/null
+lbl "$d" "$LIST"; listing="$R_OUT"
+lbl "$d" "$COUNT"
+assert_eq "$listing" "$(printf '%s\n' "$R_OUT" | cut -f1)" \
+  "same labels in the same order, so no re-sort is missing"
+assert_eq 2 "$(count_of 'Foo Bar')" "…and the column is a ticket count"
 
 test_case "counting an unlabelled tree prints nothing"
 d="$(newdir)"; make_tree "$d"
@@ -213,5 +250,27 @@ d="$(newdir)"; make_tree "$d"
 ticket "$d" open caching/bug SFT-0001 a 'A' 'labels: [ caching , tenant-perf ] # note' > /dev/null
 ticket "$d" open caching/bug SFT-0002 b 'B' 'labels: [tenant-perf]' > /dev/null
 for_matrix matrix_case "$d"
+
+count_matrix_case() {
+  local d="$1"
+  lbl "$d" "$COUNT"
+  if [ "$R_STATUS" -eq 0 ] && [ "$(count_of 'Foo Bar')" = 12 ] &&
+     [ "$(count_of api)" = 1 ] && [ "$(rows)" = 2 ]
+  then t_ok "$R_LABEL"; else t_fail "$R_LABEL" "status=$R_STATUS" "out=$R_OUT"; fi
+}
+test_case "the count survives every awk at the width uniq -c re-pads at"
+# `uniq -c` right-aligns its count in a padded column and the widths shift the
+# moment a count reaches ten, so twelve carriers is the fixture that proves the
+# leading-run `sub()` is not a fixed-offset cut in disguise. A single-digit
+# fixture would pass with either.
+d="$(newdir)"; make_tree "$d"
+i=1
+while [ "$i" -le 12 ]; do
+  n="$(printf 'SFT-%04d' "$i")"
+  ticket "$d" open caching/bug "$n" "t$i" "T$i" 'labels: [Foo Bar]' > /dev/null
+  i=$((i + 1))
+done
+ticket "$d" open caching/bug SFT-0013 dup 'Dup' 'labels: [api, api]' > /dev/null
+for_matrix count_matrix_case "$d"
 
 summary

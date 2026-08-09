@@ -45,6 +45,8 @@ test_case "the fresh tree is reported as created, and verified by the gate"
 assert_contains "$R_OUT" "sift tree at $root/.ai/sift" "the report names the absolute location"
 assert_contains "$R_OUT" '  created  .ai/sift/' "created entries are listed"
 assert_not_contains "$R_OUT" '  kept     .ai/sift/README.md' "nothing was kept on a fresh tree"
+assert_not_contains "$R_OUT" '  stale ' \
+  "and nothing is stale — the spec was copied from the asset it is compared against"
 assert_contains "$R_OUT" 'prefix: ACME   first milestone: v1-2' "the two immutable choices are echoed"
 assert_contains "$R_OUT" 'gate: READY' "init verifies its own work before claiming success"
 
@@ -90,6 +92,8 @@ assert_eq "$before" "$(tree_digest "$root")" "not one byte of the tree changed"
 assert_contains "$R_OUT" 'kept     .ai/sift/ (existing tree — repairing)' \
   "and it says it found an existing tree"
 assert_not_contains "$R_OUT" '  created  ' "nothing was created"
+assert_not_contains "$R_OUT" '  stale ' \
+  "and no spec drift is reported against the copy this run just checked"
 
 test_case "a repair recreates only what is missing"
 rm "$root/.ai/sift/ROADMAP.md"
@@ -162,6 +166,10 @@ root="$(newdir)"
 run_cmd "$root" "$INIT" --help
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_contains "$R_OUT" 'sift-init.sh --root PATH --prefix ABCD' "the usage line is shown"
+# --help prints a fixed line range out of the header comment, so a paragraph
+# added above the last one silently truncates the usage text unless the range
+# moves with it. Anchoring on the final paragraph is what catches that.
+assert_contains "$R_OUT" 'listed as `stale`' "through to the end of the header block"
 assert_no_dir "$root/.ai" "asking for help materialises nothing"
 
 # --- Rejected arguments arriving at a tree with real work in it (SFT-0008) ---

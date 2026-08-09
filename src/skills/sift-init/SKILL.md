@@ -111,6 +111,31 @@ agents create the tree. Each file inside is published the same way — staged in
 temporary file beside its destination, then linked into place, so a losing writer keeps
 what it finds instead of failing, and no reader ever sees a half-written file.
 
+## Refreshing an installed spec
+
+Create-if-absent is right for the whole tree except two paths. `README.md` and
+`schemas/*.xsd` are not the repository's state — they are the convention, shipped whole —
+so an installed copy freezes on the day the tree was created while the convention keeps
+moving, and every recipe corrected since is invisible to the agents reading it.
+
+`sift-init.sh` therefore compares the shipped asset against each installed copy on every
+run and prints a `stale` line for each file that differs, alongside `created` and `kept`.
+The check reads only. Taking the new copy is a separate, explicit act:
+
+```sh
+cp <card>/assets/README.md <root>/.ai/sift/README.md
+cp <card>/assets/schemas/*.xsd <root>/.ai/sift/schemas/
+```
+
+The report prints both lines with the paths already resolved, so an operator holding a
+stale copy learns the remedy from the run rather than from a cookbook entry their copy
+does not yet contain.
+
+Do not run the copy on the operator's behalf without saying so first, and never make it
+implicit. These two files are also the one place a repository can annotate the convention
+for itself; silently replacing an annotated spec breaks the same trust the `kept` report
+exists to protect. Offer the commands, name what changed, and let them decide.
+
 ## After initializing
 
 Report the root, the prefix, and that the gate now reads `READY`. Then say plainly that

@@ -763,3 +763,33 @@ absent, or present with an empty value, so the front-matter validation and the m
 will both fail on this ticket too, and the fix is to write the key. Folding the second into
 the first would report a ticket as filed under the wrong milestone when it claims no
 milestone at all.
+
+**Refresh the installed convention** — this file and `schemas/*.xsd`, and nothing else in
+the tree. Every other path under `.ai/sift/` is the repository's own state: the tickets,
+`ROADMAP.md`, `MILESTONES.md` and `config/config.yaml` are written here and exist nowhere
+else, so no command may ever overwrite them. `README.md` and `schemas/` are the opposite.
+They are the convention, shipped whole and copied in byte for byte when the tree was
+created, and they hold no ticket, no roadmap row, no milestone and no configuration.
+Overwriting exactly those two paths therefore loses nothing that is not recoverable from
+the card that shipped them — which is what makes the refresh a plain `cp` rather than a
+migration.
+
+It has to be run deliberately, because nothing runs it for you. The initializer installs
+these files create-if-absent and never rewrites them, so the copy freezes on the day the
+tree was created while the convention keeps moving; a recipe corrected upstream stays
+broken in the copy every agent here actually reads. What the initializer does do, on every
+run, is *report* the gap — a `stale` line naming each file whose bytes no longer match the
+shipped one, followed by the two commands below with the paths already resolved:
+
+```sh
+cp "$CARD/assets/README.md" .ai/sift/README.md
+cp "$CARD"/assets/schemas/*.xsd .ai/sift/schemas/
+```
+
+`$CARD` is the `sift-init` card's own directory; run `sift-init.sh` and paste the lines it
+prints rather than guessing at the path. It reports and stops there on purpose: these two
+files are also the only place a repository can annotate the convention for itself, and an
+initializer that silently replaced an annotated spec would be a worse failure than the
+drift it was fixing. `diff` them first if you have written anything into either — that
+annotation is the only thing a refresh can cost you. A tree whose copy is current gets no
+`stale` line at all.

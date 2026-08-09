@@ -26,6 +26,13 @@
 # explicit act, because these files are also the only place they can annotate the
 # convention for their repository.
 #
+# The report reads the comparison in the other direction too: an installed schema this
+# card no longer ships is listed as `orphan` — not `stale`, because there is no shipped
+# copy for its bytes to differ from. That one is not even offered as a `cp`, since the
+# refresh copies and cannot remove. The printed remedy is an `rm` for the operator to
+# run by hand, because the file may equally be a schema the repository added for itself
+# and deleting it is the one repair an initializer must never make on its own.
+#
 # Exit codes: 0 created or repaired, 2 usage/environment error.
 
 set -u
@@ -38,7 +45,7 @@ while [ $# -gt 0 ]; do
     --prefix)         prefix="${2:-}"; shift 2 ;;
     --milestone)      milestone="${2:-}"; shift 2 ;;
     --suggest-prefix) suggest=1; shift ;;
-    -h|--help)        sed -n '2,27p' "$0"; exit 0 ;;
+    -h|--help)        sed -n '2,34p' "$0"; exit 0 ;;
     *) echo "error: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -113,13 +120,20 @@ assets=$(cd "$assets" && pwd -P)
 [ -f "$assets/README.md" ] || { echo "error: $assets/README.md is missing" >&2; exit 2; }
 
 sift="$root/.ai/sift"
-created=''; kept=''; stale=''
+created=''; kept=''; stale=''; orphan=''; orphan_rm=''
 
 note_created() { created="${created}  created  ${1}
 "; }
 note_kept()    { kept="${kept}  kept     ${1}
 "; }
 note_stale()   { stale="${stale}  stale    ${1} (differs from the shipped convention)
+"; }
+# Takes the path RELATIVE to the tree, not the display string the three above
+# take: the finding and the `rm` that answers it must name the same file, and
+# deriving both from one argument is what keeps them from drifting apart.
+note_orphan()  { orphan="${orphan}  orphan   .ai/sift/${1} (installed, but the shipped convention no longer defines it)
+"
+                 orphan_rm="${orphan_rm}  rm ${sift}/${1}
 "; }
 
 # --- Atomic create-if-absent ------------------------------------------------
@@ -290,6 +304,37 @@ for x in "$assets"/schemas/*.xsd; do
   check_drift "$x" "schemas/$(basename "$x")"
 done
 
+# --- And an installed schema the card no longer ships? ----------------------
+# The loop above walks the SHIPPED set, so its domain is what this card carries:
+# it sees a file whose bytes changed and a file that went missing, but never an
+# extra one. A schema sitting in the tree that the convention has since withdrawn
+# is invisible to it, and the documented refresh is blind the same way — `cp`
+# overwrites what still ships and steps straight over the rest, so the withdrawn
+# file survives every refresh an operator runs. A drafter that finds it drafts
+# against a shape the convention stopped defining (SFT-0035). Removing a schema
+# is a breaking API change, which is exactly the moment an already-initialized
+# tree needs telling.
+#
+# `orphan` and not `stale`: `stale` means the bytes differ from the shipped copy,
+# and a file with no shipped copy at all is a different condition with a
+# different remedy. Conflating them would print a `cp` that cannot fix it.
+#
+# Reported, never deleted — the same rule the drift check obeys, for a stronger
+# reason. Nothing on disk distinguishes a schema the convention withdrew from one
+# this repository wrote for itself, and deleting a file it did not create is the
+# one repair an initializer must not make on its own. So this loop only reads:
+# the `rm` is printed, and the operator runs it.
+#
+# The unmatched glob stays literal, so the `[ -f ]` guard is what keeps a tree
+# with no schemas at all from being reported as owning one named `*.xsd`. Not
+# `nullglob`: this script runs under whatever `sh`-alike bash provides, and the
+# guard is the portable spelling the rest of the file already uses.
+for x in "$sift"/schemas/*.xsd; do
+  [ -f "$x" ] || continue
+  base=$(basename "$x")
+  [ -f "$assets/schemas/$base" ] || note_orphan "schemas/$base"
+done
+
 # --- Per-repository configuration -------------------------------------------
 
 write_file "config/config.yaml" <<EOF
@@ -362,6 +407,21 @@ if [ -n "$stale" ]; then
   printf 'Take the current copy when you are ready (review first if you annotated either):\n\n'
   printf '  cp %s/README.md %s/README.md\n' "$assets" "$sift"
   printf '  cp %s/schemas/*.xsd %s/schemas/\n' "$assets" "$sift"
+fi
+
+# The `cp` above cannot answer this one: it copies, so it overwrites what still
+# ships and leaves a withdrawn schema exactly where it is. The remedy is a
+# deletion, and a deletion is the one thing this script will not do for you —
+# hence a command to run rather than an action taken.
+if [ -n "$orphan" ]; then
+  printf '%s' "$orphan"
+  printf '\nThat file is installed under a name this card no longer ships. Either the\n'
+  printf 'convention withdrew the schema — removing one is a breaking change, which is why\n'
+  printf 'you are being told — or your repository added a schema of its own, which is\n'
+  printf 'yours to keep. Nothing here can tell those two apart, and deleting a file it did\n'
+  printf 'not create is the one repair an initializer must never make on its own, so it is\n'
+  printf 'left in place and named. Remove it by hand if the convention dropped it:\n\n'
+  printf '%s' "$orphan_rm"
 fi
 
 printf '\nprefix: %s   first milestone: %s\n' "$prefix" "$milestone"

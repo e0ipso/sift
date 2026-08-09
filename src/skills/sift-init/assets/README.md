@@ -273,6 +273,22 @@ keys. Use it for topic tags (`api`, `caching`, `onboarding`), never to restate `
 All commands assume you run them from the repository root
 (`.ai/sift/...` paths) — adjust if elsewhere.
 
+**Run the writing recipes under `set -e`.** Every recipe that writes fails closed with
+`<test> || { echo "…" >&2; false; }`. `false` rather than `exit` is deliberate — these
+blocks get pasted, and `exit` closes the shell you pasted them into — but `false` only
+*reports*. In a plain interactive shell a failed guard prints its line and the rest of the
+block runs on regardless, moving a ticket it never found and leaving an empty milestone
+folder behind. Wrap the block so the option dies with the subshell:
+```sh
+( set -e
+  <paste the recipe here>
+)
+```
+`bash -e block.sh` on a saved copy does the same. `bash -e -c '…'` does not: the recipes'
+single-quoted `awk` programs end the `-c` string early. The read-only recipes need none of
+this. The one guard that stops a run by itself is the `[ -d .ai/sift ]` tree check below,
+which uses `exit 1` — and therefore closes an interactive shell it was pasted into.
+
 **Set the prefix once per shell.** Every recipe below reads `$PREFIX`; export it first
 and nothing else needs editing when the prefix changes. The tree guard on the next
 line fails closed when `.ai/sift` is missing, so a validation recipe run from the
@@ -515,8 +531,7 @@ exist: two files carrying one ID put both paths in `$f`, which is not a file, so
 catches it for the cost of a line rather than letting `dirname` and `mv` improvise on a
 two-line value. Its wording stays neutral because an empty `$f` is also "not exactly one".
 Both print one line naming `$ID` and fail, in the same shape as the `RESOLUTION` check
-below — `false` rather than `exit`, so pasting the block into an interactive shell does not
-close it, and `set -e` ends a scripted run at the guard.
+below.
 
 **Archive a finished ticket** — the front-matter edit, the `mv` and the `ROADMAP.md`
 strike rule 9 requires are one workflow, so run all three together:

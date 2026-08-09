@@ -27,6 +27,15 @@ assert_contains "$RECIPE" '> "$t.tmp" && mv "$t.tmp" "$t"' \
   "the documented temp-file form stands in for sed -i"
 assert_not_contains "$RECIPE" 'sed -i' "the banned flag appears nowhere in it"
 
+test_case "the cookbook preamble carries the set -e note the guards depend on"
+# SFT-0027. These guards end in `false`, so they only *stop* a run when the
+# shell is set to stop: run_recipe below prepends `set -e`, and the preamble is
+# the one place an operator is told to. Extraction is by the note's own anchor,
+# so dropping or rewording it fails here instead of silently.
+PREAMBLE="$(readme_block '**Run the writing recipes under `set -e`.**')"
+assert_contains "$PREAMBLE" 'set -e' "the preamble shows a paste-able wrapper that sets it"
+assert_contains "$RECIPE" 'false; }' "…and the guards still fail with false, never exit"
+
 move() {  # move <dir> <id> <dest>
   run_recipe "$1" "$RECIPE" PREFIX=SFT ID="$2" DEST="$3"
 }

@@ -291,12 +291,51 @@ for good in api api-v2 caching zeta; do
   else t_fail "[$good] resolves" "status=$R_STATUS" "stderr=$R_ERR"; fi
 done
 
-test_case "-- does not introduce the label that follows it"
-# The parser has a `--` arm, so it means to accept the end-of-options marker, but
-# the arm breaks out of the loop without consuming the positional behind it and
-# the run dies on "no label given".
-skip "tickets-by-label.sh -- caching looks up caching" \
-  "SFT-0024: the -- arm discards every argument after it"
+test_case "-- introduces the label that follows it (SFT-0024)"
+# The arm used to shift and `break`, discarding every argument behind the marker,
+# so a caller who spelled the guard defensively got "no label given" for a
+# command line that named a label. Behind the marker nothing is an option any
+# more, and the one-label rule is the same rule as in front of it.
+by_label "$d" -- caching
+assert_eq 0 "$R_STATUS" "exit 0"
+assert_eq \
+"ACME-0003	Gamma	.ai/sift/archive/v1/bug/ACME-0003--gamma.md
+ACME-0002	Beta	.ai/sift/open/v1/feature/ACME-0002--beta.md" \
+  "$R_OUT" "the marker changes nothing but where the label may sit"
+by_label "$d" --open --paths -- caching
+assert_eq ".ai/sift/open/v1/feature/ACME-0002--beta.md" "$R_OUT" \
+  "options in front of the marker still apply"
+by_label "$d" -- --paths
+assert_eq 2 "$R_STATUS" "exit 2"
+assert_contains "$R_ERR" 'error: invalid label (expected kebab-case): --paths' \
+  "a flag behind the marker reached the validator as a label, not the parser as a flag"
+
+test_case "a label in front of the marker still works, and a second is still refused"
+by_label "$d" caching --
+assert_eq 0 "$R_STATUS" "the pre-marker spelling that already worked is untouched"
+assert_eq "2" "$(printf '%s\n' "$R_OUT" | grep -c '.')" "with both caching tickets"
+for two in 'api caching' 'api -- caching' '-- api caching'; do
+  # Unquoted on purpose: $two is a command line, not one argument.
+  by_label "$d" $two
+  if [ "$R_STATUS" -eq 2 ] && [ -z "$R_OUT" ] &&
+     case "$R_ERR" in *'usage: tickets-by-label.sh'*) true ;; *) false ;; esac
+  then t_ok "[$two] is two labels wherever the marker sits, and is refused"
+  else t_fail "[$two] is refused" "status=$R_STATUS" "stdout=$R_OUT" "stderr=$R_ERR"; fi
+done
+
+test_case "list-labels.sh reads -- the same way, so the card has one marker"
+# The two scripts disagreeing about a marker is worse than either answer alone:
+# a caller who learned the spelling from one gets a usage error from the other.
+labels "$d" --
+assert_eq 0 "$R_STATUS" "the marker is accepted rather than refused as an unknown option"
+assert_eq "api api-v2 caching zeta" "$(flat)" "and the listing is exactly the bare one"
+labels "$d" --counts --
+assert_eq "api	2 api-v2	1 caching	2 zeta	1" "$(flat)" \
+  "options in front of the marker still apply here too"
+labels "$d" -- --counts
+assert_eq 2 "$R_STATUS" "this script has no positional, so nothing may follow the marker"
+assert_contains "$R_ERR" 'usage: list-labels.sh [--counts] [--open]' "and it says so"
+assert_eq "" "$R_OUT" "in particular it does not answer as if --counts had been read"
 
 # --- The two agree -----------------------------------------------------------
 

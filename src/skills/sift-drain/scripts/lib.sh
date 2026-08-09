@@ -89,7 +89,21 @@ roadmap_rows() {
     # expression undefined, so a strict awk reads [ \t] as {space, \, t} and
     # eats the leading "t" of a title like "tenant caching".
     function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
-    BEGIN { pat = prefix "-[0-9][0-9][0-9][0-9]" }
+    # No apostrophe below: this awk program is one single-quoted shell string,
+    # so an "it is" spelled with one would close it mid-comment.
+    #
+    # The digit run is greedy rather than exactly four, because the ID handed
+    # back below is substr($cell, RSTART, RLENGTH) — as narrow as the pattern
+    # that matched. With a fixed four, ACME-00011 surrenders the ID ACME-0001,
+    # which belongs to a different ticket or to none: the reader invents a
+    # stale row and never checks the real one. %04d is a minimum width (see
+    # reserve-ids.sh in sift-prime), so IDs widen past 9999 rather than
+    # stopping there. Greedy also supplies the right-hand whole-token guard
+    # for free: a run of digits cannot stop mid-number, so ACME-0001 and
+    # ACME-00011 stay distinct rows in either order. This is byte-for-byte the
+    # ROW_ID_PAT that roadmap-append.sh in sift-prime matches a ticket cell
+    # with; the two cards ship separately and must not drift apart.
+    BEGIN { pat = prefix "-[0-9][0-9][0-9][0-9][0-9]*" }
     /^##[[:space:]]*[Ww]ave[[:space:]]/ {
       seen_wave = 1
       h = $0

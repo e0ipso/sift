@@ -95,12 +95,24 @@ recipe_archive() {
 # The block is run under `set -e`: the cookbook's guards are `… || { echo …;
 # false; }` one-liners, and their documented "stops with the tree untouched"
 # contract only holds when a failing command ends the run.
-run_recipe() {
-  local dir="$1" script="$2"; shift 2
+run_recipe() { recipe_runner 'set -e' "$@"; }
+
+# run_recipe_plain <workdir> <script-text> [VAR=VAL ...]
+#
+# The same runner with the `set -e` line left off — the shell an operator pastes
+# into, where a guard only *reports*. Use it to pin what survives a failed guard
+# (SFT-0034: no guard may end the shell it was pasted into); everything that
+# asserts a run stopped keeps `run_recipe`, whose `set -e` is what makes the
+# "stops with the tree untouched" contract testable at all.
+run_recipe_plain() { recipe_runner '' "$@"; }
+
+# recipe_runner <options-line|''> <workdir> <script-text> [VAR=VAL ...]
+recipe_runner() {
+  local opts="$1" dir="$2" script="$3"; shift 3
   local sh_bin="${R_SHELL:-bash}" awk_bin="${R_AWK:-}" loc="${R_LOCALE:-C}"
   local wrap shim path outf errf
   wrap="$(mktemp "$TMPROOT/recipe.XXXXXX")"
-  { echo 'set -e'; printf '%s\n' "$script"; } > "$wrap"
+  { [ -z "$opts" ] || printf '%s\n' "$opts"; printf '%s\n' "$script"; } > "$wrap"
 
   path="$PATH"
   if [ -n "$awk_bin" ]; then

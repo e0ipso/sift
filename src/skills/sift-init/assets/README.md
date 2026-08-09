@@ -285,17 +285,21 @@ folder behind. Wrap the block so the option dies with the subshell:
 )
 ```
 `bash -e block.sh` on a saved copy does the same. `bash -e -c '…'` does not: the recipes'
-single-quoted `awk` programs end the `-c` string early. The read-only recipes need none of
-this. The one guard that stops a run by itself is the `[ -d .ai/sift ]` tree check below,
-which uses `exit 1` — and therefore closes an interactive shell it was pasted into.
+single-quoted `awk` programs end the `-c` string early. No guard in this cookbook ends the
+shell it was pasted into, the `[ -d .ai/sift ]` tree check included, so the blocks
+restating that check — the prefix setup and the two audits below — want the same wrapper:
+run from the wrong directory without `set -e`, the front-matter validation prints its
+diagnosis and then nine clean-looking headers anyway. A recipe carrying no guard needs
+none of this.
 
 **Set the prefix once per shell.** Every recipe below reads `$PREFIX`; export it first
 and nothing else needs editing when the prefix changes. The tree guard on the next
 line fails closed when `.ai/sift` is missing, so a validation recipe run from the
-wrong directory cannot report a clean bill of health for a tree it never read:
+wrong directory — under the `set -e` wrapper above — cannot report a clean bill of
+health for a tree it never read:
 ```sh
 export PREFIX=$(grep -m1 '^prefix:' .ai/sift/config/config.yaml | awk '{print $2}' | tr -d "\"'")
-[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; exit 1; }
+[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }
 ```
 
 Recipes that name one milestone read `$MILESTONE`; set it to a name from
@@ -332,7 +336,10 @@ Numeric comparison, not lexical sort, is what makes this correct once the tree p
 `[ -d .ai/sift ]` guard matters here even when the shared tree guard above already
 ran: `awk`'s `END` block fires even when `find` printed nothing, so a copied
 allocation one-liner run from the wrong directory would otherwise report
-`<PREFIX>-0001` — an ID that is already taken — instead of failing.
+`<PREFIX>-0001` — an ID that is already taken — instead of failing. It is spelled as a
+short-circuit rather than the message-and-`false` shape because this recipe's whole output
+is the ID: printing nothing and returning non-zero is the answer, and there is no ID to
+mistake the diagnosis for.
 
 **Triage view — id, title, priority for one milestone:**
 ```sh
@@ -671,7 +678,7 @@ not a double strike.
 The shared tree guard from the prefix setup is restated so a copied block still fails
 closed when `.ai/sift` is missing; a consistent tree stays silent:
 ```sh
-[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; exit 1; }
+[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }
 # Every ticket (open or archived) must appear in ROADMAP.md ...
 find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sed 's#.*/##' \
   | grep -oE "^$PREFIX-[0-9]+" | sort -u | while read -r id; do
@@ -693,7 +700,7 @@ never vouches for a missing `<PREFIX>-0042`.
 guard as above; when every required key is present the loop prints only the section
 headers and exits 0 — including on a tree that holds no tickets at all:
 ```sh
-[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; exit 1; }
+[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }
 for k in id title status type milestone priority effort created updated; do
   echo "== missing $k:"
   grep -rL "^$k:" .ai/sift/open .ai/sift/archive --include="$PREFIX-*.md" || [ $? -eq 1 ]

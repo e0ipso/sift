@@ -19,15 +19,51 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 SETUP="$(recipe_prefix_setup)"
 FRONTMATTER="$(recipe_frontmatter)"
-GUARD='[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; exit 1; }'
+ROADMAP="$(recipe_roadmap_check)"
+GUARD='[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }'
 
 test_case "every guarded recipe carries the same POSIX tree guard"
-for name in SETUP FRONTMATTER; do
+for name in SETUP FRONTMATTER ROADMAP; do
   eval "block=\$$name"
   assert_contains "$block" "$GUARD" "$name restates the guard verbatim"
   assert_not_contains "$block" '[[ ' "$name uses no bash-only test syntax"
+  # SFT-0034: the tree guard used to end `exit 1`, which closes the interactive
+  # shell the block was pasted into — the one mistake the guard exists to catch
+  # took the diagnosis with it. Every guard in the cookbook now ends in `false`.
+  assert_not_contains "$block" 'exit' "$name never spells its guard with exit"
 done
-assert_contains "$(recipe_roadmap_check)" "$GUARD" "the roadmap check restates it too"
+
+# --- The guard leaves a pasted shell alive (SFT-0034) ------------------------
+#
+# `run_recipe` prepends `set -e`, where `false` and `exit 1` are indistinguishable,
+# so the suite could not see this defect at all. `run_recipe_plain` runs the block
+# the way an operator pastes it — no `set -e` — and a marker line appended after
+# the block stands in for the prompt they get back: with `exit` it is never
+# reached, with `false` it is. Both spellings still stop the run under `set -e`,
+# which the second case below pins so the fix cannot trade one failure for another.
+
+MARKER=GUARD_LEFT_THE_SHELL_ALIVE
+marked() { printf '%s\n' "$1" "printf '%s\\n' $MARKER"; }
+
+test_case "a failing tree guard reports without ending the shell it was pasted into"
+for name in SETUP FRONTMATTER ROADMAP; do
+  eval "block=\$$name"
+  d="$(newdir)"                       # no .ai/sift anywhere in it
+  run_recipe_plain "$d" "$(marked "$block")" PREFIX=SFT
+  assert_contains "$R_ERR" 'missing .ai/sift — run from the repository root' \
+    "$name still diagnoses on stderr"
+  assert_contains "$R_OUT" "$MARKER" \
+    "$name hands the shell back rather than closing it"
+done
+
+test_case "the same guard still fails closed under set -e"
+for name in SETUP FRONTMATTER ROADMAP; do
+  eval "block=\$$name"
+  d="$(newdir)"
+  run_recipe "$d" "$(marked "$block")" PREFIX=SFT
+  assert_ne 0 "$R_STATUS" "$name exits non-zero"
+  assert_not_contains "$R_OUT" "$MARKER" "$name stops at the guard, reaching nothing after it"
+done
 
 # --- The prefix export -------------------------------------------------------
 

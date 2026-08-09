@@ -94,7 +94,10 @@ f="$(ticket "$d" open caching/bug SFT-0042 prose 'Prose ticket')"
   printf '\n---\n\n'
   printf 'milestone: and again, after a horizontal rule.\n'
 } >> "$f"
-body() { awk 'p { print } /^---$/ && NR > 1 && !p { p = 1 }' "$1"; }
+# Everything after the closing fence. The fence pattern matches the recipe's own
+# (SFT-0026), so this still finds the fence when the marker carries a trailing
+# space; `!p` keeps it on the *first* one, never a horizontal rule below it.
+body() { awk 'p { print } /^---[[:space:]]*$/ && NR > 1 && !p { p = 1 }' "$1"; }
 before="$d/body.before"; body "$f" > "$before"
 move "$d" SFT-0042 platform
 dest="$d/.ai/sift/open/platform/bug/SFT-0042--prose.md"
@@ -163,6 +166,61 @@ assert_ne 0 "$R_STATUS" "exits non-zero"
 assert_contains "$R_ERR" 'are the same file' "mv says why"
 assert_file "$d/.ai/sift/open/caching/bug/SFT-0042--tenant.md" "the ticket is still there"
 assert_eq "$digest_before" "$(tree_digest "$d/.ai/sift")" "and identical byte for byte"
+
+# --- A fence marker with a trailing space (SFT-0026) -------------------------
+
+# space_the_fence <file> — put one trailing space on both front-matter markers.
+# YAML permits it after a document marker, so the result is still a valid ticket.
+space_the_fence() {
+  awk 'n < 2 && /^---[[:space:]]*$/ { n++; print "--- "; next } { print }' "$1" \
+    > "$1.spaced" && mv "$1.spaced" "$1"
+}
+
+test_case "a ticket whose fence markers carry a trailing space still moves"
+# SFT-0026: this rewrite used to open on the bare /^---$/ while every read-only
+# walk opened on /^---[[:space:]]*$/. A `--- ` marker therefore made a valid
+# ticket body to this recipe alone: it reported "no milestone: key in the front
+# matter" about a ticket that plainly has one, *after* the mv, leaving the folder
+# and the key disagreeing — the desync rule 2 forbids.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open caching/bug SFT-0042 spaced 'Spaced fence')"
+space_the_fence "$f"
+assert_eq 2 "$(grep -c '^--- $' "$f")" "the fixture really carries the trailing spaces"
+move "$d" SFT-0042 platform
+dest="$d/.ai/sift/open/platform/bug/SFT-0042--spaced.md"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_not_contains "$R_ERR" 'no milestone: key' "it does not deny the key it can see"
+assert_not_contains "$R_ERR" 'MILESTONE NOT UPDATED' "so no manual repair is handed to the operator"
+assert_file "$dest" "the ticket lands under the new milestone"
+assert_eq "platform" "$(fm "$dest" milestone)" "the folder and the key agree again"
+assert_eq 1 "$(grep -c '^milestone:' "$dest")" "exactly one milestone key"
+assert_eq 2 "$(grep -c '^--- $' "$dest")" "both markers are written back verbatim"
+assert_eq "" "$(find "$d/.ai/sift" -name '*.tmp')" "no temp file survives"
+
+test_case "the widened fence pattern still cannot be re-opened by a body rule"
+# The widening pulls against SFT-0016: now that `--- ` closes the block, a
+# horizontal rule in the body — plain or spaced — is a fresh candidate for
+# re-opening it. It cannot, because `in_fm` is only ever set at NR == 1.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open caching/bug SFT-0042 rules 'Rules in the body')"
+space_the_fence "$f"
+{
+  printf '\n## Direction\n'
+  printf 'milestone: caching is what the body claims.\n'
+  printf '\n---\n\n'
+  printf 'milestone: and again, after a plain horizontal rule.\n'
+  printf '\n--- \n\n'
+  printf 'milestone: and again, after a spaced horizontal rule.\n'
+} >> "$f"
+before="$d/body.before"; body "$f" > "$before"
+move "$d" SFT-0042 platform
+dest="$d/.ai/sift/open/platform/bug/SFT-0042--rules.md"
+after="$d/body.after"; body "$dest" > "$after"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "platform" "$(fm "$dest" milestone)" "the front-matter key was rewritten"
+assert_same "$before" "$after" "every byte after the closing fence is unchanged"
+assert_eq 1 "$(grep -c '^milestone: platform$' "$dest")" \
+  "exactly one line in the whole file was rewritten"
 
 # --- Portability matrix ------------------------------------------------------
 # SFT-0016 moved the front-matter rewrite from sed onto awk to scope it, so the

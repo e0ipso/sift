@@ -225,6 +225,58 @@ assert_eq 1 "$R_STATUS" "exits 1"
 assert_contains "$R_OUT" '+ STALE IN ROADMAP: SFT-0002 (wave 1, order 2)' \
   "an unheaded table still yields locatable rows"
 
+test_case "a five-digit row is read whole, not truncated to four (SFT-0025)"
+# %04d is a minimum width, not a ceiling: reserve-ids.sh says so and the XSD
+# allows it, so the reader has to keep up. A four-digit pattern handed back
+# `substr($cell, RSTART, RLENGTH)`, which is as narrow as the pattern, so this
+# row reported the ID SFT-0001 — a ticket nobody wrote. The failure is loudest
+# here: the check invented a stale row and left the real one unexamined.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-00011 eleven 'Eleven thousand' > /dev/null
+roadmap_row "$d" 1 SFT-00011 'Eleven thousand' '-'
+check "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_contains "$R_OUT" 'OK: 1 roadmap rows / 1 ticket files' "the row matched its ticket"
+assert_not_contains "$R_OUT" 'SFT-0001 ' "no four-digit ID is invented from a longer one"
+
+test_case "a four- and a five-digit ID are distinct rows, in either order"
+# The property a naive prefix match breaks, and it breaks asymmetrically: which
+# row is truncated into which depends on the order the two are read in, so both
+# orders are asserted. Two rows, two files, no duplicate and nothing stale.
+for order in short-first long-first; do
+  d="$(newdir)"; make_tree "$d"
+  ticket "$d" open backlog/bug SFT-0001 one 'One' > /dev/null
+  ticket "$d" open backlog/bug SFT-00011 eleven 'Eleven thousand' > /dev/null
+  if [ "$order" = "short-first" ]; then
+    roadmap_row "$d" 1 SFT-0001 'One' '-'
+    roadmap_row "$d" 2 SFT-00011 'Eleven thousand' '-'
+  else
+    roadmap_row "$d" 1 SFT-00011 'Eleven thousand' '-'
+    roadmap_row "$d" 2 SFT-0001 'One' '-'
+  fi
+  check "$d"
+  if [ "$R_STATUS" -eq 0 ]; then t_ok "$order: exits 0"
+  else t_fail "$order: exits 0" "status=$R_STATUS" "stdout=$R_OUT"; fi
+  assert_contains "$R_OUT" 'OK: 2 roadmap rows / 2 ticket files' "$order: two rows, two files"
+  assert_not_contains "$R_OUT" 'DUPLICATE' "$order: the shorter ID is not read out of the longer"
+done
+
+test_case "the greedy digit run still stops at the first non-digit"
+# The right-hand boundary the greedy run does NOT move: it cannot stop
+# mid-number, but a non-digit still ends the ID, so a four-digit cell reads
+# exactly as it did before SFT-0025 whatever trails it. Pinned because "read
+# the digits greedily" is one keystroke away from "read the whole cell".
+for cell in 'SFT-0001x' 'SFT-0001-2'; do
+  d="$(newdir)"; make_tree "$d"
+  ticket "$d" open backlog/bug SFT-0001 one 'One' > /dev/null
+  roadmap_row "$d" 1 "$cell" 'One' '-'
+  check "$d"
+  if [ "$R_STATUS" -eq 0 ]; then t_ok "$cell: exits 0"
+  else t_fail "$cell: exits 0" "status=$R_STATUS" "stdout=$R_OUT"; fi
+  assert_contains "$R_OUT" 'OK: 1 roadmap rows / 1 ticket files' \
+    "$cell: still owns the row for SFT-0001"
+done
+
 # --- Several violations at once ----------------------------------------------
 
 test_case "violations accumulate and are all reported"

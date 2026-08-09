@@ -460,8 +460,8 @@ mkdir -p "$d" && mv "$f" "$d/"
 t="$d/$(basename "$f")"
 DEST="$DEST" awk '
   BEGIN { in_fm = 0; wrote = 0 }
-  NR == 1 && /^---$/ { in_fm = 1; print; next }   # front matter starts at line 1 only
-  in_fm && /^---$/ { in_fm = 0; print; next }     # …and ends at the first closing fence
+  NR == 1 && /^---[[:space:]]*$/ { in_fm = 1; print; next }  # front matter starts at line 1 only
+  in_fm && /^---[[:space:]]*$/ { in_fm = 0; print; next }    # …and ends at the first closing fence
   in_fm && /^milestone:/ {
     print "milestone: " ENVIRON["DEST"]
     wrote = 1
@@ -487,6 +487,14 @@ string concatenation puts `$DEST` in place rather than a `sed` replacement text,
 same reason `resolution:` uses it below: a replacement is re-scanned for `&` and `\1`.
 A ticket whose front matter carries no `milestone:` key stops loudly with the file already
 moved, because a move that silently leaves the key behind is the desync rule 2 forbids.
+
+Both fence patterns are `/^---[[:space:]]*$/`, the spelling every read-only walk in this
+cookbook uses. YAML allows trailing space after a document marker, so a marker written
+`--- ` is still front matter, and a rewrite that declines to see the block it exists to
+edit is worse than one that tolerates a stray space — it reports a missing `milestone:`
+key on a ticket that plainly has one. The open and close halves are widened together: the
+close is what ends the region, so relaxing only the open would enter a block that never
+closes and rewrite the body with it.
 
 Both guards run before the first thing that writes — before `mkdir -p`, not merely before
 `mv`. A typo'd ID, an already-archived ticket or the wrong working directory leaves `$f`
@@ -522,8 +530,8 @@ RESOLUTION="$RESOLUTION" STATUS="$STATUS" TODAY="$(date +%F)" awk '
     print "resolution: \"" v "\""
     wrote = 1
   }
-  NR == 1 && /^---$/ { in_fm = 1; print; next }   # front matter starts at line 1 only
-  in_fm && /^---$/ {                              # …and ends at the first closing fence
+  NR == 1 && /^---[[:space:]]*$/ { in_fm = 1; print; next }  # front matter starts at line 1 only
+  in_fm && /^---[[:space:]]*$/ {                             # …and ends at the first closing fence
     if (!wrote) emit_res()                  # insert before closing fence when absent
     in_fm = 0
     print
@@ -611,8 +619,9 @@ All three keys are rewritten by one `awk` pass, and every rule in it is guarded 
 the body, so a ticket whose `## Direction` opens a line with `status:` — routine in a
 repository that documents this convention — has that sentence silently replaced by a
 front-matter line, visible only in `git diff`, at the moment an operator stops reading the
-ticket. `in_fm` is set only by a `---` on line 1 and cleared by the first closing fence, so
-a `---` horizontal rule in the body cannot re-open the region either. Values come from
+ticket. `in_fm` is set only by a fence on line 1 and cleared by the first closing fence — the same
+`/^---[[:space:]]*$/` pattern the move recipe walks — so a `---` horizontal rule in the
+body cannot re-open the region either. Values come from
 `ENVIRON` and are concatenated rather than substituted, so `&`, `/`, `|` and `[` survive
 byte-for-byte — a `sed` replacement text would re-scan them. `status:` and `updated:` are
 rewritten where they already sit, exactly once each; `resolution:` is insert-or-replace,

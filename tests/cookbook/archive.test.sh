@@ -271,7 +271,10 @@ f="$(ticket "$d" open backlog/bug SFT-0042 prose 'Prose ticket')"
   printf '\n---\n\n'
   printf 'status: and again, after a horizontal rule.\n'
 } >> "$f"
-body() { awk 'p { print } /^---$/ && NR > 1 && !p { p = 1 }' "$1"; }
+# Everything after the closing fence. The fence pattern matches the recipe's own
+# (SFT-0026), so this still finds the fence when the marker carries a trailing
+# space; `!p` keeps it on the *first* one, never a horizontal rule below it.
+body() { awk 'p { print } /^---[[:space:]]*$/ && NR > 1 && !p { p = 1 }' "$1"; }
 before="$d/body.before"; body "$f" > "$before"
 roadmap_row "$d" 1 SFT-0042 'Prose ticket' '-'
 archive "$d" SFT-0042 done 'Landed'
@@ -283,6 +286,66 @@ assert_eq "done" "$(fm "$dest" status)" "the front-matter status was still rewri
 assert_eq "$TODAY" "$(fm "$dest" updated)" "…and updated"
 assert_eq '"Landed"' "$(fm "$dest" resolution)" "…and resolution was inserted"
 assert_eq 1 "$(grep -c "^status: done$" "$dest")" "exactly one status line was written"
+assert_eq 1 "$(grep -c "^updated: $TODAY\$" "$dest")" "exactly one updated line was written"
+assert_eq 1 "$(grep -c '^resolution: "Landed"$' "$dest")" "exactly one resolution line"
+
+# --- A fence marker with a trailing space (SFT-0026) -------------------------
+
+# space_the_fence <file> — put one trailing space on both front-matter markers.
+# YAML permits it after a document marker, so the result is still a valid ticket.
+space_the_fence() {
+  awk 'n < 2 && /^---[[:space:]]*$/ { n++; print "--- "; next } { print }' "$1" \
+    > "$1.spaced" && mv "$1.spaced" "$1"
+}
+
+test_case "a ticket whose fence markers carry a trailing space still archives"
+# SFT-0026: this recipe used to open on the bare /^---$/ while all five read-only
+# walks opened on /^---[[:space:]]*$/, so `--- ` made one valid ticket front
+# matter to every reader and body to both writers. Archiving refused outright
+# with "no front-matter found to hold resolution" and never reached the roadmap.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open backlog/bug SFT-0042 spaced 'Spaced fence')"
+space_the_fence "$f"
+assert_eq 2 "$(grep -c '^--- $' "$f")" "the fixture really carries the trailing spaces"
+roadmap_row "$d" 1 SFT-0042 'Spaced fence' '-'
+archive "$d" SFT-0042 done 'Landed despite the stray space'
+dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--spaced.md"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_not_contains "$R_ERR" 'no front-matter found' "it does not deny front matter it can see"
+assert_file "$dest" "the ticket reaches the archive"
+assert_eq "done" "$(fm "$dest" status)" "status: done"
+assert_eq "$TODAY" "$(fm "$dest" updated)" "updated: today"
+assert_eq '"Landed despite the stray space"' "$(fm "$dest" resolution)" \
+  "resolution was inserted before the closing fence"
+assert_eq 1 "$(grep -c '^resolution:' "$dest")" "exactly one resolution key"
+assert_eq 2 "$(grep -c '^--- $' "$dest")" "both markers are written back verbatim"
+assert_contains "$(roadmap "$d")" '| ~~SFT-0042~~ | ~~Spaced fence~~ — done |' \
+  "and the roadmap row is struck in the same run"
+
+test_case "the widened fence pattern still cannot be re-opened by a body rule"
+# The widening pulls against SFT-0016: now that `--- ` closes the block, a
+# horizontal rule in the body — plain or spaced — is a fresh candidate for
+# re-opening it. It cannot, because `in_fm` is only ever set at NR == 1.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open backlog/bug SFT-0042 rules 'Rules in the body')"
+space_the_fence "$f"
+{
+  printf '\n## Direction\n'
+  printf 'status: open is what the body claims.\n'
+  printf '\n---\n\n'
+  printf 'updated: never, says the body after a plain rule.\n'
+  printf '\n--- \n\n'
+  printf 'resolution: also quoted, after a spaced rule.\n'
+} >> "$f"
+before="$d/body.before"; body "$f" > "$before"
+roadmap_row "$d" 1 SFT-0042 'Rules in the body' '-'
+archive "$d" SFT-0042 done 'Landed'
+dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--rules.md"
+after="$d/body.after"; body "$dest" > "$after"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_same "$before" "$after" "every byte after the closing fence is unchanged"
+assert_eq "done" "$(fm "$dest" status)" "the front-matter status was still rewritten"
+assert_eq 1 "$(grep -c '^status: done$' "$dest")" "exactly one status line was written"
 assert_eq 1 "$(grep -c "^updated: $TODAY\$" "$dest")" "exactly one updated line was written"
 assert_eq 1 "$(grep -c '^resolution: "Landed"$' "$dest")" "exactly one resolution line"
 

@@ -19,6 +19,13 @@
 # missing and touches nothing else, so an interrupted or partial init is recoverable by
 # running it again.
 #
+# The one thing a re-run adds is a report. README.md and schemas/ are the shipped
+# convention rather than repository state, so when an installed copy no longer matches
+# the one this card carries, each differing file is listed as `stale` and the `cp` that
+# refreshes it is printed. Nothing is rewritten: taking the new copy is the operator's
+# explicit act, because these files are also the only place they can annotate the
+# convention for their repository.
+#
 # Exit codes: 0 created or repaired, 2 usage/environment error.
 
 set -u
@@ -31,7 +38,7 @@ while [ $# -gt 0 ]; do
     --prefix)         prefix="${2:-}"; shift 2 ;;
     --milestone)      milestone="${2:-}"; shift 2 ;;
     --suggest-prefix) suggest=1; shift ;;
-    -h|--help)        sed -n '2,20p' "$0"; exit 0 ;;
+    -h|--help)        sed -n '2,27p' "$0"; exit 0 ;;
     *) echo "error: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -99,14 +106,20 @@ esac
 here=$(cd "$(dirname "$0")" && pwd -P)
 assets="$here/../assets"
 [ -d "$assets" ] || { echo "error: card assets not found at $assets" >&2; exit 2; }
+# Canonicalized once the directory is known to exist, so the refresh command the
+# drift report prints below is a path an operator can paste, not one with `/..`
+# folded through the middle of it.
+assets=$(cd "$assets" && pwd -P)
 [ -f "$assets/README.md" ] || { echo "error: $assets/README.md is missing" >&2; exit 2; }
 
 sift="$root/.ai/sift"
-created=''; kept=''
+created=''; kept=''; stale=''
 
 note_created() { created="${created}  created  ${1}
 "; }
 note_kept()    { kept="${kept}  kept     ${1}
+"; }
+note_stale()   { stale="${stale}  stale    ${1} (differs from the shipped convention)
 "; }
 
 # --- Atomic create-if-absent ------------------------------------------------
@@ -246,6 +259,37 @@ for x in "$assets"/schemas/*.xsd; do
   install_file "$x" "schemas/$(basename "$x")" || exit 2
 done
 
+# --- Is the installed spec still the shipped one? ---------------------------
+# `install_file` keeps whatever it finds, which is right for a ROADMAP the
+# repository writes to and wrong for these two paths: README.md and schemas/ are
+# the only files in the tree that are NOT the repository's to own. They are the
+# convention, copied in whole at install time, and nothing ever writes to them
+# again — so the copy freezes on the day the tree was created and every cookbook
+# fix landed since is invisible to the agents reading it (SFT-0032).
+#
+# The answer is a report, never a repair. Refreshing implicitly would rewrite a
+# file an operator may have annotated, which breaks the same trust `note_kept`
+# exists to protect, so `check_drift` only ever reads: no temp file, no publish,
+# no branch that writes. Silence when the bytes match, so an up-to-date
+# installation — including every fresh one, which was just copied from these
+# exact bytes — sees nothing new.
+#
+# `cmp -s` and not `diff`: a byte verdict is the whole question, it is already in
+# the suite's baseline dependency contract, and it prints nothing the operator
+# did not ask to see. The same comparison `sync-assets.sh` makes on the card's
+# side of the copy, now made on the consuming side too.
+
+check_drift() {  # check_drift <shipped source> <relative destination> — reads only
+  [ -f "$sift/$2" ] || return 0
+  cmp -s "$1" "$sift/$2" || note_stale ".ai/sift/$2"
+}
+
+check_drift "$assets/README.md" "README.md"
+for x in "$assets"/schemas/*.xsd; do
+  [ -f "$x" ] || continue
+  check_drift "$x" "schemas/$(basename "$x")"
+done
+
 # --- Per-repository configuration -------------------------------------------
 
 write_file "config/config.yaml" <<EOF
@@ -304,6 +348,22 @@ done
 printf 'sift tree at %s\n\n' "$sift"
 printf '%s' "$created"
 printf '%s' "$kept"
+
+# The report carries the remedy, not just the finding. The refresh is documented
+# in the cookbook, but the cookbook lives IN the file that is out of date — an
+# operator holding the stale copy would be told to read an instruction their copy
+# does not contain. So the two commands are printed here, from the card, where
+# they are always as current as the drift check that triggered them.
+if [ -n "$stale" ]; then
+  printf '%s' "$stale"
+  printf '\nThose files are the convention itself, shipped whole — not repository state:\n'
+  printf 'no ticket, roadmap, milestone list or config lives in them, so they are the only\n'
+  printf 'two paths in the tree that are safe to overwrite. Nothing else here may be.\n'
+  printf 'Take the current copy when you are ready (review first if you annotated either):\n\n'
+  printf '  cp %s/README.md %s/README.md\n' "$assets" "$sift"
+  printf '  cp %s/schemas/*.xsd %s/schemas/\n' "$assets" "$sift"
+fi
+
 printf '\nprefix: %s   first milestone: %s\n' "$prefix" "$milestone"
 
 # Verify the tree the gate will actually see, from the root we just wrote to.

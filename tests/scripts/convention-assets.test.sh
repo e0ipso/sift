@@ -47,5 +47,80 @@ assert_eq 0 "$R_STATUS" "the repair run exits 0"
 assert_contains "$(cat "$root/.ai/sift/README.md")" "$marker" "the local amendment survives"
 assert_contains "$R_OUT" 'kept     .ai/sift/README.md' "the report says it was kept"
 assert_eq "$digest_before" "$(tree_digest "$root/.ai/sift")" "no file in the tree changed"
+# An annotation and an out-of-date copy are the same thing to a byte comparison,
+# and the check makes no attempt to tell them apart — which is precisely why it
+# reports and never repairs. Annotating the spec is a supported thing to do; a
+# check that "fixed" the difference would delete the annotation.
+assert_contains "$R_OUT" 'stale    .ai/sift/README.md' \
+  "an annotated spec reads as drifted, and the report is all that fires"
+
+# --- An installed spec that has fallen behind (SFT-0032) ---------------------
+#
+# install_file keeps whatever it finds. That is right for a ROADMAP the
+# repository writes to and wrong for the two paths that are NOT the repository's
+# to own: README.md and schemas/ are the convention, shipped whole, so the
+# installed copy freezes on the day the tree was created and every cookbook fix
+# landed since is invisible to the agents reading it. The initializer's answer is
+# a report it never acts on. All three halves of that contract are pinned below:
+# the report fires, the tree is untouched, and the documented `cp` silences it.
+
+test_case "a stale installed spec is named, file by file"
+root="$(cd "$(newdir)" && pwd -P)"
+run_cmd "$root" "$INIT" --root "$root" --prefix SFT
+assert_eq 0 "$R_STATUS" "init exits 0"
+assert_not_contains "$R_OUT" '  stale ' \
+  "a freshly installed copy IS the shipped one, so the check stays silent"
+
+# Build the damage before asserting the guard: an older spec and a truncated
+# schema are what a tree initialised before a fix landed actually looks like, and
+# without them a check that never fires is indistinguishable from one that holds.
+printf '# an older convention\n' > "$root/.ai/sift/README.md"
+head -n 3 "$CARD/assets/schemas/task-ticket.xsd" > "$root/.ai/sift/schemas/task-ticket.xsd"
+stale_digest="$(tree_digest "$root/.ai/sift")"
+stale_paths="$(find "$root/.ai/sift" | LC_ALL=C sort)"
+
+run_cmd "$root" "$INIT" --root "$root" --prefix SFT
+assert_eq 0 "$R_STATUS" "the run over a stale tree still exits 0"
+assert_contains "$R_OUT" 'stale    .ai/sift/README.md' "the drifted spec is named"
+assert_contains "$R_OUT" 'stale    .ai/sift/schemas/task-ticket.xsd' "so is the drifted schema"
+assert_not_contains "$R_OUT" 'stale    .ai/sift/schemas/bug-ticket.xsd' \
+  "and a schema whose bytes still match is not"
+
+test_case "the report carries the remedy, not just the finding"
+# The recursion this closes: the refresh is documented in the cookbook, and the
+# cookbook lives in the very file that is out of date. An operator holding the
+# stale copy would be pointed at an instruction their copy does not contain, so
+# the two commands are printed from the card, fully resolved.
+assert_contains "$R_OUT" "cp $CARD/assets/README.md $root/.ai/sift/README.md" \
+  "the README refresh is printed with both paths resolved"
+assert_contains "$R_OUT" "cp $CARD/assets/schemas/*.xsd $root/.ai/sift/schemas/" \
+  "and so is the schema refresh"
+assert_contains "$R_OUT" 'not repository state' \
+  "with the reason exactly these two paths are safe to overwrite"
+
+test_case "the drift check writes nothing at all"
+# The regression guard on a check that must never repair. Reporting drift is the
+# one moment an initializer would be tempted to close it, and closing it would
+# destroy an annotation the operator put there. Paths as well as bytes: a temp
+# file staged beside a destination and left behind is a write tree_digest's
+# content comparison alone would not see.
+assert_eq "$stale_digest" "$(tree_digest "$root/.ai/sift")" \
+  "not one byte of the stale tree changed"
+assert_eq "$stale_paths" "$(find "$root/.ai/sift" | LC_ALL=C sort)" \
+  "and no file was added or removed"
+assert_eq '# an older convention' "$(cat "$root/.ai/sift/README.md")" \
+  "the stale README is still the stale one, verbatim"
+
+test_case "the documented refresh makes the report go quiet"
+# The cookbook's remedy, run exactly as the report prints it: a plain cp over
+# those two paths and nothing else in the tree.
+cp "$CARD/assets/README.md" "$root/.ai/sift/README.md"
+cp "$CARD"/assets/schemas/*.xsd "$root/.ai/sift/schemas/"
+run_cmd "$root" "$INIT" --root "$root" --prefix SFT
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_not_contains "$R_OUT" '  stale ' "nothing drifts once the copy is current"
+assert_same "$REPO_ROOT/README.md" "$root/.ai/sift/README.md" \
+  "and the tree carries the normative spec again, byte for byte"
+assert_contains "$R_OUT" 'gate: READY' "a refreshed tree still passes the gate"
 
 summary

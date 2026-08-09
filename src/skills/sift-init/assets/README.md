@@ -386,9 +386,18 @@ find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r 
       }
       exit
     }
-  ' "$f"
-done | sort | uniq -c | awk '{ printf "%s\t%s\n", $2, $1 }' | sort -k1,1
+  ' "$f" | sort -u
+done | sort | uniq -c |
+  awk '{ n = $1; sub(/^[[:space:]]*[0-9]+[[:space:]]+/, ""); printf "%s\t%s\n", $0, n }'
 ```
+The per-ticket `sort -u` makes each row a count of *tickets carrying* the label rather than
+of mentions of it, so `labels: [api, api]` counts once and the label set matches the
+listing above exactly. The closing `awk` strips the count off the *front* of the `uniq -c`
+line and keeps the rest as the label: reading it back as `$2` would cut a label off at its
+first blank, and the leading run is padding whose width shifts the moment a count reaches
+ten, so a fixed-offset `cut` is wrong too. Nothing re-sorts the result — `uniq` preserves
+the order of its already-sorted input, and a `sort -k1,1` key would be the same truncation
+in a second place.
 
 **List tickets carrying one label** (`$LABEL` is kebab-case, e.g. `caching`):
 ```sh

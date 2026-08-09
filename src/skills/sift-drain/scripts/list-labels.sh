@@ -7,6 +7,11 @@
 #   scripts/list-labels.sh              # one label per line, sorted
 #   scripts/list-labels.sh --counts     # label<TAB>ticket-count, sorted by label
 #   scripts/list-labels.sh --open       # open/ bucket only
+#   scripts/list-labels.sh --counts --  # -- ends the options, as in tickets-by-label.sh
+#
+# `--` means one thing across the card: the option list ends here and everything
+# behind it is positional. This script has no positional to take, so the marker
+# is accepted and anything following it is a usage error.
 #
 # A label that is not kebab-case is still listed — it is in the tree, and a
 # listing that hid it would send an operator hunting for a label the discovery
@@ -20,19 +25,32 @@ set -uo pipefail
 # shellcheck source=lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
+usage() {
+  echo "usage: list-labels.sh [--counts] [--open]" >&2
+  echo "note: -- ends the options; this script takes no argument behind it" >&2
+  exit 2
+}
+
 COUNTS=0
 OPEN_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --counts) COUNTS=1 ;;
     --open) OPEN_ONLY=1 ;;
-    *)
-      echo "usage: list-labels.sh [--counts] [--open]" >&2
-      exit 2
+    --)
+      shift
+      break
       ;;
+    *) usage ;;
   esac
   shift
 done
+
+# Behind the marker every argument is positional, and there is no positional to
+# be: `list-labels.sh -- --counts` asked for a label listing of a thing named
+# `--counts`, not for the count mode, and answering with counts would be the
+# plausible wrong answer.
+[ $# -eq 0 ] || usage
 
 SEARCH_FLAG=""
 [ "$OPEN_ONLY" = "1" ] && SEARCH_FLAG="--open"

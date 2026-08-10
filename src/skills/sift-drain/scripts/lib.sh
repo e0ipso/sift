@@ -7,6 +7,8 @@
 #   ticket_file <ID>                — absolute path of a ticket file, or empty
 #   fm_value <file> <key>           — one front-matter value
 #   fm_labels <file>                — one label per line from labels: [...]
+#   SIFT_LABEL_RE                   — regex a well-formed kebab label matches
+#   label_is_kebab <label>          — true when one label matches SIFT_LABEL_RE
 #   ticket_search_dirs [--open]     — .ai/sift/open [and archive/]
 #
 # Overrides:
@@ -174,6 +176,31 @@ fm_labels() {
       exit
     }
   ' "$1"
+}
+
+# --- Labels -----------------------------------------------------------------
+# One definition of a well-formed label, read by both halves of the label index.
+# README.md specifies `labels:` as free-form kebab-case, so this is a convention
+# rule and not a per-script preference — and a second copy of it is exactly how
+# list-labels.sh comes to advertise a label tickets-by-label.sh then refuses.
+#
+# An extended regex, handed to `grep -E` below and to awk in list-labels.sh,
+# never to a shell glob. The character sets are written out rather than as
+# collated ranges: a bracket range is locale-dependent, so under a UTF-8 locale
+# it can accept characters the set never named, and this pattern is what decides
+# whether a value is accepted. static/portability.test.sh bans the short form in
+# a shell pattern for that reason, and the reason carries to a regex that judges
+# a value. It reaches awk through the environment rather than -v, which re-scans
+# its argument for ANSI escapes: no backslash appears below today, and a future
+# one must not be silently rewritten on the way in.
+SIFT_LABEL_RE='^[abcdefghijklmnopqrstuvwxyz0123456789]+(-[abcdefghijklmnopqrstuvwxyz0123456789]+)*$'
+
+# True when one label is well-formed. tickets-by-label.sh tests a single
+# argument and fits this; list-labels.sh sweeps every label of every ticket and
+# reads SIFT_LABEL_RE inside its awk pass instead, so no process is spent per
+# label.
+label_is_kebab() {
+  printf '%s\n' "$1" | grep -qE "$SIFT_LABEL_RE"
 }
 
 # Print absolute directories to search. Pass --open to skip archive/.

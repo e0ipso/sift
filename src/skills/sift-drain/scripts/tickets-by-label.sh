@@ -70,7 +70,7 @@ if [ -z "$LABEL" ]; then
   usage
 fi
 
-if ! printf '%s\n' "$LABEL" | grep -qE '^[a-z0-9]+(-[a-z0-9]+)*$'; then
+if ! label_is_kebab "$LABEL"; then
   echo "error: invalid label (expected kebab-case): $LABEL" >&2
   exit 2
 fi

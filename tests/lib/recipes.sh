@@ -107,6 +107,12 @@ run_recipe() { recipe_runner 'set -e' "$@"; }
 run_recipe_plain() { recipe_runner '' "$@"; }
 
 # recipe_runner <options-line|''> <workdir> <script-text> [VAR=VAL ...]
+#
+# R_STATUS/R_OUT/R_ERR are the return channel, read by the test files that source
+# this library. shellcheck reads one file at a time and so cannot see those reads;
+# exporting them would be a lie, since the readers share this shell rather than
+# being child processes.
+# shellcheck disable=SC2034
 recipe_runner() {
   local opts="$1" dir="$2" script="$3"; shift 3
   local sh_bin="${R_SHELL:-bash}" awk_bin="${R_AWK:-}" loc="${R_LOCALE:-C}"
@@ -143,6 +149,11 @@ matrix_locales='C C.utf8 en_US.utf8'
 
 # for_matrix <callback> [args…] — invoke callback once per combination, with
 # R_SHELL / R_AWK / R_LOCALE set and R_LABEL naming the combination.
+#
+# R_LABEL is read only by the callbacks, which live in the test files that source
+# this library — a cross-file read shellcheck cannot follow, unlike R_SHELL/R_AWK/
+# R_LOCALE, which recipe_runner above reads in this same file.
+# shellcheck disable=SC2034
 for_matrix() {
   local cb="$1"; shift
   local sh a l bin
@@ -162,6 +173,10 @@ for_matrix() {
 
 # for_shell_locale <callback> [args…] — the same sweep for recipes built only
 # from grep/sed/find, where the awk axis has nothing to vary.
+#
+# R_LABEL is read by the callbacks in the test files that source this library, a
+# cross-file read the linter cannot follow — same contract as for_matrix above.
+# shellcheck disable=SC2034
 for_shell_locale() {
   local cb="$1"; shift
   local sh l

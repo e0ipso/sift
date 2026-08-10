@@ -60,7 +60,7 @@ test_case "every terminal status is consistent once archived and struck"
 # done, wontfix and superseded are the three ways a ticket leaves open/, and all
 # three need a resolution. A check that only knew about `done` would silently
 # pass a wontfix ticket with no closing line.
-for st in done wontfix superseded; do
+for st in 'done' wontfix superseded; do
   d="$(newdir)"; make_tree "$d"
   ticket "$d" archive backlog/bug SFT-0001 one 'One' \
     "status: $st" 'resolution: "Closed out"' > /dev/null

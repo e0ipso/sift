@@ -616,6 +616,28 @@ halting at round 1 of the same gate with the same `round-failed` reason. Two pla
 identically at the same step points at the reviewer dispatch or its output contract rather
 than at either plan's diff.
 
+**Root cause, found on the second attempt (2026-08-10).** The reviewer is not returning
+empty findings — it is crashing. Running the gate without suppressing stderr shows `codex`
+streaming the diff and then dying:
+
+```
+thread 'codex-main' panicked at library/std/src/io/stdio.rs:1165:9:
+failed printing to stderr: Resource temporarily unavailable (os error 11)
+```
+
+`os error 11` is `EAGAIN`. `code-review.cjs:628` spawns the reviewer with
+`stdio: ["pipe", "ignore", "pipe"]` — stdout ignored, stderr piped — so every byte the
+reviewer emits goes through that stderr pipe. When the pipe backpressures, the write returns
+`EAGAIN` and Rust's stdio panics instead of retrying, and the process dies before writing
+`review.xml`. The gate then correctly reports a round it cannot certify.
+
+That explains why both plans that reached this gate failed at it: both carried large diffs,
+and the panic lands mid-stream once enough output has accumulated. **The defect is in the
+reviewer dispatch, not in either plan's diff.** A fix belongs in `code-review.cjs` (send the
+reviewer's stderr to a file, or drain the pipe without backpressure) or in `codex` itself,
+and is out of scope for plan 03 — changing a shared skill script to make this plan's own
+gate pass would be making the gate green rather than making the review happen.
+
 **To resume:** re-run the gate with
 
 ```

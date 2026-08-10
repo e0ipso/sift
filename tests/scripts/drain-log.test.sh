@@ -344,6 +344,67 @@ assert_eq 0 "$R_STATUS" "an empty log is not an error"
 assert_eq "no drain events recorded in .ai/sift/RUNLOG.md" "$R_OUT" \
   "and it names the path relative to the project root"
 
+test_case "an awkward project root name never reaches the reported path (SFT-0040)"
+# Criterion 2's regression guard, and the reason the log path must not travel
+# through awk's -v: that flag re-scans its argument for ANSI escapes, so the two
+# characters "\" and "t" arrive inside awk as one real tab. The value is reported
+# relative to the project root, so today it is always the same string and there is
+# nothing in it to mangle — which is precisely what these two roots exist to prove
+# has not changed. A root holding a blank is the ordinary name most likely to break
+# when how a value is passed changes; a root holding a backslash is the one the
+# escape re-scan would reach if the path ever stopped being root-relative.
+for leaf in 'back\tick' 'a b dir'; do
+  awkward="$(newdir)/$leaf"
+  mkdir -p "$awkward"
+  assert_eq "$leaf" "${awkward##*/}" "the fixture root really carries [$leaf] in its name"
+  make_tree "$awkward" SFT
+
+  # The first of the two paths that name the log. This one is printed by the shell
+  # and names the ABSOLUTE path, so it is the one place a root's own name reaches
+  # an operator, and it has to be the name that is on disk.
+  run_cmd "$awkward" env SIFT_ROOT="$awkward" "$DRAINLOG" report
+  assert_eq 2 "$R_STATUS" "with no log at all, report under [$leaf] is still a setup error"
+  assert_contains "$R_ERR" "error: no run log at $awkward/.ai/sift/RUNLOG.md" \
+    "and names the absolute path exactly as it is spelled on disk"
+
+  # The second, and the only branch of the awk program that names the log.
+  log_new "$awkward"
+  run_cmd "$awkward" env SIFT_ROOT="$awkward" "$DRAINLOG" report
+  assert_eq 0 "$R_STATUS" "an empty log under [$leaf] is not an error"
+  assert_eq "no drain events recorded in .ai/sift/RUNLOG.md" "$R_OUT" \
+    "and the reported path is byte-identical to the one an ordinary root gets"
+  assert_file "$awkward/${R_OUT#no drain events recorded in }" \
+    "so the path an operator is handed resolves to a real file"
+
+  # The populated table is the same awk over the same log, and it names no path at
+  # all — which is why the message above is the only consumer of the value.
+  log_row "$awkward" dispatch SFT-0001 1000 -
+  log_row "$awkward" return   SFT-0001 1120 'done'
+  run_cmd "$awkward" env SIFT_ROOT="$awkward" "$DRAINLOG" report
+  assert_eq 0 "$R_STATUS" "the table prints under that root too"
+  assert_eq "120s (2m0s)" "$(report_field SFT-0001 2)" "with its arithmetic intact"
+  assert_not_contains "$R_OUT" "RUNLOG.md" "and the table itself names no log path"
+done
+
+test_case "no -v carries data into the report's awk (SFT-0040)"
+# Criterion 1, asserted mechanically over the file's runnable text rather than by
+# reading it: `-v name=` is awk's data form and the one the escape re-scan rides in
+# on, while a bare `-v` flag on some other tool is not data and stays legal.
+# Comments are stripped because two paragraphs in that file — the one above the awk
+# call and the note that `date -v` is BSD-only — have to stay free to name the
+# construct. grep's "nothing selected" status is absorbed on its own rather than
+# with `|| true`, which would swallow a real grep error as an empty result too.
+code="$(grep -v '^[[:space:]]*#' "$DRAINLOG")"
+carriers="$(printf '%s\n' "$code" \
+  | grep -E '(^|[[:space:]])-v[[:space:]]+[A-Za-z_][A-Za-z_0-9]*=' || [ $? -eq 1 ])"
+assert_eq "" "$carriers" "every value reaches the report's awk through the environment"
+assert_contains "$code" 'SIFT_LOG_PATH="${LOG#"$ROOT/"}"' \
+  "the log path is exported for the pass rather than passed as an argument"
+assert_contains "$code" 'ENVIRON["SIFT_LOG_PATH"]' \
+  "and read once in a BEGIN block, the spelling list-labels.sh uses"
+assert_contains "$code" "awk -F'|'" \
+  "while -F keeps its argument: a field separator is a flag, not data to re-scan"
+
 # --- Usage --------------------------------------------------------------------
 
 test_case "an incomplete or unknown command line is a usage error"

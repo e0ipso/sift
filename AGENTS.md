@@ -33,6 +33,41 @@ Because the layout and front-matter are the public API, edits to README.md are A
 - **README.md's own `##` headings are a parsed API too, not just its content.** The sift-drain ticket-agent prompt no longer reads the spec in full: it names the sections it reads, tagged `@README-SECTION:`, and `tests/static/prompt-readme-sections.test.sh` extracts those names and asserts each one exists in README.md *and* in the shipped `sift-init` mirror. Renaming or removing a heading the prompt names fails the suite. Rename it in the prompt in the same change, or the agents that depend on that section silently lose it.
 - **Never let a feature require a binary the user has to install.** Recipes target the Unix userland already present: bash, the standard file utilities and `awk`, in the options both GNU and BSD (macOS) provide. `grep -r/-l/-L/-o/--include`, `find -maxdepth`, `sort -u` and `awk '{print $2}'` are all safe on both. Two are not, and are banned outright: **`sed -i`**, whose GNU and BSD forms disagree so badly that the BSD one eats the script as a backup suffix — use `sed … "$f" > "$f.tmp" && mv "$f.tmp" "$f"`; and **`xargs -r`**, a GNU extension older BSD `xargs` rejects — use `| while read -r f; do … done`, which also sidesteps the empty-input case where bare `xargs grep` falls through to reading stdin. In `awk`, write character classes as `[[:space:]]`, never `[ \t]` — POSIX leaves a backslash inside a bracket expression undefined, so a strict `awk` reads that set as {space, backslash, `t`} and silently eats the leading `t` of a title like "tenant caching". Anything outside the baseline — `xmllint`, `jq`, a language runtime — is an optional convenience only: guard it with `command -v` so its absence costs nothing, or leave it out. The XSD schemas are the shape to imitate, readable as a checklist and rendered by hand. A recipe that silently assumes a tool is installed is a bug, not a shortcut.
 
+## Duplication between cards
+
+Each card installs on its own — `sift-drain` may be present without `sift-prime`, and neither
+directory may source a file from the other — so a rule both cards need is written out twice.
+One rule is in that position today: **what a roadmap row is.** A row is a markdown table line,
+and within it the first cell holding a whole-token `<PREFIX>-NNNN`; `roadmap_rows` in
+`src/skills/sift-drain/scripts/lib.sh` reads by that rule and the duplicate guard in
+`src/skills/sift-prime/scripts/roadmap-append.sh` writes by it. The two copies drifted apart
+three times (SFT-0022, SFT-0025, SFT-0031), each silently, each surfacing only once a tree was
+already wrong.
+
+**The decision (SFT-0038): keep one copy per card, and pay for it with a test that fails when
+the two classify one cell differently.** That test exists — "the reader and the writer classify
+every cell of one table alike" in `tests/scripts/prime-backlog.test.sh` — and drives one fixture
+table through both cards: a plain cell, a cell glued to a longer word, a glued cell shadowing a
+real one beside it, a struck cell, a five-digit ID, a `Needs` mention, trailing junk, and a line
+of prose. All three past divergences fail it. When the rule grows a new edge, extend that table
+rather than adding a second test somewhere else.
+
+The other two options lose. Shipping one `row-reader.awk` into both cards by the same
+install-time synchronization the convention assets use (SFT-0006) buys less than it looks: only
+the ten-line `cell_id` is genuinely common — the reader emits five TSV fields per row while the
+writer only asks whether one ID owns a row, so the loops around it differ for good reasons — and
+it adds a third source of truth, a sync step to forget, and a new failure mode where a card that
+lost the file cannot read a roadmap at all. Letting `sift-prime` require `sift-drain` to be
+installed contradicts the card model outright.
+
+Two obligations come with keeping the copies:
+
+- **Each card holds exactly one copy of the rule.** A second copy inside one card is the same
+  bug at shorter range, which is what `roadmap-append.sh` had become: its append hop selected a
+  cell on the bare pattern while the duplicate guard beside it used `cell_id`.
+- **A change to one copy lands in the same commit as the change to the other**, with the
+  agreement test run to prove they still agree. Both copies carry a comment saying so.
+
 ## Verifying a change
 
 `tests/run.sh` is the whole verification story — the test suite, the lint and the static

@@ -84,37 +84,40 @@ for cell in "$TITLE" "$NEEDS"; do
   esac
 done
 
-# --- Duplicate ID -----------------------------------------------------------
-# One definition of "a roadmap row", shared by the duplicate check and the append
-# hop below, so the two cannot disagree about what they are looking at. The digit
-# run is greedy rather than exactly four so a five-digit ID reads out whole: with
-# a fixed four, ACME-00011 would surrender the ID ACME-0001 it does not have.
+# --- What a roadmap row is ---------------------------------------------------
+# One definition, held in exactly one place on this card and read by both the
+# duplicate check and the append hop below, so the two cannot disagree about
+# what they are looking at: a roadmap row is a markdown table line, and within
+# it the FIRST cell holding a whole-token <PREFIX>-NNNN.
+#
+# sift-drain's lib.sh roadmap_rows states the same rule for the read side. That
+# second copy is a standing decision, not an oversight, and it is recorded in
+# AGENTS.md under "Duplication between cards" (SFT-0038): the cards install
+# independently and neither directory may source a file from the other, so the
+# rule is written out once per card and a drift between them is caught by a test
+# rather than by a tree that is already wrong. The test is "the reader and the
+# writer classify every cell of one table alike" in
+# tests/scripts/prime-backlog.test.sh — change this rule and the drain reader in
+# the same commit, and run it to prove they still agree.
+#
+# The digit run is greedy rather than exactly four so a five-digit ID reads out
+# whole: with a fixed four, ACME-00011 would surrender the ID ACME-0001 it does
+# not have (SFT-0025). Greedy also supplies the right-hand whole-token guard for
+# free, because a run of digits cannot stop mid-number.
 ROW_ID_PAT="$PREFIX-[0-9][0-9][0-9][0-9][0-9]*"
 
-# Rule 2 makes IDs immutable and never reused, so a second row for an ID already
-# in the file means the caller lost track of what it wrote. Fail loudly: silently
-# skipping would leave the caller believing a row exists in a wave where it does
-# not.
+# The ID a cell holds, or "" when it holds none. Whole-token on the left so a
+# suffix of a longer word is not an ID, and [[:alnum:]] rather than a spelled
+# range so a UTF-8 locale cannot re-collate the set.
 #
-# "Already in the file" means a ROW, not a mention. This is the rule sift-drain's
-# lib.sh roadmap_rows already applies, restated here because the two cards ship
-# separately and must still agree: only markdown table lines count, and within a
-# line only the FIRST cell holding an ID is the ticket cell. An ID named in a
-# Needs cell, quoted in a Title or written in the prose around the table belongs
-# to somebody else's row and must never block its own. A struck row does count
-# for its own ID — rule 2 makes an ID unreusable whether or not the work finished,
-# and ~~ delimiters are not identifier characters, so it falls out of the same
-# whole-token rule rather than needing a case of its own.
-#
-# awk, not a second grep: one parse of the table, in the same shape and through
-# the same pattern as the append hop below, is what keeps this check from drifting
-# away from the thing it is guarding.
-if ROW_ID_PAT="$ROW_ID_PAT" RA_ID="$ID" awk -F'|' '
-    BEGIN { pat = ENVIRON["ROW_ID_PAT"]; want = ENVIRON["RA_ID"] }
-    # The ID a cell holds, or "" when it holds none. Whole-token on the left so a
-    # suffix of a longer word is not an ID, and [[:alnum:]] rather than a spelled
-    # range so a UTF-8 locale cannot re-collate the set; whole-token on the right
-    # comes free from the greedy digit run, which cannot stop mid-number.
+# An awk fragment prepended to both programs below rather than a copy pasted
+# into each: two copies inside one file is the same bug as two copies across two
+# cards, at shorter range, and it is the bug this file had — the append hop
+# selected its cell on the bare pattern and so counted a glued XACME-0001 cell
+# as a row the duplicate guard beside it never saw. Being a single-quoted shell
+# string, it must stay free of an apostrophe, a dollar sign and a backslash;
+# `pat` is the calling program's BEGIN-block global.
+ROW_CELL_ID_AWK='
     function cell_id(s,   id, before) {
       while (match(s, pat)) {
         id = substr(s, RSTART, RLENGTH)
@@ -124,6 +127,29 @@ if ROW_ID_PAT="$ROW_ID_PAT" RA_ID="$ID" awk -F'|' '
       }
       return ""
     }
+'
+
+# --- Duplicate ID -----------------------------------------------------------
+
+# Rule 2 makes IDs immutable and never reused, so a second row for an ID already
+# in the file means the caller lost track of what it wrote. Fail loudly: silently
+# skipping would leave the caller believing a row exists in a wave where it does
+# not.
+#
+# "Already in the file" means a ROW, not a mention, by the rule above: only
+# markdown table lines count, and within a line only the FIRST cell holding an ID
+# is the ticket cell. An ID named in a Needs cell, quoted in a Title or written
+# in the prose around the table belongs to somebody else's row and must never
+# block its own. A struck row does count for its own ID — rule 2 makes an ID
+# unreusable whether or not the work finished, and ~~ delimiters are not
+# identifier characters, so it falls out of the same whole-token rule rather than
+# needing a case of its own.
+#
+# awk, not a second grep: one parse of the table, in the same shape and through
+# the same pattern and cell_id as the append hop below, is what keeps this check
+# from drifting away from the thing it is guarding.
+if ROW_ID_PAT="$ROW_ID_PAT" RA_ID="$ID" awk -F'|' "$ROW_CELL_ID_AWK"'
+    BEGIN { pat = ENVIRON["ROW_ID_PAT"]; want = ENVIRON["RA_ID"] }
     !/^[[:space:]]*\|/ { next }
     NF < 3 { next }
     {
@@ -170,7 +196,7 @@ if command grep -qE "$WAVE_RE" "$ROADMAP"; then
   RA_ROW_ID="$ID" \
   RA_ROW_TITLE="$TITLE" \
   RA_ROW_NEEDS="$NEEDS" \
-  awk -F'|' '
+  awk -F'|' "$ROW_CELL_ID_AWK"'
     BEGIN {
       pat       = ENVIRON["RA_PAT"]
       wave_re   = ENVIRON["RA_WAVE_RE"]
@@ -206,8 +232,15 @@ if command grep -qE "$WAVE_RE" "$ROADMAP"; then
       flush_buf()
       print
       sawtable = 1
+      # The same cell rule as the duplicate guard above, through the same
+      # cell_id: a cell whose ID is glued to a longer word holds no ID, so the
+      # line it sits on is not a row and is not counted as one here either.
+      # Selecting on the bare pattern counted it, and then read its "#" into
+      # maxnum, so a table holding one real row beside one mistyped line
+      # numbered the next row 3 while the guard above saw a single row — the
+      # same divergence as between the cards, inside one file.
       cell = 0
-      for (i = 1; i <= NF; i++) if ($i ~ pat) { cell = i; break }
+      for (i = 1; i <= NF; i++) if (cell_id($i) != "") { cell = i; break }
       if (cell) {
         nrows++
         # Same cell convention as sift-drain roadmap_rows: the "#" column is $2

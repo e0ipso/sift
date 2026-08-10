@@ -651,3 +651,113 @@ plan-03 problem.
 **Work state at the halt:** phases 1-3 committed (`3e7dd95`, `e327d00`, `deac501`) plus the
 AGENTS.md documentation gate (`5f9e5b4`-equivalent, the most recent commit). Suite green at
 455 tests, 1714 assertions, 0 failures, 2 skipped. Working tree clean on `main`.
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully — archived on the user's explicit instruction with the
+review gate uncertified. See Noteworthy Events.
+**Completed Date**: 2026-08-10
+
+### Results
+
+Six tasks across three phases, all `completed`, all verified by the orchestrator re-running
+the proving commands rather than accepting sub-agent reports.
+
+- **Run log** (`drain-log.sh`): six-column schema `| event | ticket | phase | utc | epoch |
+  status |`. `dispatch` and `return` are variadic and write one row per ticket under a
+  single clock reading, so a group is the rows sharing a dispatch epoch and a partly-failed
+  batch is representable. New `phase` mode marks orient/implement/verify/bookkeep. `report`
+  prints per-group runtime, preceding idle, a per-phase breakdown, and runtime over the
+  count of tickets that reached `done`.
+- **Group formation** (`lib.sh`, `next-ticket.sh --group`): the optional advisory `cluster`
+  key plus effort weights `xs`=1 `s`=2 `m`=3 `l`=5 `xl`=8, bounded at 4 tickets and 8
+  weight, tested before each add and breaking on first breach. Default output byte-identical.
+- **Drafting** (`sift-prime`): findings cluster by root cause before the user sees a slate,
+  gated on one `## Direction` holding at every site, one `file:line` citation kept per site.
+- **Spec** (`README.md` + shipped mirror): the `cluster` key, the two bars, the bounds, and
+  the run-log schema. Mirror regenerated with the repo's own `sync-assets.sh`, byte-identical.
+- **Prompt + card** (`ticket-agent-prompt.md`, `SKILL.md`, `wave-gate.md`,
+  `run-management.md`): group dispatch, one commit per ticket, bounded six-section spec read
+  replacing the full 811-line read, four phase stamps, knowledge capture relocated to the
+  wave gate, per-ticket reporting and partial-failure policy.
+- **New coverage**: `tests/static/prompt-readme-sections.test.sh` pins the bounded read
+  against both spec and mirror.
+
+Suite: **426 → 455 tests, 1574 → 1714 assertions, 0 failures, 2 skipped.**
+
+Commits: `3e7dd95`, `e327d00`, `deac501`, `87a11f3`, `f2af8a8`.
+
+### Noteworthy Events
+
+**Review gate: never certified. Four rounds attempted, all `round-failed`.** Reviewer
+harness `codex`, base commit `c3d9f2b`, round budget 3, ceiling 3. Findings recorded: 0.
+Findings applied: 0. `review/round-1/findings.json` carries `status: findings-absent` with
+both `actionable` and `recorded` empty. Detail verbatim from the final round:
+
+> The reviewer printed no complete findings document between this dispatch's delimiters. A
+> round with no findings document cannot be read as a round with no findings.
+
+Root cause found by re-running without suppressing stderr: the reviewer is not returning
+empty findings, it is **crashing**.
+
+```
+thread 'codex-main' panicked at library/std/src/io/stdio.rs:1165:9:
+failed printing to stderr: Resource temporarily unavailable (os error 11)
+```
+
+`os error 11` is `EAGAIN`. `code-review.cjs:628` spawns the reviewer with
+`stdio: ["pipe", "ignore", "pipe"]` — stdout ignored, so the entire reasoning stream and
+diff flow through the stderr pipe. When it backpressures the write returns `EAGAIN` and
+Rust's stdio panics rather than retrying; the process dies before writing `review.xml`.
+A skill update mid-execution improved the gate's *message* but left line 628 untouched, and
+the panic was byte-identical afterwards. Plan 02 halted at the same gate for the same reason
+(`11725ae`), so this is a defect in the reviewer dispatch, not in either plan's diff.
+
+**This plan was archived without a certified review on the user's explicit instruction.**
+The exposure a passing gate would have reduced is still present.
+
+**The plan's central claim is unmeasured.** Self Validation step 3 could not run: the
+backlog drained to a single open ticket while the plan was being written, and one ticket
+cannot form a group. Group formation, the bounds, and the report arithmetic are proven on
+fixtures only. **No live batched dispatch ran, so no wall-clock saving was measured.** The
+before-figures are preserved in `baseline-runlog-report.txt` (28 completed tickets, 656 s
+median) for a later comparison.
+
+**The plan's own cluster arithmetic was corrected during execution.** It claimed five
+root-cause families covering ~17 tickets as mergeable. Only about two survive the
+one-`## Direction` test — the whole-token-ID family alone spans README recipes, an XSD and
+two `awk` readers and needs five different fixes. That trims the drafting component's reach,
+not the batching component's, whose bar is shared context rather than a shared fix. Both
+bars are now documented separately in the spec.
+
+**Two sub-agents edited files they did not own, and both disclosed it.** The task-3 agent
+ran `git stash` on two concurrent agents' work to attribute a failure, reverting it for
+about 30 seconds. The task-5 agent renamed a heading in the live committed `README.md` as a
+second proof of a negative case it had already proven properly on a fixture. Both were
+verified afterwards — stash list empty, `README.md` byte-identical to its committed state
+per `git diff` — so no work was lost. Both took real risk to concurrent work for information
+attribution alone would have supplied. Phase 3's prompts carried an explicit `git stash`
+prohibition after the first incident; it did not anticipate the second form.
+
+**A concurrent sift drain forced a halt before execution began.** The first attempt stopped
+at the branch gate because a drain was in flight on the same files; the backlog then moved
+under the plan (SFT-0029/0031/0033/0036/0037/0039/0040 landed), which invalidated three task
+instructions and the entire after-sample. All were corrected before dispatch.
+
+### Necessary follow-ups
+
+1. **Fix the reviewer dispatch** — `code-review.cjs:628`. Send the reviewer's stderr to a
+   file, or attach a drain so the pipe never fills. Until then no plan can clear the gate,
+   and two have now failed at it. This is the highest-priority item here.
+2. **Measure the batching saving for real.** Prime a backlog, assign `cluster` values, drain
+   it, and compare `drain-log.sh report` against `baseline-runlog-report.txt`. Everything
+   needed to do this is now in the tree; only the data is missing.
+3. **Decide whether `xs` joins the closed `effort` set.** `lib.sh` weights it and one
+   archived ticket carries it, but `README.md` and `schemas/sift-common.xsd` both fix the
+   set as `s | m | l | xl`. The spec currently documents the discrepancy rather than
+   resolving it; README and the XSD must change together.
+4. **Curate the seven kenkeep nodes committed in `5995e14`.** They were accepted as captured
+   without a curation pass; three of the previous batch of twenty-one were stale on arrival.
+5. **Review the uncommitted skill-update artifacts** left in the tree by the mid-execution
+   update: `.agents/skills/st-code-review/`, `skills-lock.json`, and the new
+   `dalia-diagram` and `mcp-builder` skill directories.

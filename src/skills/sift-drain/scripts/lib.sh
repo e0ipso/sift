@@ -81,8 +81,9 @@ fi
 # Print one TSV line per roadmap ticket row:
 #   wave <TAB> order <TAB> ID <TAB> struck(0|1) <TAB> title
 #
-# Only markdown table rows count, and only the FIRST cell holding an ID is the
-# ticket cell — so ID mentions in a Title or Needs column never register as rows.
+# Only markdown table rows count, and only the FIRST cell holding a whole-token
+# ID is the ticket cell — so ID mentions in a Title or Needs column never
+# register as rows, and neither does a cell whose ID is glued to a longer word.
 # Rows under "## Wave <n>" headings are grouped by wave; a roadmap with no wave
 # headings is reported as a single wave 1.
 roadmap_rows() {
@@ -106,6 +107,33 @@ roadmap_rows() {
     # ROW_ID_PAT that roadmap-append.sh in sift-prime matches a ticket cell
     # with; the two cards ship separately and must not drift apart.
     BEGIN { pat = prefix "-[0-9][0-9][0-9][0-9][0-9]*" }
+    # The ID a cell holds, or "" when it holds none. Whole-token on the left so a
+    # suffix of a longer word is not an ID, and [[:alnum:]] rather than a spelled
+    # range so a UTF-8 locale cannot re-collate the set; whole-token on the right
+    # comes free from the greedy digit run, which cannot stop mid-number.
+    #
+    # A match starting at the very first character has no preceding character,
+    # and substr(cs, 0, 1) is not one either — awk returns the empty string from
+    # a start index below 1 rather than erroring, which would read as "a
+    # character that is not alphanumeric" only by accident. RSTART > 1 is
+    # therefore tested first, and the empty string it falls back to matches
+    # nothing in the class, so an ID at position 1 is accepted deliberately.
+    #
+    # A rejected match is walked past rather than abandoning the cell, so a cell
+    # reading XACME-0001 ACME-0002 still yields ACME-0002.
+    #
+    # This is cell_id from roadmap-append.sh in sift-prime, restated because the
+    # two cards ship separately and cannot source each other; only the parameter
+    # is renamed, so it does not shadow the struck-flag array s below.
+    function cell_id(cs,   id, before) {
+      while (match(cs, pat)) {
+        id = substr(cs, RSTART, RLENGTH)
+        before = (RSTART > 1) ? substr(cs, RSTART - 1, 1) : ""
+        if (before !~ /[[:alnum:]]/) return id
+        cs = substr(cs, RSTART + RLENGTH)
+      }
+      return ""
+    }
     /^##[[:space:]]*[Ww]ave[[:space:]]/ {
       seen_wave = 1
       h = $0
@@ -118,13 +146,17 @@ roadmap_rows() {
     !/^[[:space:]]*\|/ { next }                 # table rows only
     NF < 3 { next }
     {
+      # The ticket cell is the first cell that HOLDS an ID, not the first cell
+      # the pattern matches somewhere inside. Selecting on the bare pattern lets
+      # a mistyped XACME-0001 in column 2 shadow the real ticket cell to its
+      # right, and reports a row for a cell that holds no ID at all.
       cell = 0
-      for (i = 1; i <= NF; i++) if ($i ~ pat) { cell = i; break }
+      rid = ""
+      for (i = 1; i <= NF; i++) { rid = cell_id($i); if (rid != "") { cell = i; break } }
       if (!cell) next
-      match($cell, pat)
       n++
       w[n] = wave
-      d[n] = substr($cell, RSTART, RLENGTH)
+      d[n] = rid
       o[n] = (cell > 2) ? trim($2) : n
       t[n] = trim($(cell + 1)); gsub(/~~/, "", t[n])
       s[n] = ($cell ~ /~~/ || $(cell + 1) ~ /~~/) ? 1 : 0

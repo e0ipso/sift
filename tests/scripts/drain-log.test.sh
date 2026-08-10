@@ -125,7 +125,7 @@ assert_eq 1 "$(grep -c '^| dispatch |' "$root/.ai/sift/RUNLOG.md")" "and exactly
 
 test_case "the header is written once and later writes only append"
 before="$(head -n 6 "$root/.ai/sift/RUNLOG.md")"
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return SFT-0001 done
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return SFT-0001 'done'
 assert_eq 0 "$R_STATUS" "return exits 0"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch SFT-0002
 assert_eq 0 "$R_STATUS" "the second dispatch exits 0"
@@ -165,7 +165,7 @@ make_tree "$root" SFT
 started="$(date +%s)"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch SFT-0001
 sleep 1
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return SFT-0001 done
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return SFT-0001 'done'
 d_epoch="$(log_field "$root/.ai/sift/RUNLOG.md" 1 5)"
 r_epoch="$(log_field "$root/.ai/sift/RUNLOG.md" 2 5)"
 if [ "$d_epoch" -ge "$started" ]
@@ -184,9 +184,9 @@ root="$(newdir)"
 make_tree "$root" SFT
 log_new "$root"
 log_row "$root" dispatch SFT-0001 1000 -
-log_row "$root" return   SFT-0001 1120 done
+log_row "$root" return   SFT-0001 1120 'done'
 log_row "$root" dispatch SFT-0002 1300 -
-log_row "$root" return   SFT-0002 1360 done
+log_row "$root" return   SFT-0002 1360 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
 assert_eq "120s (2m0s)" "$(report_field SFT-0001 2)" "SFT-0001 ran for its own 120 seconds"
@@ -214,7 +214,7 @@ root="$(newdir)"
 make_tree "$root" SFT
 log_new "$root"
 log_row "$root" dispatch SFT-0001 1000 -    2031-12-31T23:59:59Z
-log_row "$root" return   SFT-0001 1045 done 2000-01-01T00:00:00Z
+log_row "$root" return   SFT-0001 1045 'done' 2000-01-01T00:00:00Z
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
 assert_eq "45s" "$(report_field SFT-0001 2)" "the epoch column alone decided the duration"
@@ -224,11 +224,11 @@ root="$(newdir)"
 make_tree "$root" SFT
 log_new "$root"
 log_row "$root" dispatch SFT-0001 0 -
-log_row "$root" return   SFT-0001 59 done
+log_row "$root" return   SFT-0001 59 'done'
 log_row "$root" dispatch SFT-0002 100 -
-log_row "$root" return   SFT-0002 160 done
+log_row "$root" return   SFT-0002 160 'done'
 log_row "$root" dispatch SFT-0003 200 -
-log_row "$root" return   SFT-0003 3861 done
+log_row "$root" return   SFT-0003 3861 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
 assert_eq "59s" "$(report_field SFT-0001 2)" "59 seconds stays a bare figure"
@@ -244,10 +244,10 @@ root="$(newdir)"
 make_tree "$root" SFT
 log_new "$root"
 log_row "$root" dispatch SFT-0001 1000 -
-log_row "$root" return   SFT-0001 1120 done
+log_row "$root" return   SFT-0001 1120 'done'
 log_row "$root" dispatch SFT-0002 1300 -
 log_row "$root" dispatch SFT-0003 1400 -
-log_row "$root" return   SFT-0003 1460 done
+log_row "$root" return   SFT-0003 1460 'done'
 log_row "$root" dispatch SFT-0004 1500 -
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
@@ -264,9 +264,9 @@ test_case "a return with no dispatch is an orphan, not a zero-length run"
 root="$(newdir)"
 make_tree "$root" SFT
 log_new "$root"
-log_row "$root" return   SFT-0009 1000 done
+log_row "$root" return   SFT-0009 1000 'done'
 log_row "$root" dispatch SFT-0001 1100 -
-log_row "$root" return   SFT-0001 1160 done
+log_row "$root" return   SFT-0001 1160 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
 assert_eq "-" "$(report_field SFT-0009 2)" "the orphaned return gets no duration"
@@ -281,9 +281,9 @@ root="$(newdir)"
 make_tree "$root" SFT
 log_new "$root"
 log_row "$root" dispatch SFT-0001 1000 -
-log_row "$root" return   SFT-0001 900 done
+log_row "$root" return   SFT-0001 900 'done'
 log_row "$root" dispatch SFT-0002 800 -
-log_row "$root" return   SFT-0002 860 done
+log_row "$root" return   SFT-0002 860 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
 assert_eq "-" "$(report_field SFT-0001 2)" "a return before its dispatch yields no duration"
@@ -304,10 +304,10 @@ root="$(newdir)"
 make_tree "$root" SFT
 log_new "$root"
 # Runtimes 40, 10, 30, 20 written out of order, so the sort is under test too.
-log_row "$root" dispatch SFT-0001 0 -;    log_row "$root" return SFT-0001 40 done
-log_row "$root" dispatch SFT-0002 100 -;  log_row "$root" return SFT-0002 110 done
-log_row "$root" dispatch SFT-0003 200 -;  log_row "$root" return SFT-0003 230 done
-log_row "$root" dispatch SFT-0004 300 -;  log_row "$root" return SFT-0004 320 done
+log_row "$root" dispatch SFT-0001 0 -;    log_row "$root" return SFT-0001 40 'done'
+log_row "$root" dispatch SFT-0002 100 -;  log_row "$root" return SFT-0002 110 'done'
+log_row "$root" dispatch SFT-0003 200 -;  log_row "$root" return SFT-0003 230 'done'
+log_row "$root" dispatch SFT-0004 300 -;  log_row "$root" return SFT-0004 320 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
 assert_eq "median runtime: 20s across 4 completed ticket(s) of 4" "$(median_line)" \
@@ -315,7 +315,7 @@ assert_eq "median runtime: 20s across 4 completed ticket(s) of 4" "$(median_line
 
 test_case "an odd count takes the true middle value"
 log_row "$root" dispatch SFT-0005 400 -
-log_row "$root" return   SFT-0005 450 done
+log_row "$root" return   SFT-0005 450 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq "median runtime: 30s across 5 completed ticket(s) of 5" "$(median_line)" \
   "of 10/20/30/40/50 the median is 30"
@@ -325,9 +325,9 @@ test_case "a runtime an order of magnitude over the median is flagged"
 root="$(newdir)"
 make_tree "$root" SFT
 log_new "$root"
-log_row "$root" dispatch SFT-0001 0 -;   log_row "$root" return SFT-0001 10 done
-log_row "$root" dispatch SFT-0002 20 -;  log_row "$root" return SFT-0002 30 done
-log_row "$root" dispatch SFT-0003 40 -;  log_row "$root" return SFT-0003 640 done
+log_row "$root" dispatch SFT-0001 0 -;   log_row "$root" return SFT-0001 10 'done'
+log_row "$root" dispatch SFT-0002 20 -;  log_row "$root" return SFT-0002 30 'done'
+log_row "$root" dispatch SFT-0003 40 -;  log_row "$root" return SFT-0003 640 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
 assert_eq "SLOW (60x median)" "$(report_field SFT-0003 5)" \

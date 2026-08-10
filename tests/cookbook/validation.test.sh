@@ -19,10 +19,18 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 SETUP="$(recipe_prefix_setup)"
 FRONTMATTER="$(recipe_frontmatter)"
+# Read only by name, through the `eval "block=\$$name"` in the loops below, which
+# is why shellcheck calls this one unused while it sees SETUP and FRONTMATTER used
+# directly further down.
+# shellcheck disable=SC2034
 ROADMAP="$(recipe_roadmap_check)"
 GUARD='[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }'
 
 test_case "every guarded recipe carries the same POSIX tree guard"
+# `block` is assigned on the first line of the body, by an eval shellcheck cannot
+# follow; it is not an unset variable, and the assertions below would fail loudly
+# on the empty string rather than pass quietly.
+# shellcheck disable=SC2154
 for name in SETUP FRONTMATTER ROADMAP; do
   eval "block=\$$name"
   assert_contains "$block" "$GUARD" "$name restates the guard verbatim"
@@ -358,6 +366,11 @@ test_case "with xmllint unavailable the recipe is a no-op, not a failure"
 d="$(newdir)"; make_tree "$d"
 R_SHELL="$(command -v bash)"
 run_recipe "$d" "$XMLLINT" PATH="$d/no-such-bin"
+# R_SHELL is an input global read by recipe_runner in tests/lib/recipes.sh, so no
+# reader for it exists in this file and the restore reads as a dead store here.
+# Restoring the default is the point: leaving the absolute path pinned would
+# silently change the shell any case added below this one runs under.
+# shellcheck disable=SC2034
 R_SHELL=bash
 assert_eq 0 "$R_STATUS" "exits 0 — a missing optional tool costs nothing"
 assert_contains "$R_OUT" 'xmllint not installed — skipping (optional)' "it says so"

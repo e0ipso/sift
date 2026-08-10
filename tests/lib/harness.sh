@@ -109,6 +109,14 @@ tree_digest() {  # tree_digest <dir>
 
 # run_cmd <workdir> <command…> — run a shipped script through its real command
 # line. Sets R_STATUS, R_OUT, R_ERR; honours R_LOCALE.
+#
+# Those three are the helper's return channel, not scratch: every reader is a
+# test file that sources this library and then asserts on them. shellcheck sees
+# one file at a time, so a cross-file read is invisible to it and all three
+# assignments look like dead stores. `export` would not be the truthful fix —
+# the readers are functions in this same shell, not child processes — so the
+# finding is silenced at the one function that publishes them.
+# shellcheck disable=SC2034
 run_cmd() {
   local dir="$1"; shift
   local outf errf

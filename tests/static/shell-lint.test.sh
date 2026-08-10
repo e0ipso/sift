@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 # Lint: syntax and shape of every shell file in the repository.
 #
-# shellcheck is not assumed to be installed — the same rule that governs the
+# Nothing here assumes shellcheck is installed — the same rule that governs the
 # recipes governs their tooling — so the authoritative lint is the shell's own
 # parser plus the conventions the cards rely on: a shebang, an executable bit
 # on anything a card documents as a command, and no CRLF line endings.
 # When shellcheck *is* present it is run as an extra, never as a requirement.
+#
+# Keep the tool's name off the front of a comment line. A comment whose first
+# word is that token is read as a directive, a malformed one is SC1073, and an
+# SC1073 aborts the parse of the whole file — so the findings below it are never
+# reported. That is exactly how the SC2046 on the arm at the bottom of this file
+# stayed invisible until SFT-0036: this very paragraph used to open with it.
 
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
@@ -51,7 +57,13 @@ assert_eq "" "$crlf" "shell files and the spec are LF-only"
 
 test_case "shellcheck, if the machine happens to have it"
 if command -v shellcheck > /dev/null 2>&1; then
-  out="$(shellcheck -S warning $(shell_files) 2>&1)" \
+  # Collect the list into an array rather than letting an unquoted command
+  # substitution split it: shellcheck takes its inputs as separate arguments, and
+  # word splitting hands it garbage the first time a repository path holds a
+  # blank (SC2046).
+  lint_files=()
+  while IFS= read -r f; do lint_files+=("$f"); done < <(shell_files)
+  out="$(shellcheck -S warning "${lint_files[@]}" 2>&1)" \
     && t_ok "shellcheck reports no warnings" \
     || t_fail "shellcheck reports no warnings" "$(printf '%s\n' "$out" | head -n 20)"
 else

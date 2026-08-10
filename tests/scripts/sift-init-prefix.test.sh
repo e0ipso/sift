@@ -72,6 +72,10 @@ for loc in C C.utf8 en_US.utf8; do
     else t_fail "'$p' rejected under LC_ALL=$loc" "status=$R_STATUS" "stderr=$R_ERR"; fi
   done
 done
+# R_LOCALE is an input global read by run_cmd in tests/lib/harness.sh, so no
+# reader for it exists in this file. The reset is load-bearing: without it every
+# case below this loop would keep running under en_US.utf8.
+# shellcheck disable=SC2034
 R_LOCALE=C
 
 # --- The destructive sequence, run for real (SFT-0008) -----------------------

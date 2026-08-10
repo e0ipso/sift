@@ -592,3 +592,40 @@ step needs rewriting against the live backlog before execution resumes.
 
 **To resume:** let the drain reach a wave gate and stop, confirm `git status` is clean on
 `main`, correct Self Validation step 3, then re-run `st-execute-blueprint` for plan 3.
+
+## Execution Halted at the Code Review Gate — 2026-08-10
+
+All three phases completed and every `POST_EXECUTION.md` gate passed. Round 1 of the code
+review gate returned `round-failed`, so the plan stays in `plans/`, no completion summary
+is appended, and nothing is archived. An uncertified round is never reported as clean.
+
+**Gate result verbatim:**
+
+> The reviewer did not write
+> `/workspace/.ai/strikethroo/plans/03--sift-drain-batched-dispatch-and-fixed-cost/review/round-1/review.xml`,
+> and its output carried no complete findings document between this dispatch's fallback
+> delimiters. A round with no findings document cannot be read as a round with no findings.
+
+Reviewer harness `codex`, base commit `c3d9f2b`, round budget 3, ceiling 3. `codex` is on
+PATH, so this is not the `fallback` "harness unavailable" case — the reviewer was dispatched
+and produced no parseable findings document. `review/round-1/findings.json` was written with
+`status: findings-absent` and both `actionable` and `recorded` empty.
+
+**This is the second consecutive plan to halt here.** Commit `11725ae` records plan 02
+halting at round 1 of the same gate with the same `round-failed` reason. Two plans failing
+identically at the same step points at the reviewer dispatch or its output contract rather
+than at either plan's diff.
+
+**To resume:** re-run the gate with
+
+```
+node .claude/skills/st-code-review/scripts/code-review.cjs 3 claude 1
+```
+
+If it fails the same way a third time, the reviewer dispatch needs investigating before any
+plan can clear this gate; that is a `codex`-side or `st-code-review`-side problem, not a
+plan-03 problem.
+
+**Work state at the halt:** phases 1-3 committed (`3e7dd95`, `e327d00`, `deac501`) plus the
+AGENTS.md documentation gate (`5f9e5b4`-equivalent, the most recent commit). Suite green at
+455 tests, 1714 assertions, 0 failures, 2 skipped. Working tree clean on `main`.

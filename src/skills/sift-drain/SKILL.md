@@ -75,9 +75,14 @@ the prefix from `.ai/sift/config/config.yaml`; override with `SIFT_ROOT` / `SIFT
 reports the lookup's own state as `result: found` or `result: none` — never as `status:`,
 which in that report is always the chosen ticket's own front-matter value, so every key
 means exactly one thing.
-Both label scripts honour `--` as the end-of-options marker: behind it every argument is
-positional, so `tickets-by-label.sh -- <label>` looks the label up even when it came out
-of a variable, and `list-labels.sh`, which takes no positional, refuses anything after it.
+Every script here honours `--` as the end-of-options marker, and it means one thing across
+the card: the option list ends there and everything behind it is positional. So
+`tickets-by-label.sh -- <label>` looks the label up even when it came out of a variable,
+while `list-labels.sh`, `next-ticket.sh`, `wave-status.sh` and `roadmap-check.sh` take no
+positional at all — they accept the marker and refuse anything behind it rather than
+ignoring it. `drain-log.sh`'s first positional is a subcommand, so the marker stands in
+front of it: `drain-log.sh -- dispatch <TICKET>` records the row `drain-log.sh dispatch
+<TICKET>` records.
 `drain-log.sh dispatch <TICKET>` and `drain-log.sh return <TICKET> <STATUS>` append one row
 each to `.ai/sift/RUNLOG.md`, which the first dispatch creates and nothing ever rewrites;
 `drain-log.sh report` reads it back as a per-ticket table of agent runtime and the idle gap

@@ -22,6 +22,21 @@
 #   scripts/drain-log.sh dispatch <TICKET>
 #   scripts/drain-log.sh return <TICKET> <STATUS>
 #   scripts/drain-log.sh report
+#   scripts/drain-log.sh -- dispatch <TICKET>   # -- ends the options
+#
+# `--` means one thing across the card: the option list ends here and everything
+# behind it is positional. This script's first positional is a SUBCOMMAND, so
+# the option list ends at that subcommand whether or not the marker is spelled,
+# and the marker is only meaningful where an option could otherwise have stood —
+# in front of it. `-- dispatch <TICKET>` therefore records exactly the row
+# `dispatch <TICKET>` records, and never turns `dispatch` into an unknown mode.
+#
+# Behind the subcommand there is no option list left to end: every argument
+# there is one of that subcommand's operands, so `dispatch -- SFT-0001` is a
+# two-operand dispatch and a usage error rather than a marked-up one-operand
+# one. Nothing is lost by that, because a ticket ID is `<PREFIX>-<NNNN>` under
+# the convention and can never begin with a hyphen, so no real operand ever
+# needs protecting from an option parser that stopped one argument earlier.
 #
 # Exit codes: 0 success | 2 setup/usage error.
 
@@ -33,6 +48,7 @@ usage() {
   echo "usage: drain-log.sh dispatch <TICKET>" >&2
   echo "       drain-log.sh return <TICKET> <STATUS>" >&2
   echo "       drain-log.sh report" >&2
+  echo "note: -- ends the options; it may stand in front of the subcommand" >&2
   exit 2
 }
 
@@ -174,6 +190,21 @@ report() {
     }
   ' "$LOG"
 }
+
+# The option loop. There are no options to read today, so it ends at the first
+# argument either way — but it ends at `--` by CONSUMING the marker, and at
+# anything else by leaving that argument in place as the subcommand. Consuming
+# it is the whole point: the case arms below match a mode name, and a marker
+# left in $1 would be reported as an unknown one.
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --)
+      shift
+      break
+      ;;
+    *) break ;;   # the subcommand; every argument from here is its operand
+  esac
+done
 
 MODE="${1:-}"
 TICKET="${2:-}"

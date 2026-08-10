@@ -364,6 +364,67 @@ run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch A B;     check_usage 
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report now;       check_usage "report, which takes no argument"
 assert_no_file "$root/.ai/sift/RUNLOG.md" "no rejected command line created a log"
 
+test_case "-- may stand in front of the subcommand and records the same row (SFT-0033)"
+# The card spells `--` one way (SFT-0024, SFT-0033), and this is the one script
+# whose first argument is already positional. So the marker has to survive
+# contact with the subcommand grammar in both directions: `-- dispatch` must
+# still be a dispatch rather than an unknown mode, and it must write the row a
+# bare dispatch writes.
+#
+# The two runs go into two SEPARATE trees and the whole file is compared with
+# the clock columns masked, rather than the appended row being re-read out of
+# one log. A row read back cannot see a rewrite above it, and "the same row"
+# means the same file, header included.
+mask_clock() {  # mask_clock <log> — the log with utc and epoch made constant
+  awk -F'|' 'BEGIN { OFS = "|" }
+    $2 ~ /^[[:space:]]*(dispatch|return)[[:space:]]*$/ { $4 = " UTC "; $5 = " EPOCH " }
+    { print }' "$1"
+}
+plain="$(newdir)"; make_tree "$plain" SFT
+marked="$(newdir)"; make_tree "$marked" SFT
+run_cmd "$plain" env SIFT_ROOT="$plain" "$DRAINLOG" dispatch SFT-0001
+assert_eq 0 "$R_STATUS" "the bare dispatch exits 0"
+run_cmd "$marked" env SIFT_ROOT="$marked" "$DRAINLOG" -- dispatch SFT-0001
+assert_eq 0 "$R_STATUS" "so does the same dispatch behind the marker"
+assert_eq "" "$R_ERR" "and it is not reported as an unknown mode"
+run_cmd "$plain" env SIFT_ROOT="$plain" "$DRAINLOG" return SFT-0001 'done'
+run_cmd "$marked" env SIFT_ROOT="$marked" "$DRAINLOG" -- return SFT-0001 'done'
+assert_eq 0 "$R_STATUS" "return takes the marker too"
+assert_eq "$(mask_clock "$plain/.ai/sift/RUNLOG.md")" \
+          "$(mask_clock "$marked/.ai/sift/RUNLOG.md")" \
+  "both logs are the same file once the two clock columns are masked"
+assert_eq "SFT-0001" "$(log_field "$marked/.ai/sift/RUNLOG.md" 1 3)" \
+  "the ticket column holds the ID, not the marker"
+assert_eq "dispatch" "$(log_field "$marked/.ai/sift/RUNLOG.md" 1 2)" \
+  "and the event column holds the subcommand the marker preceded"
+
+# `report` is the read-only mode, so the marker in front of it is asserted on
+# the output rather than on a file.
+run_cmd "$marked" env SIFT_ROOT="$marked" "$DRAINLOG" report
+bare_out="$R_OUT"; bare_status="$R_STATUS"
+run_cmd "$marked" env SIFT_ROOT="$marked" "$DRAINLOG" -- report
+assert_eq "$bare_status" "$R_STATUS" "-- report exits as report does"
+assert_eq "$bare_out" "$R_OUT" "and prints the same table, byte for byte"
+
+test_case "the marker ends the options and does not become one (SFT-0033)"
+# Behind the subcommand there is no option list left to end, so a second marker
+# and a marker after the mode name are both plain arguments — refused by the
+# arity rules that were already there. A ticket ID is <PREFIX>-<NNNN> under the
+# convention and can never begin with a hyphen, so no real operand is stranded
+# by that reading.
+root="$(newdir)"; make_tree "$root" SFT
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" --
+check_usage "the marker with no subcommand behind it"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" -- --
+check_usage "a second marker, which is a positional and not a mode"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" -- frobnicate
+check_usage "an unknown mode behind the marker"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch -- SFT-0001
+check_usage "a marker after the subcommand, which is a second operand"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" -- report now
+check_usage "report behind the marker still takes no argument"
+assert_no_file "$root/.ai/sift/RUNLOG.md" "and none of those refusals created a log"
+
 test_case "report against a tree with no run log exits 2 and says how one is made"
 # Distinct from an empty log: nothing has been drained here at all, and pointing
 # the operator at `dispatch` is the difference between the two.

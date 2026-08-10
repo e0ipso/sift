@@ -358,6 +358,62 @@ for label in $(printf '%s\n' "$counts" | cut -f 1); do
     "counted=$count returned=$got status=$R_STATUS"; fi
 done
 
+test_case "the listing warns for exactly the labels the lookup refuses (SFT-0029)"
+# One rule, read two ways: tickets-by-label.sh tests its argument against
+# lib.sh's SIFT_LABEL_RE through label_is_kebab, and list-labels.sh hands the
+# same string to awk. The failure being pinned is the pair drifting apart — a
+# label the index passes over in silence and the lookup then rejects, or the
+# reverse — which is what two copies of the pattern produced once already, with
+# each script reading correctly on its own.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open v1/bug ACME-0001 alpha 'Alpha' \
+  'labels: [api, api-v2, zeta9, 0-a, Caching, Foo Bar]' > /dev/null
+ticket "$d" archive v1/bug ACME-0002 beta 'Beta' \
+  'status: done' 'resolution: "Shipped"' \
+  'labels: [trailing-, under_score, a--b, ., 9]' > /dev/null
+labels "$d"
+listed="$R_OUT"
+warned="$(printf '%s\n' "$R_ERR" | sed -n 's/.*will refuse it: //p' | LC_ALL=C sort -u)"
+refused=""
+# A heredoc, not a pipe: a `while read` fed by a pipeline runs in a subshell and
+# the set built in there is lost at the closing `done`.
+while IFS= read -r label; do
+  [ -n "$label" ] || continue
+  # Behind the marker, so a label that begins with a hyphen reaches the
+  # validator rather than the option parser: the question here is what the rule
+  # says about a label, not what argv does with it.
+  by_label "$d" -- "$label"
+  [ "$R_STATUS" -eq 2 ] && refused="$refused$label
+"
+done <<LABELS
+$listed
+LABELS
+refused="$(printf '%s' "$refused" | LC_ALL=C sort -u)"
+assert_ne "" "$warned" "the sweep is not vacuously empty"
+assert_eq "$refused" "$warned" \
+  "over eleven spellings, both callers call the same six ill-formed"
+assert_eq "0-a
+9
+api
+api-v2
+zeta9" "$(printf '%s\n' "$listed" | grep -vxF "$warned")" \
+  "and the five they both accept are listed without a warning"
+
+test_case "the kebab rule is defined once and read by name (SFT-0029)"
+# Criterion 1, asserted mechanically rather than by reading. The rule that was
+# duplicated has the shape `]+(-[`, so any second bracketed spelling under the
+# card's scripts/ is a copy — including one added to a script that has no label
+# job today. Behavioural agreement, above, can only notice drift after it lands.
+copies="$(cat "$DRAIN"/*.sh | grep -c ']+(-\[' || true)"
+assert_eq 1 "$copies" "exactly one bracketed kebab pattern across every drain script"
+assert_eq 1 "$(grep -c ']+(-\[' "$DRAIN/lib.sh" || true)" "and lib.sh is where it lives"
+assert_contains "$(cat "$DRAIN/tickets-by-label.sh")" 'label_is_kebab "$LABEL"' \
+  "the lookup tests its argument through the shared predicate"
+assert_contains "$(cat "$DRAIN/list-labels.sh")" 'ENVIRON["SIFT_LABEL_RE"]' \
+  "the listing reads the shared pattern inside its awk pass, not a copy of it"
+assert_not_contains "$(cat "$DRAIN/list-labels.sh")" '-v kebab=' \
+  "and no longer carries its own -v spelling of it"
+
 # --- Neither script writes ---------------------------------------------------
 
 test_case "reading the label index decides nothing on disk"

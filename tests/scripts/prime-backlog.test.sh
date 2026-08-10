@@ -573,4 +573,25 @@ assert_eq "$want" "$got_reader" "the reader reports exactly the whole-token tick
 assert_eq "$want" "$got_writer" "the writer refuses exactly the same set as duplicates"
 assert_eq "$got_reader" "$got_writer" "so neither card sees a row the other does not"
 
+test_case "the append hop counts exactly the rows the duplicate guard counts (SFT-0038)"
+# The same cell rule, one hop over. The case above asks the duplicate guard what
+# a cell holds; this one asks the hop that actually writes, which had been
+# selecting its cell on the bare pattern instead of through cell_id. A glued
+# XACME-0002 line was therefore a row to the numbering and not a row to the
+# guard: it was counted into nrows and its "#" read into maxnum, so the append
+# landed at 3 in a table the guard beside it says holds exactly one row — the
+# cross-card divergence of SFT-0031, inside one file. SFT-0038 folded both hops
+# onto one cell_id and waived the test for it; this is that test.
+d="$(newdir)"; make_tree "$d" ACME
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+printf '| 2 | XACME-0002 | Glued to a word | - |\n' >> "$(roadmap "$d")"
+before="$(snapshot "$d")"
+append "$d" 1 ACME-0003 'Three' ''
+assert_eq 0 "$R_STATUS" "the append succeeds"
+assert_eq "| 2 | ACME-0003 | Three |  |" \
+  "$(grep -F 'ACME-0003' "$(roadmap "$d")")" \
+  "the new row is numbered 2, so the glued line is no row to the hop either"
+assert_eq 0 "$(removed_lines "$before" "$d")" \
+  "and the glued line is left exactly as it was found, not renumbered"
+
 summary

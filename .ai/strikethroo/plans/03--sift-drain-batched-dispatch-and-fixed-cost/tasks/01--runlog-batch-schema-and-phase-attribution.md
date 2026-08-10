@@ -2,7 +2,7 @@
 id: 1
 group: "instrumentation"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-08-10
 skills:
   - bash

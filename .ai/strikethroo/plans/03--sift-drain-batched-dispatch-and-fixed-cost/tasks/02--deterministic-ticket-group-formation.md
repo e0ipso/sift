@@ -2,7 +2,7 @@
 id: 2
 group: "batched-dispatch"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-08-10
 skills:
   - bash

@@ -41,11 +41,18 @@ same point without any statistics: SFT-0008 moved 1645 lines at 0.8 seconds per 
 while SFT-0017 moved 57 lines at 14.1 seconds per line. Seventeen-fold, purely from size.
 
 That fixed cost is then paid far more often than the work requires, because the backlog
-splits single root causes across many tickets. Five clusters account for roughly 17 of the
-32 archived tickets — whole-token ID matching, empty-tree guards, front-matter fence
-scoping, labels truncated at the first blank, and the end-of-options marker. Two clusters
-still have unworked tails sitting in `open/` (SFT-0031, SFT-0033), so the cost is ongoing
-rather than historical. The file overlap is the same finding seen from the other side:
+splits single root causes across many tickets. Five root-cause families account for roughly
+17 of the 32 archived tickets — whole-token ID matching, empty-tree guards, front-matter
+fence scoping, labels truncated at the first blank, and the end-of-options marker.
+
+*Corrected during execution:* only about two of those five would survive the stricter
+one-`## Direction` test that component 2 applies before merging findings into a single
+ticket. The whole-token-ID family, for instance, spans README recipes, the XSD and two
+different `awk` readers, and needs five different fixes. That trims component 2's reach —
+but not component 1's, whose bar is shared *context*, not a shared fix: SFT-0025 and
+SFT-0031 both edit `lib.sh`, SFT-0009 and SFT-0015 both edit `README.md`, and one agent's
+orientation would have served each pair. The two bars are documented separately for exactly
+this reason. The file overlap is the same finding seen from the other side:
 **`README.md` was edited by 17 separate tickets** and its `sift-init/assets/README.md`
 mirror by 16. Seventeen agents each read the same 811-line, 41 KB file in full, made a
 surgical edit, archived a ticket, committed and merged.
@@ -501,11 +508,17 @@ graph TD
 
 No circular dependencies: every edge points from a lower task ID to a higher one.
 
-### Phase 1: Mechanism — scripts and drafting rule
+### ✅ Phase 1: Mechanism — scripts and drafting rule
 **Parallel Tasks:**
-- Task 001: Redesign the run log for batched dispatch and intra-dispatch phase attribution
-- Task 002: Form ticket groups deterministically in the drain selection scripts
-- Task 003: Cluster findings by root cause before drafting in sift-prime
+- ✔️ Task 001: Redesign the run log for batched dispatch and intra-dispatch phase attribution — `completed`
+- ✔️ Task 002: Form ticket groups deterministically in the drain selection scripts — `completed`
+- ✔️ Task 003: Cluster findings by root cause before drafting in sift-prime — `completed`
+
+*Closed 2026-08-10 against an independently re-run suite: 450 tests, 1701 assertions,
+0 failures, 2 skipped, exit 0 (from 426/1574). Verified beyond the agents' reports —
+non-contiguous same-wave grouping proved on a fixture, report arithmetic proved on a
+fixed-epoch log (600s runtime ÷ 2 done = 300s; ÷ 1 done = 600s), and the SFT-0039 ticket-ID
+guard proved to fire on the second argument of both variadic forms without appending.*
 
 *Parallel-safe:* 001 owns `drain-log.sh`, 002 owns `lib.sh` and `next-ticket.sh`, 003 owns
 `src/skills/sift-prime/references/`. No file is written by two tasks. Task 001 must capture

@@ -12,8 +12,9 @@ none of them; that is what keeps one allocator in the run.
 | `{{TICKET_ID}}` | one line of `reserve-ids.sh` output — pre-assigned, never allocated by the agent |
 | `{{TICKET_PATH}}` | absolute `<bucket>/<milestone>/<category>/<ID>--<slug>.md` the orchestrator computed |
 | `{{TITLE}}`, `{{TYPE}}`, `{{PRIORITY}}`, `{{EFFORT}}`, `{{MILESTONE}}` | the agreed slate row |
-| `{{EVIDENCE}}` | the citation(s) from the analysis phase — `file:line` or `absent: <path>` |
+| `{{EVIDENCE}}` | the citation(s) from the analysis phase — `file:line` or `absent: <path>`; a clustered row passes **one per site**, all of them |
 | `{{WHY}}` | the slate row's one-line rationale |
+| `{{CLUSTER}}` | the kebab-case root-cause value when the slate kept this row's cluster split across tickets, else `none` |
 | `{{DEPENDS_ON}}` | the agreed edges, as a YAML flow list, or `[]` |
 | `{{SCHEMA_PATH}}` | absolute path of the XSD for `{{TYPE}}` under `.ai/sift/schemas/` |
 | `{{PROJECT_ROOT}}` | absolute path the agent works in |
@@ -43,6 +44,7 @@ GIVEN — decided already, not yours to change
   depends_on: {{DEPENDS_ON}}
   evidence:   {{EVIDENCE}}
   why:        {{WHY}}
+  cluster:    {{CLUSTER}}
   schema:     {{SCHEMA_PATH}}
   date:       {{TODAY}}
 
@@ -101,7 +103,10 @@ in the convention but given to you here, so write it too:
   updated: {{TODAY}}
   depends_on: {{DEPENDS_ON}}
 Add the optional keys where they earn their place: `labels` as free-form kebab topic tags
-(never restating type, priority or status), `source` for where this came from.
+(never restating type, priority or status), `source` for where this came from. When
+{{CLUSTER}} is anything but `none`, also write `cluster: {{CLUSTER}}` exactly as given — it
+names a root cause shared with other tickets in this batch and has to match theirs
+character for character, so never reword it, and never invent one when it is `none`.
 
 TWO RULES THE SCHEMA CANNOT CARRY — XSD 1.0 has no cross-field assertions, so check both
 by hand:
@@ -134,6 +139,21 @@ that section as the implementing agent's brief, so write it for somebody who wil
 this conversation. `## Acceptance criteria` are `- [ ]` statements that same reader can
 check without asking anyone what was meant.
 
+A MULTI-SITE TICKET — when {{EVIDENCE}} carries more than one citation, it is one defect
+found at several sites, and every section covers all of them:
+  - `## Evidence` gets one bullet per site, all of them, in the order given. A site you
+    leave out is a site outside the ticket: the agent that implements this never saw the
+    analysis and fixes what the ticket cites, so a dropped citation is a site that stays
+    broken. Dropping one to tidy the list is the same failure as inventing one.
+  - `## Direction` is ONE approach that holds at every site. That is why these citations
+    arrived together. If you read the files and find that one site needs a genuinely
+    different fix, do NOT stretch the Direction to cover it and do NOT quietly write for
+    the first site only — write the Direction that covers the sites it does cover, name
+    the odd site and what makes it different, and report that as a judgment call.
+  - `## Acceptance criteria` name every site. A criterion satisfied by fixing the first
+    site alone produces a ticket that reads as done while the rest are untouched, and the
+    per-ticket verification downstream is scoped to this ticket, so nothing else catches it.
+
 STEP 4 — STAY IN YOUR LANE
   - Write no file but {{TICKET_PATH}}, plus the scratch draft outside `.ai/sift/` that you
     delete. One file is one ticket; you own one file.
@@ -154,7 +174,7 @@ must be the citations as you rendered them, not a summary of them.
   ticket: <ID>
   file: <absolute path>
   type: <type>   priority: <priority>   effort: <effort>
-  evidence: <the citation(s) rendered into ## Evidence>
+  evidence: <the citation(s) rendered into ## Evidence — every one of them, not the first>
   judgment calls: <decisions you made yourself> | none
 
 If you cannot write the ticket, report `status: blocked` with the blocker in place of the

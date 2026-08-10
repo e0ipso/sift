@@ -66,8 +66,8 @@ for an ID the roadmap already carries.
 The sweep measures one distance: what the project's stated intent claims, against what is
 on disk. **`references/analysis.md` is the method** — the four sources of stated intent,
 the seven sweep dimensions and the `type` each one decides, the finding format sweep agents
-return, and the dedupe procedure. Read it before dispatching. Three of its rules are
-load-bearing enough to restate here.
+return, the root-cause clustering step, and the dedupe procedure. Read it before
+dispatching. Four of its rules are load-bearing enough to restate here.
 
 **The evidence bar.** Every candidate carries one of exactly two citations: `file:line`
 for something that exists, `absent: <path>` for something that does not. A candidate that
@@ -82,6 +82,17 @@ much in scope" is not a reason to let an uncitable candidate through. Findings o
 fence become one closing line at the end of the run and are never written up — the user
 drew the fence to decide what enters their backlog, and filing outside it overrides that
 decision while appearing to serve them.
+
+**Cluster by root cause before the slate, and only on a shared fix.** A defect at five call
+sites is one candidate carrying five citations, not five carrying one each — you are the
+only reader holding every sweep agent's findings at once, so nobody downstream can do this
+for you. **A cluster is valid only when one `## Direction` covers every member site: shared
+fix shape, not shared symptom.** A candidate that cannot state one such Direction stays
+split, and members forced apart by different milestones or a genuinely different fix stay
+separate tickets carrying the optional kebab-case `cluster` front-matter key instead. The
+clustered candidate keeps one `file:line` per site: dropping one to tidy the list is the
+same failure as inventing one. Get the merge wrong and the drafting agent, which never saw
+the code, invents a `## Direction` that `sift-drain` then hands to an implementer as fact.
 
 **Dedupe against both buckets before the user sees anything.** `existing-work.sh` prints
 every ticket under `open/` and `archive/` with its `resolution`, and that last column is
@@ -118,6 +129,12 @@ name that exception in the slate.
 Present the survivors as a slate: title, `type`, `priority`, `effort`, milestone, the
 one-line rationale and the citation behind each row, plus the `depends_on` edges you
 propose between them and the waves those edges imply. Name what dedupe dropped and why.
+
+**A row that clusters one defect found at several sites lists every site, each with its own
+citation** — never a count standing in for the list. Root-cause clustering happened before
+this slate, not after (`references/analysis.md` defines when several findings become one
+row and when they stay separate rows sharing a `cluster` value), and a user cannot strike,
+split or re-merge a site they were never shown.
 Present every new milestone with its short outcome description before the ticket rows. If
 the slate leaves everything in `backlog`, include the milestone planner's explicit
 rationale. Then ask, and change what the user asks you to change.
@@ -164,7 +181,9 @@ not as the bootstrap default.
 `references/drafting-agent-prompt.md` verbatim: the template, its placeholder table, and
 its retry for an agent that returns blocked. Resolve every placeholder before dispatch,
 today's date included, so a batch that straddles midnight still carries one `created` date
-throughout. Agents may run concurrently — one file is one ticket and each agent owns
+throughout. `{{CLUSTER}}` is `none` for an unclustered row and otherwise the same
+kebab-case value on every member of the cluster — you own that value, exactly as you own
+the IDs, because members that spell it differently are not a group. Agents may run concurrently — one file is one ticket and each agent owns
 exactly one file, which is what makes that safe.
 
 **Then write `ROADMAP.md` yourself**, after every drafting agent has returned:
@@ -225,7 +244,8 @@ Then report:
 
 - **`references/analysis.md`** — the goal-gap sweep: the sources of stated intent, the
   evidence bar, the scope fence, the seven sweep dimensions, the finding format sweep
-  agents return, and the dedupe procedure against both buckets.
+  agents return, the root-cause clustering step and its `cluster` escape hatch, and the
+  dedupe procedure against both buckets.
 - **`references/milestone-planner-prompt.md`** — the read-only outcome clustering pass
   that assigns every surviving finding before slate negotiation.
 - **`references/drafting-agent-prompt.md`** — the canonical per-row drafting sub-agent

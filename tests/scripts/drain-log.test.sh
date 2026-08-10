@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # drain-log.sh: the run log's write modes and the report's arithmetic.
 #
-# The whole point of the log is that agent runtime and operator idle time stop
-# being the same number, so the central case here asserts the separation in both
-# directions: the gap shows up as idle, AND it shows up in no runtime figure.
-# Asserting only "runtime is 120" would still pass if the gap were being folded
-# in somewhere else.
+# The log records DISPATCH GROUPS, not single tickets: one dispatch carries one
+# or more tickets, phase rows mark where the time inside that dispatch went, and
+# one or more return rows close it. So the central case here asserts three
+# separations at once — agent runtime is not operator idle time, a group's
+# runtime is not the sum of its phases plus the gap around them, and the cost of
+# a group is stated per ticket it actually RESOLVED rather than per ticket it
+# carried. Asserting only "runtime is 120" would still pass if the gap were being
+# folded in somewhere else, and asserting only the group runtime would still pass
+# if a blocked ticket were counted as resolved.
 #
 # Every timing fixture is a RUNLOG.md written by hand with chosen epoch values
 # rather than built out of real sleeps, so the arithmetic is exact and a failure
@@ -42,32 +46,40 @@ LOG_HEADER='# Run log
 
 Append-only. One row per drain event; rows are never rewritten.
 
-| event | ticket | utc | epoch | status |
-|---|---|---|---|---|'
+| event | ticket | phase | utc | epoch | status |
+|---|---|---|---|---|---|'
 
 # --- Fixture and extraction helpers -----------------------------------------
 
 # log_new <root> — a run log holding nothing but the header.
 log_new() { printf '%s\n' "$LOG_HEADER" > "$1/.ai/sift/RUNLOG.md"; }
 
-# log_row <root> <event> <ticket> <epoch> <status> [utc]
+# log_row <root> <event> <ticket> <epoch> <status> [utc] — a dispatch or return
+# row, whose phase cell is always a dash.
 #
 # The utc column defaults to one constant string for every row while the epochs
 # differ, because the reader is required to do all arithmetic on the epoch column
 # and never to parse a date back into a number. A fixture whose two columns
 # disagree is the only way to prove it.
 log_row() {
-  printf '| %s | %s | %s | %s | %s |\n' \
+  printf '| %s | %s | - | %s | %s | %s |\n' \
     "$2" "$3" "${6:-1970-01-01T00:00:00Z}" "$4" "$5" >> "$1/.ai/sift/RUNLOG.md"
 }
 
+# log_phase <root> <phase> <epoch> [utc] — a phase row, whose ticket and status
+# cells are both a dash.
+log_phase() {
+  printf '| phase | - | %s | %s | %s | - |\n' \
+    "$2" "${4:-1970-01-01T00:00:00Z}" "$3" >> "$1/.ai/sift/RUNLOG.md"
+}
+
 # log_field <file> <row-number> <field-number> — one cell of the nth event row,
-# counting only dispatch/return rows so the header and separator do not shift it.
+# counting only event rows so the header and separator do not shift it.
 log_field() {
   awk -F'|' -v r="$2" -v n="$3" '
     function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
     { e = trim($2) }
-    e == "dispatch" || e == "return" { if (++i == r) { print trim($n); exit } }
+    e == "dispatch" || e == "return" || e == "phase" { if (++i == r) { print trim($n); exit } }
   ' "$1"
 }
 
@@ -76,26 +88,34 @@ log_nf() {
   awk -F'|' -v r="$2" '
     function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
     { e = trim($2) }
-    e == "dispatch" || e == "return" { if (++i == r) { print NF; exit } }
+    e == "dispatch" || e == "return" || e == "phase" { if (++i == r) { print NF; exit } }
   ' "$1"
 }
 
-# The report is a space-padded table, so two or more spaces delimit a column
-# while the single space inside "120s (2m0s)" does not. Columns are, in order:
-# 1 ticket, 2 runtime, 3 idle, 4 status, 5 note.
-report_field() {  # report_field <ticket> <column>
-  printf '%s\n' "$R_OUT" |
-    awk -F'[[:space:]][[:space:]]+' -v t="$1" -v n="$2" '$1 == t { print $n; exit }'
+# log_rows <file> — every event row, header and separator excluded.
+log_rows() { grep -c '^| dispatch \|^| return \|^| phase ' "$1"; }
+
+# The report prints one indented block per dispatch group under a `group N`
+# heading, so a field is read by naming the group and the label.
+group_field() {  # group_field <group-number> <label>
+  printf '%s\n' "$R_OUT" | awk -v want="group $1" -v key="  $2: " '
+    $0 == want { inb = 1; next }
+    /^group / { inb = 0 }
+    inb && substr($0, 1, length(key)) == key { print substr($0, length(key) + 1); exit }
+  '
 }
 
-report_column() {  # report_column <column> — that column of every ticket row
-  printf '%s\n' "$R_OUT" |
-    awk -F'[[:space:]][[:space:]]+' -v n="$1" \
-      '$1 ~ /^[A-Z][A-Z0-9]*-[0-9][0-9][0-9][0-9]$/ { print $n }'
+group_column() {  # group_column <label> — that label of every group block
+  printf '%s\n' "$R_OUT" | awk -v key="  $1: " '
+    substr($0, 1, length(key)) == key { print substr($0, length(key) + 1) }
+  '
 }
 
-# median_line — the report's summary line, whatever it says.
+group_count() { printf '%s\n' "$R_OUT" | grep -c '^group ' || true; }
+
+# median_line / cost_line — the report's two summary figures, whatever they say.
 median_line() { printf '%s\n' "$R_OUT" | grep '^median runtime:' || true; }
+cost_line() { printf '%s\n' "$R_OUT" | grep '^minutes per ticket resolved:' || true; }
 
 # --- The sandbox itself ------------------------------------------------------
 
@@ -125,36 +145,101 @@ assert_eq 1 "$(grep -c '^| dispatch |' "$root/.ai/sift/RUNLOG.md")" "and exactly
 
 test_case "the header is written once and later writes only append"
 before="$(head -n 6 "$root/.ai/sift/RUNLOG.md")"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase orient
+assert_eq 0 "$R_STATUS" "phase exits 0"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return SFT-0001 'done'
 assert_eq 0 "$R_STATUS" "return exits 0"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch SFT-0002
 assert_eq 0 "$R_STATUS" "the second dispatch exits 0"
 assert_eq "$before" "$(head -n 6 "$root/.ai/sift/RUNLOG.md")" "the header block is untouched"
 assert_eq 1 "$(grep -c '^# Run log$' "$root/.ai/sift/RUNLOG.md")" "the header is not repeated"
-assert_eq 1 "$(grep -c '^| event | ticket |' "$root/.ai/sift/RUNLOG.md")" \
+assert_eq 1 "$(grep -c '^| event | ticket | phase |' "$root/.ai/sift/RUNLOG.md")" \
   "nor is the table head"
-assert_eq 3 "$(grep -c '^| dispatch \|^| return ' "$root/.ai/sift/RUNLOG.md")" \
-  "all three events are on disk"
+assert_eq 4 "$(log_rows "$root/.ai/sift/RUNLOG.md")" "all four events are on disk"
 
-test_case "each row carries five fields and the event's status column"
-assert_eq 7 "$(log_nf "$root/.ai/sift/RUNLOG.md" 1)" \
-  "a five-column pipe row splits into seven awk fields"
+test_case "each row carries six columns, and the cells its event has no use for hold a dash"
+assert_eq 8 "$(log_nf "$root/.ai/sift/RUNLOG.md" 1)" \
+  "a six-column pipe row splits into eight awk fields"
 assert_eq "dispatch" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 2)" "row 1 is the dispatch"
 assert_eq "SFT-0001" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 3)" "carrying the ticket"
-assert_eq "-" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 6)" \
-  "a dispatch has no status to report yet, so the column holds a dash"
-assert_eq "return" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 2)" "row 2 is the return"
-assert_eq "done" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 6)" \
+assert_eq "-" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 4)" \
+  "a dispatch names no phase, so the column holds a dash"
+assert_eq "-" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 7)" \
+  "and it has no status to report yet either"
+assert_eq "phase" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 2)" "row 2 is the phase mark"
+assert_eq "-" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 3)" \
+  "which belongs to the whole dispatch and so names no ticket"
+assert_eq "orient" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 4)" "and carries the phase name"
+assert_eq "return" "$(log_field "$root/.ai/sift/RUNLOG.md" 3 2)" "row 3 is the return"
+assert_eq "done" "$(log_field "$root/.ai/sift/RUNLOG.md" 3 7)" \
   "and it carries the status the sub-agent reported"
-if printf '%s\n' "$(log_field "$root/.ai/sift/RUNLOG.md" 1 4)" |
+if printf '%s\n' "$(log_field "$root/.ai/sift/RUNLOG.md" 1 5)" |
      grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
 then t_ok "the utc column is an ISO-8601 UTC instant"
 else t_fail "the utc column is an ISO-8601 UTC instant" \
-  "got: [$(log_field "$root/.ai/sift/RUNLOG.md" 1 4)]"; fi
-if printf '%s\n' "$(log_field "$root/.ai/sift/RUNLOG.md" 1 5)" | grep -Eq '^[0-9]+$'
+  "got: [$(log_field "$root/.ai/sift/RUNLOG.md" 1 5)]"; fi
+if printf '%s\n' "$(log_field "$root/.ai/sift/RUNLOG.md" 1 6)" | grep -Eq '^[0-9]+$'
 then t_ok "the epoch column is a bare integer, so the reader never parses a date"
 else t_fail "the epoch column is a bare integer" \
-  "got: [$(log_field "$root/.ai/sift/RUNLOG.md" 1 5)]"; fi
+  "got: [$(log_field "$root/.ai/sift/RUNLOG.md" 1 6)]"; fi
+
+test_case "a multi-ticket dispatch writes one row per ticket under one epoch"
+# The batch that the whole schema exists for. The rows must share an epoch: the
+# reader groups by it, so per-row timestamps would split one dispatch into as
+# many groups as it carried tickets and every one of them would read as
+# INCOMPLETE.
+root="$(newdir)"
+make_tree "$root" SFT
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch SFT-0001 SFT-0002 SFT-0003
+assert_eq 0 "$R_STATUS" "a three-ticket dispatch exits 0"
+assert_eq 3 "$(log_rows "$root/.ai/sift/RUNLOG.md")" "and writes exactly three rows"
+assert_eq "SFT-0001" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 3)" "in the order they were given"
+assert_eq "SFT-0002" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 3)" "second"
+assert_eq "SFT-0003" "$(log_field "$root/.ai/sift/RUNLOG.md" 3 3)" "third"
+d1="$(log_field "$root/.ai/sift/RUNLOG.md" 1 6)"
+assert_eq "$d1" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 6)" \
+  "the second row carries the same epoch as the first, not its own clock reading"
+assert_eq "$d1" "$(log_field "$root/.ai/sift/RUNLOG.md" 3 6)" "and so does the third"
+assert_eq "$(log_field "$root/.ai/sift/RUNLOG.md" 1 5)" \
+  "$(log_field "$root/.ai/sift/RUNLOG.md" 3 5)" "the utc column is stamped once as well"
+assert_eq "-" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 7)" "no dispatched row claims a status"
+
+test_case "a return states each ticket's own status under one epoch"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return SFT-0001 'done' SFT-0002 'blocked'
+assert_eq 0 "$R_STATUS" "a two-pair return exits 0"
+assert_eq 5 "$(log_rows "$root/.ai/sift/RUNLOG.md")" "adding exactly two rows"
+assert_eq "SFT-0001" "$(log_field "$root/.ai/sift/RUNLOG.md" 4 3)" "the first pair's ticket"
+assert_eq "done" "$(log_field "$root/.ai/sift/RUNLOG.md" 4 7)" "with its own status"
+assert_eq "SFT-0002" "$(log_field "$root/.ai/sift/RUNLOG.md" 5 3)" "the second pair's ticket"
+assert_eq "blocked" "$(log_field "$root/.ai/sift/RUNLOG.md" 5 7)" \
+  "carrying a different status, not the first one repeated"
+assert_eq "$(log_field "$root/.ai/sift/RUNLOG.md" 4 6)" \
+  "$(log_field "$root/.ai/sift/RUNLOG.md" 5 6)" "both under one epoch"
+
+test_case "the four phase names are accepted and nothing else is"
+root="$(newdir)"
+make_tree "$root" SFT
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch SFT-0001
+for p in orient implement verify bookkeep; do
+  run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase "$p"
+  assert_eq 0 "$R_STATUS" "phase $p exits 0"
+done
+assert_eq 5 "$(log_rows "$root/.ai/sift/RUNLOG.md")" "one row each, on top of the dispatch"
+assert_eq "bookkeep" "$(log_field "$root/.ai/sift/RUNLOG.md" 5 4)" "the last one named itself"
+
+test_case "a phase name outside the set is refused and the log is left byte-identical"
+# The log is append-only, so a rejected phase name must not reach it: there is no
+# second command that could take the row back out.
+cksum_before="$(cksum < "$root/.ai/sift/RUNLOG.md")"
+for bad in bogus ORIENT implementing '' 'orient implement'; do
+  run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase "$bad"
+  assert_eq 2 "$R_STATUS" "phase [$bad] exits 2"
+  assert_contains "$R_ERR" "usage: drain-log.sh" "with a usage message on stderr"
+done
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase orient verify
+assert_eq 2 "$R_STATUS" "two phase names at once exit 2 as well"
+assert_eq "$cksum_before" "$(cksum < "$root/.ai/sift/RUNLOG.md")" \
+  "and none of those refusals appended a byte"
 
 test_case "the writer stamps a real clock"
 # The only case in this file that sleeps, and it asserts a lower bound rather
@@ -166,8 +251,8 @@ started="$(date +%s)"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch SFT-0001
 sleep 1
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return SFT-0001 'done'
-d_epoch="$(log_field "$root/.ai/sift/RUNLOG.md" 1 5)"
-r_epoch="$(log_field "$root/.ai/sift/RUNLOG.md" 2 5)"
+d_epoch="$(log_field "$root/.ai/sift/RUNLOG.md" 1 6)"
+r_epoch="$(log_field "$root/.ai/sift/RUNLOG.md" 2 6)"
 if [ "$d_epoch" -ge "$started" ]
 then t_ok "the dispatch epoch is the current clock, not a constant"
 else t_fail "the dispatch epoch is the current clock" "started=$started epoch=$d_epoch"; fi
@@ -189,22 +274,24 @@ log_row "$root" dispatch SFT-0002 1300 -
 log_row "$root" return   SFT-0002 1360 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
-assert_eq "120s (2m0s)" "$(report_field SFT-0001 2)" "SFT-0001 ran for its own 120 seconds"
-assert_eq "-" "$(report_field SFT-0001 3)" "with no preceding return, it has no idle gap"
-assert_eq "60s (1m0s)" "$(report_field SFT-0002 2)" "SFT-0002 ran for its own 60 seconds"
-assert_eq "180s (3m0s)" "$(report_field SFT-0002 3)" \
+assert_eq 2 "$(group_count)" "two dispatches are two groups"
+assert_eq "SFT-0001 done" "$(group_field 1 tickets)" "group 1 carried one ticket, and says how it ended"
+assert_eq "120s (2m0s)" "$(group_field 1 runtime)" "group 1 ran for its own 120 seconds"
+assert_eq "-" "$(group_field 1 'idle before')" "with no preceding return, it has no idle gap"
+assert_eq "60s (1m0s)" "$(group_field 2 runtime)" "group 2 ran for its own 60 seconds"
+assert_eq "180s (3m0s)" "$(group_field 2 'idle before')" \
   "and the 180-second gap before it is reported as idle"
-assert_eq "done" "$(report_field SFT-0002 4)" "the reported status is carried through"
+assert_eq "SFT-0002 done" "$(group_field 2 tickets)" "the reported status is carried through"
 # The negative half. Each of these is a distinct way the gap could be folded
 # back into work, and the positive assertions above would survive all of them.
-runtimes="$(report_column 2)"
+runtimes="$(group_column runtime)"
 assert_not_contains "$runtimes" "180" "the idle gap is in no runtime figure"
 assert_not_contains "$runtimes" "240" \
-  "nor added to the ticket that followed it (60+180), which is the merge-gap error"
+  "nor added to the group that followed it (60+180), which is the merge-gap error"
 assert_not_contains "$runtimes" "360" \
-  "nor is the whole 1000-to-1360 span charged to any ticket"
-assert_eq "median runtime: 60s (1m0s) across 2 completed ticket(s) of 2" "$(median_line)" \
-  "the median is taken over runtimes alone"
+  "nor is the whole 1000-to-1360 span charged to any group"
+assert_eq "median runtime: 60s (1m0s) across 2 completed group(s) of 2" "$(median_line)" \
+  "the median is taken over group runtimes alone"
 
 test_case "the reader does its arithmetic on the epoch column, never the timestamp"
 # GNU and BSD `date` disagree on parsing, so the reader must not parse. These
@@ -217,7 +304,7 @@ log_row "$root" dispatch SFT-0001 1000 -    2031-12-31T23:59:59Z
 log_row "$root" return   SFT-0001 1045 'done' 2000-01-01T00:00:00Z
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
-assert_eq "45s" "$(report_field SFT-0001 2)" "the epoch column alone decided the duration"
+assert_eq "45s" "$(group_field 1 runtime)" "the epoch column alone decided the duration"
 
 test_case "durations under a minute print bare seconds, longer ones print both forms"
 root="$(newdir)"
@@ -231,9 +318,95 @@ log_row "$root" dispatch SFT-0003 200 -
 log_row "$root" return   SFT-0003 3861 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
-assert_eq "59s" "$(report_field SFT-0001 2)" "59 seconds stays a bare figure"
-assert_eq "60s (1m0s)" "$(report_field SFT-0002 2)" "60 seconds gains the human form"
-assert_eq "3661s (1h1m1s)" "$(report_field SFT-0003 2)" "and an hour-long run spells out hours"
+assert_eq "59s" "$(group_field 1 runtime)" "59 seconds stays a bare figure"
+assert_eq "60s (1m0s)" "$(group_field 2 runtime)" "60 seconds gains the human form"
+assert_eq "3661s (1h1m1s)" "$(group_field 3 runtime)" "and an hour-long run spells out hours"
+
+# --- The report: a group, its members and what it cost -----------------------
+
+test_case "a group names every ticket it carried and divides its runtime by the ones it resolved"
+# The figure the plan is measured against. A two-ticket group that resolved both
+# cost half its runtime per ticket — and the assertion is the exact string, since
+# "120s (2m0s)" is also the group runtime and a substring check would pass on it.
+root="$(newdir)"
+make_tree "$root" SFT
+log_new "$root"
+log_row "$root" dispatch SFT-0001 1000 -
+log_row "$root" dispatch SFT-0002 1000 -
+log_row "$root" return   SFT-0001 1120 'done'
+log_row "$root" return   SFT-0002 1120 'done'
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "report exits 0"
+assert_eq 1 "$(group_count)" "two rows under one epoch are one group, not two"
+assert_eq "SFT-0001 done, SFT-0002 done" "$(group_field 1 tickets)" "naming both tickets it carried"
+assert_eq "120s (2m0s)" "$(group_field 1 runtime)" "the group ran once, for 120 seconds"
+assert_eq "60s (1m0s)" "$(group_field 1 'per ticket resolved')" \
+  "which is 60 seconds for each of the two tickets it resolved"
+assert_eq "median runtime: 120s (2m0s) across 1 completed group(s) of 1" "$(median_line)" \
+  "the median is over group runtimes, so one group is one sample"
+assert_eq "minutes per ticket resolved: 60s (1m0s) across 2 resolved ticket(s) in 1 completed group(s)" \
+  "$(cost_line)" "and the aggregate divides the whole drain by the tickets it resolved"
+
+test_case "a ticket that came back blocked is carried, not resolved"
+# The arithmetic that decides whether batching actually paid: dividing by tickets
+# CARRIED would report a group that blocked half its work as twice as cheap as it
+# was.
+root="$(newdir)"
+make_tree "$root" SFT
+log_new "$root"
+log_row "$root" dispatch SFT-0001 1000 -
+log_row "$root" dispatch SFT-0002 1000 -
+log_row "$root" return   SFT-0001 1120 'done'
+log_row "$root" return   SFT-0002 1120 'blocked'
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "report exits 0"
+assert_eq "SFT-0001 done, SFT-0002 blocked" "$(group_field 1 tickets)" \
+  "each ticket keeps the status it came back with"
+assert_eq "120s (2m0s)" "$(group_field 1 runtime)" "the group still ran 120 seconds"
+assert_eq "120s (2m0s)" "$(group_field 1 'per ticket resolved')" \
+  "divided by the one ticket it resolved, not by the two it carried"
+
+test_case "a group that resolved nothing reports a dash, never a division by zero"
+root="$(newdir)"
+make_tree "$root" SFT
+log_new "$root"
+log_row "$root" dispatch SFT-0001 1000 -
+log_row "$root" dispatch SFT-0002 1000 -
+log_row "$root" return   SFT-0001 1120 'blocked'
+log_row "$root" return   SFT-0002 1120 'blocked'
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "report exits 0"
+assert_eq "120s (2m0s)" "$(group_field 1 runtime)" "the group ran, and its runtime is real"
+assert_eq "-" "$(group_field 1 'per ticket resolved')" "but the cost per resolved ticket is undefined"
+assert_eq "minutes per ticket resolved: - (no tickets resolved)" "$(cost_line)" \
+  "and the aggregate says so rather than dividing by zero"
+
+test_case "the phase marks divide the group's runtime, and the last one runs to the return"
+root="$(newdir)"
+make_tree "$root" SFT
+log_new "$root"
+log_row "$root"   dispatch SFT-0001 1000 -
+log_phase "$root" orient    1000
+log_phase "$root" implement 1030
+log_phase "$root" verify    1090
+log_phase "$root" bookkeep  1110
+log_row "$root"   return   SFT-0001 1120 'done'
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "report exits 0"
+assert_eq "orient 30s, implement 60s (1m0s), verify 20s, bookkeep 10s" "$(group_field 1 phases)" \
+  "each phase runs to the next mark, and bookkeep runs to the return row"
+assert_eq "120s (2m0s)" "$(group_field 1 runtime)" \
+  "and the phases account for the runtime rather than adding to it"
+
+test_case "a group with no phase marks reports a dash rather than an empty line"
+root="$(newdir)"
+make_tree "$root" SFT
+log_new "$root"
+log_row "$root" dispatch SFT-0001 1000 -
+log_row "$root" return   SFT-0001 1120 'done'
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq "-" "$(group_field 1 phases)" "an unphased group says it has no breakdown"
+assert_eq "-" "$(group_field 1 notes)" "and a clean group carries no note"
 
 # --- The report: records that carry no duration ------------------------------
 
@@ -251,13 +424,15 @@ log_row "$root" return   SFT-0003 1460 'done'
 log_row "$root" dispatch SFT-0004 1500 -
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
-assert_eq "-" "$(report_field SFT-0002 2)" "the interrupted ticket gets no duration"
-assert_eq "INCOMPLETE (no return row)" "$(report_field SFT-0002 5)" "and is named as incomplete"
-assert_eq "-" "$(report_field SFT-0004 2)" "so does one left open at the end of the log"
-assert_eq "INCOMPLETE (no return row)" "$(report_field SFT-0004 5)" "which is reported too"
-assert_eq "120s (2m0s)" "$(report_field SFT-0001 2)" "the completed neighbours keep their own runtime"
-assert_eq "60s (1m0s)" "$(report_field SFT-0003 2)" "including the one after the interruption"
-assert_eq "median runtime: 60s (1m0s) across 2 completed ticket(s) of 4" "$(median_line)" \
+assert_eq 4 "$(group_count)" "four dispatch epochs are four records"
+assert_eq "-" "$(group_field 2 runtime)" "the interrupted group gets no duration"
+assert_eq "INCOMPLETE (no return row)" "$(group_field 2 notes)" "and is named as incomplete"
+assert_eq "SFT-0002 -" "$(group_field 2 tickets)" "its ticket came back with no status at all"
+assert_eq "-" "$(group_field 4 runtime)" "so does one left open at the end of the log"
+assert_eq "INCOMPLETE (no return row)" "$(group_field 4 notes)" "which is reported too"
+assert_eq "120s (2m0s)" "$(group_field 1 runtime)" "the completed neighbours keep their own runtime"
+assert_eq "60s (1m0s)" "$(group_field 3 runtime)" "including the one after the interruption"
+assert_eq "median runtime: 60s (1m0s) across 2 completed group(s) of 4" "$(median_line)" \
   "two of four records are completed, and only those two reach the median"
 
 test_case "a return with no dispatch is an orphan, not a zero-length run"
@@ -269,10 +444,28 @@ log_row "$root" dispatch SFT-0001 1100 -
 log_row "$root" return   SFT-0001 1160 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
-assert_eq "-" "$(report_field SFT-0009 2)" "the orphaned return gets no duration"
-assert_eq "ORPHAN (return with no dispatch row)" "$(report_field SFT-0009 5)" "and says why"
-assert_eq "median runtime: 60s (1m0s) across 1 completed ticket(s) of 2" "$(median_line)" \
+assert_eq "-" "$(group_field 1 runtime)" "the orphaned return gets no duration"
+assert_eq "ORPHAN (return with no dispatch row)" "$(group_field 1 notes)" "and says why"
+assert_eq "SFT-0009 done" "$(group_field 1 tickets)" "while still naming the ticket it claimed"
+assert_eq "median runtime: 60s (1m0s) across 1 completed group(s) of 2" "$(median_line)" \
   "it does not reach the median either"
+
+test_case "a return naming a ticket the open group never carried is an orphan too"
+# Group membership is explicit now, so a stray return says nothing about whether
+# the open group will still complete — it is reported on its own and the group is
+# left open.
+root="$(newdir)"
+make_tree "$root" SFT
+log_new "$root"
+log_row "$root" dispatch SFT-0001 1000 -
+log_row "$root" return   SFT-0009 1050 'done'
+log_row "$root" return   SFT-0001 1120 'done'
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "report exits 0"
+assert_eq "ORPHAN (return with no dispatch row)" "$(group_field 1 notes)" \
+  "the foreign return is the orphan"
+assert_eq "120s (2m0s)" "$(group_field 2 runtime)" \
+  "and the group it interrupted still closes on its own return"
 
 test_case "a clock that ran backwards is corrupt, not a duration"
 # No portable monotonic clock exists in the baseline userland, so a system clock
@@ -286,12 +479,28 @@ log_row "$root" dispatch SFT-0002 800 -
 log_row "$root" return   SFT-0002 860 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
-assert_eq "-" "$(report_field SFT-0001 2)" "a return before its dispatch yields no duration"
-assert_eq "CORRUPT (negative runtime)" "$(report_field SFT-0001 5)" "and is called corrupt"
-assert_eq "CORRUPT" "$(report_field SFT-0002 3)" "a negative idle gap is flagged in the column"
-assert_eq "CORRUPT (negative idle gap)" "$(report_field SFT-0002 5)" "and in the note"
-assert_eq "median runtime: 60s (1m0s) across 1 completed ticket(s) of 2" "$(median_line)" \
+assert_eq "-" "$(group_field 1 runtime)" "a return before its dispatch yields no duration"
+assert_eq "CORRUPT (negative runtime)" "$(group_field 1 notes)" "and is called corrupt"
+assert_eq "-" "$(group_field 1 'per ticket resolved')" "with no cost figure derived from it"
+assert_eq "CORRUPT" "$(group_field 2 'idle before')" "a negative idle gap is flagged in the field"
+assert_eq "CORRUPT (negative idle gap)" "$(group_field 2 notes)" "and in the note"
+assert_eq "median runtime: 60s (1m0s) across 1 completed group(s) of 2" "$(median_line)" \
   "the corrupt record is out of the median"
+
+test_case "an epoch that is not an integer is corrupt and is quoted back"
+root="$(newdir)"
+make_tree "$root" SFT
+log_new "$root"
+log_row "$root" dispatch SFT-0001 'not-a-number' -
+log_row "$root" dispatch SFT-0002 1000 -
+log_row "$root" return   SFT-0002 1060 'done'
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "report exits 0"
+assert_eq '-' "$(group_field 1 runtime)" "the unreadable row yields no duration"
+assert_eq 'CORRUPT (unreadable epoch "not-a-number")' "$(group_field 1 notes)" \
+  "and the value that could not be read is quoted back"
+assert_eq "median runtime: 60s (1m0s) across 1 completed group(s) of 2" "$(median_line)" \
+  "it reaches no median either"
 
 # --- The report: the median and the outlier flag -----------------------------
 
@@ -310,14 +519,16 @@ log_row "$root" dispatch SFT-0003 200 -;  log_row "$root" return SFT-0003 230 'd
 log_row "$root" dispatch SFT-0004 300 -;  log_row "$root" return SFT-0004 320 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
-assert_eq "median runtime: 20s across 4 completed ticket(s) of 4" "$(median_line)" \
+assert_eq "median runtime: 20s across 4 completed group(s) of 4" "$(median_line)" \
   "of 10/20/30/40 the median is 20, the lower middle, not 25 and not 30"
+assert_eq "minutes per ticket resolved: 25s across 4 resolved ticket(s) in 4 completed group(s)" \
+  "$(cost_line)" "while the aggregate cost is the mean it is: 100 seconds over 4 tickets"
 
 test_case "an odd count takes the true middle value"
 log_row "$root" dispatch SFT-0005 400 -
 log_row "$root" return   SFT-0005 450 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
-assert_eq "median runtime: 30s across 5 completed ticket(s) of 5" "$(median_line)" \
+assert_eq "median runtime: 30s across 5 completed group(s) of 5" "$(median_line)" \
   "of 10/20/30/40/50 the median is 30"
 
 test_case "a runtime an order of magnitude over the median is flagged"
@@ -330,10 +541,10 @@ log_row "$root" dispatch SFT-0002 20 -;  log_row "$root" return SFT-0002 30 'don
 log_row "$root" dispatch SFT-0003 40 -;  log_row "$root" return SFT-0003 640 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report exits 0"
-assert_eq "SLOW (60x median)" "$(report_field SFT-0003 5)" \
+assert_eq "SLOW (60x median)" "$(group_field 3 notes)" \
   "600s against a 10s median is flagged with its multiple"
-assert_eq "" "$(report_field SFT-0001 5)" "a ticket at the median is not flagged"
-assert_eq "" "$(report_field SFT-0002 5)" "nor is its twin"
+assert_eq "-" "$(group_field 1 notes)" "a group at the median is not flagged"
+assert_eq "-" "$(group_field 2 notes)" "nor is its twin"
 
 test_case "a header-only log reports no events rather than an empty table"
 root="$(newdir)"
@@ -382,7 +593,7 @@ for leaf in 'back\tick' 'a b dir'; do
   log_row "$awkward" return   SFT-0001 1120 'done'
   run_cmd "$awkward" env SIFT_ROOT="$awkward" "$DRAINLOG" report
   assert_eq 0 "$R_STATUS" "the table prints under that root too"
-  assert_eq "120s (2m0s)" "$(report_field SFT-0001 2)" "with its arithmetic intact"
+  assert_eq "120s (2m0s)" "$(group_field 1 runtime)" "with its arithmetic intact"
   assert_not_contains "$R_OUT" "RUNLOG.md" "and the table itself names no log path"
 done
 
@@ -413,15 +624,18 @@ make_tree "$root" SFT
 check_usage() {  # check_usage <label>
   if [ "$R_STATUS" -eq 2 ] &&
      case "$R_ERR" in *'usage: drain-log.sh dispatch <TICKET>'*) true ;; *) false ;; esac &&
+     case "$R_ERR" in *'drain-log.sh phase orient|implement|verify|bookkeep'*) true ;; *) false ;; esac &&
      case "$R_ERR" in *'drain-log.sh return <TICKET> <STATUS>'*) true ;; *) false ;; esac
-  then t_ok "$1 exits 2 and prints all three modes"
+  then t_ok "$1 exits 2 and prints all four modes"
   else t_fail "$1 is a usage error" "status=$R_STATUS" "stderr=$R_ERR"; fi
 }
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG";                  check_usage "no mode at all"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" frobnicate;       check_usage "an unknown mode"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch;         check_usage "dispatch with no ticket"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return SFT-0001;  check_usage "return with no status"
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch A B;     check_usage "dispatch with a stray argument"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return SFT-0001 'done' SFT-0002
+check_usage "return with an odd argument count, whose last ticket has no status"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase;            check_usage "phase with no name"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report now;       check_usage "report, which takes no argument"
 assert_no_file "$root/.ai/sift/RUNLOG.md" "no rejected command line created a log"
 
@@ -438,7 +652,7 @@ test_case "-- may stand in front of the subcommand and records the same row (SFT
 # means the same file, header included.
 mask_clock() {  # mask_clock <log> — the log with utc and epoch made constant
   awk -F'|' 'BEGIN { OFS = "|" }
-    $2 ~ /^[[:space:]]*(dispatch|return)[[:space:]]*$/ { $4 = " UTC "; $5 = " EPOCH " }
+    $2 ~ /^[[:space:]]*(dispatch|return|phase)[[:space:]]*$/ { $5 = " UTC "; $6 = " EPOCH " }
     { print }' "$1"
 }
 plain="$(newdir)"; make_tree "$plain" SFT
@@ -448,9 +662,12 @@ assert_eq 0 "$R_STATUS" "the bare dispatch exits 0"
 run_cmd "$marked" env SIFT_ROOT="$marked" "$DRAINLOG" -- dispatch SFT-0001
 assert_eq 0 "$R_STATUS" "so does the same dispatch behind the marker"
 assert_eq "" "$R_ERR" "and it is not reported as an unknown mode"
+run_cmd "$plain" env SIFT_ROOT="$plain" "$DRAINLOG" phase implement
+run_cmd "$marked" env SIFT_ROOT="$marked" "$DRAINLOG" -- phase implement
+assert_eq 0 "$R_STATUS" "phase takes the marker too"
 run_cmd "$plain" env SIFT_ROOT="$plain" "$DRAINLOG" return SFT-0001 'done'
 run_cmd "$marked" env SIFT_ROOT="$marked" "$DRAINLOG" -- return SFT-0001 'done'
-assert_eq 0 "$R_STATUS" "return takes the marker too"
+assert_eq 0 "$R_STATUS" "and so does return"
 assert_eq "$(mask_clock "$plain/.ai/sift/RUNLOG.md")" \
           "$(mask_clock "$marked/.ai/sift/RUNLOG.md")" \
   "both logs are the same file once the two clock columns are masked"
@@ -469,10 +686,10 @@ assert_eq "$bare_out" "$R_OUT" "and prints the same table, byte for byte"
 
 test_case "the marker ends the options and does not become one (SFT-0033)"
 # Behind the subcommand there is no option list left to end, so a second marker
-# and a marker after the mode name are both plain arguments — refused by the
-# arity rules that were already there. A ticket ID is <PREFIX>-<NNNN> under the
-# convention and can never begin with a hyphen, so no real operand is stranded
-# by that reading.
+# and a marker after the mode name are both plain arguments. `dispatch` is
+# variadic now, so a marker behind it is an operand in the ticket position and
+# is refused as the non-ID it is (SFT-0039) rather than as an arity error — both
+# exit 2 and both write nothing, which is the property the marker rule needs.
 root="$(newdir)"; make_tree "$root" SFT
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" --
 check_usage "the marker with no subcommand behind it"
@@ -480,10 +697,11 @@ run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" -- --
 check_usage "a second marker, which is a positional and not a mode"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" -- frobnicate
 check_usage "an unknown mode behind the marker"
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch -- SFT-0001
-check_usage "a marker after the subcommand, which is a second operand"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" -- report now
 check_usage "report behind the marker still takes no argument"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch -- SFT-0001
+assert_eq 2 "$R_STATUS" "a marker after the subcommand is an operand, and exits 2"
+assert_contains "$R_ERR" "error: not a ticket ID: --" "refused in the ticket position it stood in"
 assert_no_file "$root/.ai/sift/RUNLOG.md" "and none of those refusals created a log"
 
 # --- The ticket column --------------------------------------------------------
@@ -513,6 +731,21 @@ for bad in SFT-004 SFT-1 SFT0001 sft-0001 SFT-0001x XSFT-0001 ACME-0001 hello; d
 done
 assert_no_file "$idroot/.ai/sift/RUNLOG.md" \
   "a refused dispatch writes nothing at all, the header included"
+
+test_case "every ticket of a batch is checked, not just the first (SFT-0039)"
+# The multi-ticket forms are where this check is easiest to lose: validating the
+# first argument and looping over the rest would pass every case above while
+# letting a typo through in the second position of a real batch.
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" dispatch SFT-0001 SFT-004
+check_not_id "SFT-004"
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" dispatch SFT-0001 SFT-0002 hello
+check_not_id "hello"
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" return SFT-0001 'done' SFT-004 'done'
+check_not_id "SFT-004"
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" return SFT-0001 'done' 'done' SFT-0002
+check_not_id "done"
+assert_no_file "$idroot/.ai/sift/RUNLOG.md" \
+  "and a batch refused on its last argument writes none of its earlier rows"
 
 test_case "return refuses the same shapes, a hyphen-leading argument included (SFT-0039)"
 # The hyphen cases are the guarantee SFT-0033's `--` grammar was resting on: the
@@ -554,25 +787,31 @@ run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" dispatch SFT-000000001
 assert_eq 0 "$R_STATUS" "so does a nine-digit one"
 
 test_case "the check adds a refusal and changes no accepted row (SFT-0039)"
-# The regression guard. The bytes below are what the writer produced before the
-# check existed, clock columns masked; the whole file is compared rather than the
-# appended row re-read, because a row read back cannot see a rewrite above it.
+# The regression guard. The bytes below are what the writer produces for a
+# well-formed group, clock columns masked; the whole file is compared rather than
+# the appended rows re-read, because a row read back cannot see a rewrite above
+# it.
 idroot="$(newdir)"
 make_tree "$idroot" SFT
-run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" dispatch SFT-0039
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" dispatch SFT-0039 SFT-0040
 assert_eq 0 "$R_STATUS" "the dispatch exits 0"
-run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" return SFT-0039 'done'
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" phase implement
+assert_eq 0 "$R_STATUS" "the phase mark exits 0"
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" return SFT-0039 'done' SFT-0040 'done'
 assert_eq 0 "$R_STATUS" "the return exits 0"
 assert_eq "$LOG_HEADER
-| dispatch | SFT-0039 | UTC | EPOCH | - |
-| return | SFT-0039 | UTC | EPOCH | done |" \
+| dispatch | SFT-0039 | - | UTC | EPOCH | - |
+| dispatch | SFT-0040 | - | UTC | EPOCH | - |
+| phase | - | implement | UTC | EPOCH | - |
+| return | SFT-0039 | - | UTC | EPOCH | done |
+| return | SFT-0040 | - | UTC | EPOCH | done |" \
   "$(mask_clock "$idroot/.ai/sift/RUNLOG.md")" \
-  "the log a valid pair writes is byte-identical once the clock columns are masked"
+  "the log a valid group writes is byte-identical once the clock columns are masked"
 run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "and report reads it back"
-assert_eq "done" "$(report_field SFT-0039 4)" "as one completed record"
-assert_eq "" "$(report_field SFT-0039 5)" "carrying no INCOMPLETE or ORPHAN note"
-assert_contains "$(median_line)" "across 1 completed ticket(s) of 1" \
+assert_eq "SFT-0039 done, SFT-0040 done" "$(group_field 1 tickets)" "as one completed group"
+assert_eq "-" "$(group_field 1 notes)" "carrying no INCOMPLETE or ORPHAN note"
+assert_contains "$(median_line)" "across 1 completed group(s) of 1" \
   "and reaching the median, which a split pair never did"
 
 test_case "report against a tree with no run log exits 2 and says how one is made"
@@ -617,7 +856,7 @@ assert_file "$root/.ai/sift/RUNLOG.md" "and the row landed in the tree above, no
 assert_eq "ACME-0001" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 3)" "with the ticket it was given"
 run_cmd "$root/pkg/api/src/deep" env PATH="$PATH" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report resolves the same tree"
-assert_eq "ACME-0001" "$(report_field ACME-0001 1)" "and reads back what dispatch wrote"
+assert_eq "ACME-0001 -" "$(group_field 1 tickets)" "and reads back what dispatch wrote"
 
 test_case "an initialised tree missing its roadmap reports that specifically"
 # A rule-9 problem to repair, not a "there is no project here" — conflating the

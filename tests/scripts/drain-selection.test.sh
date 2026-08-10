@@ -308,6 +308,207 @@ assert_eq 2 "$R_STATUS" "a second marker is a positional too, not a second marke
 next "$d" -- ACME-0001
 assert_eq 2 "$R_STATUS" "and a ticket ID behind it is refused: this script selects, it does not look up"
 
+# --- next-ticket.sh: dispatch groups -----------------------------------------
+#
+# A group is one dispatch that pays the fixed per-agent cost once for a root
+# cause several tickets share. Only the optional `cluster` front-matter key
+# forms one, so a batch can never be inferred from prose, and two bounds — four
+# tickets and eight effort points, weighing xs=1 s=2 m=3 l=5 xl=8 — keep it
+# small enough to review. The lead is whatever the plain script would have
+# chosen, which is why the ungrouped report has to come back unchanged.
+
+test_case "without --group the report is byte-identical to the ungrouped one"
+# Asserted against a recorded block rather than by looking for the old keys: a
+# contains-check would pass just as happily if group_size leaked into the
+# default path, which is the one regression this flag can cause.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' 'cluster: end-of-options-marker' > /dev/null
+ticket "$d" open backlog/bug ACME-0002 two 'Two' 'cluster: end-of-options-marker' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Two' '-'
+next "$d"
+# A key with no value prints as "key:" plus the separating space. Spelling that
+# space as $SP keeps the expected block free of invisible trailing whitespace,
+# which an editor or a commit hook would silently eat and turn green into red.
+SP=' '
+expected="result: found
+wave: 1
+order: 1
+ticket: ACME-0001
+file: $d/.ai/sift/open/backlog/bug/ACME-0001--one.md
+id: ACME-0001
+title: One
+status: open
+type: bug
+milestone: backlog
+priority: p2
+effort: m
+depends_on:$SP
+labels:$SP
+remaining_in_wave: 2
+remaining_ids: ACME-0001 ACME-0002"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "$expected" "$R_OUT" "every line of the old report, in order, and nothing else"
+assert_not_contains "$R_OUT" 'group_' "no group key reaches the default path"
+
+test_case "--group batches the tickets naming the same cluster"
+next "$d" --group
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "ACME-0001" "$(out_key ticket)" "the lead is still the row the plain run picks"
+assert_eq "2" "$(out_key group_size)" "both cluster members go out in one dispatch"
+assert_eq "ACME-0001 ACME-0002" "$(out_key group_tickets)" "the lead first, then roadmap order"
+assert_contains "$R_OUT" "group_files:
+$d/.ai/sift/open/backlog/bug/ACME-0001--one.md
+$d/.ai/sift/open/backlog/bug/ACME-0002--two.md" \
+  "with one absolute path per line, in the same order as the IDs"
+assert_eq "" "$(dup_keys)" "and the three new keys collide with nothing already printed"
+
+test_case "--group is an option, so it goes in front of the marker (SFT-0033)"
+grouped_out="$R_OUT"
+next "$d" --group --
+assert_eq 0 "$R_STATUS" "an option in front of the marker still applies"
+assert_eq "$grouped_out" "$R_OUT" "and the grouped report is byte for byte the same"
+next "$d" -- --group
+assert_eq 2 "$R_STATUS" "behind the marker it is a positional, and this script takes none"
+assert_eq "" "$R_OUT" "in particular it does not answer as if the flag had been read"
+assert_contains "$R_ERR" 'usage: next-ticket.sh' "the usage line says so"
+assert_contains "$R_ERR" '--group' "naming the flag among the spellings it accepts"
+
+test_case "a lead with no cluster is a group of one, and body prose is not front matter"
+# The cluster is read through fm_value's fence walk. A `^cluster:` grep would
+# match the line in the body below and batch two tickets that never opted in —
+# the defect SFT-0016 and SFT-0020 fixed elsewhere in this card.
+d="$(newdir)"; make_tree "$d" ACME
+lead="$(ticket "$d" open backlog/bug ACME-0001 one 'One')"
+printf '\ncluster: end-of-options-marker\n' >> "$lead"
+ticket "$d" open backlog/bug ACME-0002 two 'Two' 'cluster: end-of-options-marker' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Two' '-'
+next "$d" --group
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "1" "$(out_key group_size)" "an absent cluster key groups nothing"
+assert_eq "ACME-0001" "$(out_key group_tickets)" "so the lead goes out alone"
+assert_contains "$R_OUT" "group_files:
+$d/.ai/sift/open/backlog/bug/ACME-0001--one.md" "with its own file and no other"
+assert_not_contains "$(out_key group_tickets)" "ACME-0002" \
+  "the prose line under ## Problem is not a front-matter value"
+
+test_case "a malformed cluster value degrades to one ticket instead of stalling the run"
+# `cluster` is advisory: it widens a dispatch and never authorises one, so a
+# typo must cost the batching and nothing else. Refusing the run would stop work
+# the ungrouped script would have handed out regardless.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' 'cluster: Not Kebab' > /dev/null
+ticket "$d" open backlog/bug ACME-0002 two 'Two' 'cluster: Not Kebab' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Two' '-'
+next "$d" --group
+assert_eq 0 "$R_STATUS" "exit 0: the dispatch still happens"
+assert_eq "ACME-0001" "$(out_key ticket)" "with the ticket the plain run would have named"
+assert_eq "1" "$(out_key group_size)" "and no group formed around a value nothing can match"
+assert_contains "$R_OUT" 'ACME-0001 (cluster: Not Kebab' \
+  "the bad value is named under skipped:, so the operator can go fix it"
+assert_eq "" "$(dup_keys)" "the skipped block still repeats no key"
+
+test_case "the count bound stops a group at four, ahead of the weight bound"
+# Five tickets of effort s weigh 2 each: four of them is 8, exactly the weight
+# bound, so the fifth is refused by the count and not by the weight.
+d="$(newdir)"; make_tree "$d" ACME
+i=1
+while [ "$i" -le 5 ]; do
+  ticket "$d" open backlog/bug "ACME-000$i" "t$i" "T$i" \
+    'effort: s' 'cluster: batched-dispatch' > /dev/null
+  roadmap_row "$d" "$i" "ACME-000$i" "T$i" '-'
+  i=$((i + 1))
+done
+next "$d" --group
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "4" "$(out_key group_size)" "four tickets, the most a group may hold"
+assert_eq "ACME-0001 ACME-0002 ACME-0003 ACME-0004" "$(out_key group_tickets)" \
+  "the first four in roadmap order"
+assert_not_contains "$R_OUT" 'ACME-0005--t5.md' "the fifth is left for the next dispatch"
+
+test_case "a group weighing exactly 8 is legal — the bound is at most, not under"
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' 'effort: l' 'cluster: fixed-cost' > /dev/null
+ticket "$d" open backlog/bug ACME-0002 two 'Two' 'effort: m' 'cluster: fixed-cost' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Two' '-'
+next "$d" --group
+assert_eq "2" "$(out_key group_size)" "5 plus 3 is 8, which is within the bound"
+assert_eq "ACME-0001 ACME-0002" "$(out_key group_tickets)" "so both go out together"
+
+test_case "the weight bound breaks the group rather than skipping to a smaller ticket"
+# Skipping ACME-0002 to fit ACME-0003, which alone would take the group to
+# exactly 8, would silently reorder the roadmap. The first breach ends the group.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' 'effort: l' 'cluster: fixed-cost' > /dev/null
+ticket "$d" open backlog/bug ACME-0002 two 'Two' 'effort: l' 'cluster: fixed-cost' > /dev/null
+ticket "$d" open backlog/bug ACME-0003 three 'Three' 'effort: m' 'cluster: fixed-cost' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Two' '-'
+roadmap_row "$d" 3 ACME-0003 'Three' '-'
+next "$d" --group
+assert_eq "1" "$(out_key group_size)" "5 plus 5 is 10, over the bound, and the scan stops there"
+assert_eq "ACME-0001" "$(out_key group_tickets)" \
+  "the m-sized third row is not pulled up past the l-sized second one"
+
+test_case "a blocked cluster member is not batched, and --include-blocked takes it"
+d="$(newdir)"; make_tree "$d" ACME
+# effort: s throughout, so the three of them weigh 6 and the count is the only
+# thing being measured here.
+ticket "$d" open backlog/bug ACME-0001 one 'One' \
+  'effort: s' 'cluster: batched-dispatch' > /dev/null
+ticket "$d" open backlog/bug ACME-0002 two 'Two' \
+  'effort: s' 'status: blocked' 'cluster: batched-dispatch' > /dev/null
+ticket "$d" open backlog/bug ACME-0003 three 'Three' \
+  'effort: s' 'cluster: batched-dispatch' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Two' '-'
+roadmap_row "$d" 3 ACME-0003 'Three' '-'
+next "$d" --group
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "ACME-0001 ACME-0003" "$(out_key group_tickets)" \
+  "a group holds only what today's rules would dispatch on its own"
+assert_eq "2" "$(out_key group_size)" "so the blocked row is not in the count"
+next "$d" --group --include-blocked
+assert_eq "ACME-0001 ACME-0002 ACME-0003" "$(out_key group_tickets)" \
+  "the group obeys the same blocked rule the lead does, flag included"
+assert_eq "3" "$(out_key group_size)" "all three"
+
+test_case "a group does not reach into the next wave while its own has work left"
+# Batching across a wave boundary that still holds unstruck rows would start the
+# next wave early — the one thing the wave gate exists to prevent.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' 'cluster: batched-dispatch' > /dev/null
+ticket "$d" open backlog/bug ACME-0002 two 'Two' > /dev/null
+ticket "$d" open backlog/bug ACME-0003 three 'Three' 'cluster: batched-dispatch' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Two' '-'
+roadmap_wave "$d" 2
+roadmap_row "$d" 1 ACME-0003 'Three' '-'
+next "$d" --group
+assert_eq "1" "$(out_key group_size)" "wave 1 still has ACME-0002 open, so wave 2 stays shut"
+assert_eq "ACME-0001" "$(out_key group_tickets)" "the lead dispatches alone"
+
+test_case "a member in the next wave joins once the lead's wave is exhausted"
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' 'cluster: batched-dispatch' > /dev/null
+ticket "$d" open backlog/bug ACME-0002 two 'Two' 'cluster: batched-dispatch' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_wave "$d" 2
+roadmap_row "$d" 1 ACME-0002 'Two' '-'
+next "$d" --group
+assert_eq "1" "$(out_key wave)" "the lead is still wave 1's"
+assert_eq "2" "$(out_key group_size)" "and nothing unstruck sits between the two members"
+assert_eq "ACME-0001 ACME-0002" "$(out_key group_tickets)" "so the group closes the root cause"
+
+test_case "grouping decides nothing on disk either"
+before="$(tree_digest "$d")"
+next "$d" --group
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "$before" "$(tree_digest "$d")" "reading a cluster key writes nothing back"
+
 test_case "dispatching decides nothing on disk"
 d="$(newdir)"; make_tree "$d" ACME
 ticket "$d" open backlog/bug ACME-0001 one 'One' > /dev/null

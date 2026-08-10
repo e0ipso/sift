@@ -112,6 +112,127 @@ That is the whole handoff, and each line has a destination. `why` becomes the sl
 rationale and the seed of `## Problem`. `evidence` is carried verbatim into `## Evidence`
 by the drafting agent, which is why it has to be right here rather than plausible here.
 
+## Clustering — one defect, many sites
+
+A defect that appears at five call sites is **one** candidate carrying five citations, not
+five candidates carrying one each. No sweep agent can see that: each reads its own
+dimension, or its own slice of the fence, and reports what is in front of it. The
+orchestrator is the only reader that holds every finding at once, so the collapse happens
+here — after the evidence bar has already discarded whatever nothing backs, and before
+dedupe, so the thing dedupe compares against live work is the clustered candidate rather
+than its fragments.
+
+This step clusters by **root cause**, and it decides how many tickets get written. It is
+not the milestone pass, which groups the survivors by the outcome they deliver.
+
+### The test for a valid cluster
+
+**A cluster is valid only when one `## Direction` covers every member site: one statement
+of approach, applied unchanged at each site, resolves all of them. Shared fix shape, not
+shared symptom. A candidate that cannot state one such Direction stays split.**
+
+Apply the test by actually writing the sentence. If it needs an "and at the third site,
+instead …", that is two Directions and therefore two tickets. Two recipes that both report
+a clean tree when they read nothing share a symptom exactly, and are still not one cluster
+if one needs an existence guard and the other needs a different query.
+
+**Merge wrongly and a drafting agent invents the Direction.** It never saw the code: it has
+a title, a one-line `why`, and the citations handed to it. Given members that do not share
+a fix it cannot write a Direction covering them, and it will not report the contradiction —
+it will write something plausible. `sift-drain` then reads `## Direction` as the
+implementing agent's brief, so the invention lands two cards downstream on an agent with no
+way to know it was invented. A split that should have been a merge costs one extra row on
+the slate. A merge that should have been a split costs a ticket whose brief is fiction.
+
+None of this bends the atomicity rule. One file is still one problem: a cluster is one
+problem with several manifestations, never several problems in one file. A member that is
+its own problem was never a member.
+
+### The citations survive the merge
+
+`## Evidence` on a clustered candidate is a list, not a line — **one `file:line` citation
+per site**, every site, with none of them folded into a representative example.
+
+**Dropping a site's citation to tidy the list is the same failure as inventing one.** An
+invented citation puts a claim in the ticket that nothing backs; a dropped one puts a site
+in the fix that nothing points at. Both mislead the same reader, the agent that implements
+the ticket without ever seeing this run, and that agent fixes what the ticket cites. An
+uncited site is outside the ticket whatever the title implies, and it returns as a fresh
+finding on some later run, stripped of the context that would have explained it.
+
+The bar itself does not move for a cluster. A member that cannot carry its own citation is
+dropped under the evidence bar like any other candidate — never carried along on its
+neighbours' backing.
+
+### The slate shows every site
+
+A clustered candidate is one slate row, and that row names every site it covers with the
+citation behind each. Collapsing five findings into one unexplained line takes back exactly
+the visibility the negotiation exists to give: the user cannot strike a site they cannot
+see, and a five-site defect and a one-site defect print identically.
+
+They may split a row apart, drop a site from it, or merge two rows kept separate. All three
+are theirs. Clustering exists to stop the sweep proposing five tickets for one defect, not
+to settle the count before the user sees it.
+
+### When a cluster cannot become one ticket
+
+Two things force members apart even though the root cause is shared:
+
+- **Different milestones.** A ticket lives at `<bucket>/<milestone>/<category>/`, so members
+  the slate assigns to different milestones have no single path to be written to.
+- **A member whose fix genuinely differs.** It fails the one-Direction test, so it is not
+  one ticket, however plainly it comes from the same cause.
+
+Those stay separate tickets, and each carries the optional `cluster` front-matter key: a
+kebab-case value naming the shared root cause, identical across every member. `sift-drain`
+reads that key and re-assembles the members at dispatch time, so the relationship survives
+the split without any ticket having to overstate its scope. The key's bounds and the
+grouping rules are the convention's and the drain card's to state — do not restate them
+here, because two documents describing one algorithm is how they come to disagree.
+
+So there are three outcomes, not two. One shared Direction is one ticket. A shared root
+cause with different Directions is several tickets under one `cluster` value. A shared
+symptom with nothing behind it is several unrelated tickets and no key at all.
+
+### Five worked examples
+
+These come from the backlog this card was drafted against. The IDs mean nothing in another
+repository — read them for where the line falls, not as convention.
+
+- **One fix, two files: the model cluster.** Two tickets (SFT-0023, SFT-0028) each truncated
+  a label at its first blank, one in a script and one in a cookbook recipe, and one sentence
+  fixes both — strip the `uniq -c` count off the front of the line rather than reading the
+  label as a field. Found in a single sweep, that is one ticket carrying two `file:line`
+  citations. It is also the milestone case: those two sites were assigned to different
+  milestones, and once that is decided the merge is off — they stay two tickets under one
+  `cluster` value, rather than one ticket in a folder that contradicts its own front matter.
+- **One fix, seven sites, correctly merged already.** SFT-0026 unified how seven
+  front-matter fence parsers spelled their closing marker. One Direction — pick one spelling
+  and use it in all seven places — and seven citations in one ticket. A sweep that returned
+  seven findings there should have produced that ticket, not seven of them.
+- **One root cause, several fixes: stays split.** Five tickets (SFT-0009, SFT-0012,
+  SFT-0015, SFT-0025, SFT-0031) all came from reading a ticket ID as a substring instead of
+  a whole token, and no single Direction covers them: one widened a regex repetition, one
+  widened a schema facet, one anchored a `grep -E`, and the last needed the surrounding
+  cell-selection loop changed rather than the pattern — which is precisely why the ticket
+  before it left that site alone. Same cause, five Directions: five tickets, one `cluster`
+  value.
+- **Shared symptom, unrelated fixes: not a cluster at all.** Four tickets (SFT-0010,
+  SFT-0013, SFT-0014, SFT-0021) all read as "a recipe reports a clean tree when it read
+  nothing", and their fixes have nothing in common — an existence guard on the tree,
+  neutralising `grep`'s empty-input status, a `[ -d "$m" ] || continue` inside a loop, and a
+  test on a `find` result before the write that follows it. Merging on that symptom produces
+  one ticket no single Direction can serve. The most they can ever be is separate tickets
+  under one `cluster` value, and only if the cause really is one and not just the phrasing
+  of the complaint.
+- **Mostly one fix, one member that differs.** Two tickets (SFT-0024, SFT-0033) gave scripts
+  an end-of-options `--` arm. Five of the six sites take the same Direction verbatim; the
+  sixth takes it differently, because that script's first positional is a subcommand rather
+  than an option, so `--` in front of it must not turn the subcommand into an unknown one.
+  The five cluster into one ticket; the sixth is its own ticket carrying the same `cluster`
+  value.
+
 ## Dedupe — before the user sees anything
 
 ```sh

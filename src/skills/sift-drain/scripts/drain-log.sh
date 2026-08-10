@@ -1,28 +1,41 @@
 #!/usr/bin/env bash
 # drain-log.sh — stamp one row per drain event into .ai/sift/RUNLOG.md.
 #
-# The orchestrator calls this immediately before dispatching a ticket sub-agent
-# and immediately after that agent returns, so agent runtime stays separable
-# from the operator idle time between dispatches.
+# The unit of work is a DISPATCH GROUP, not a ticket. The orchestrator calls
+# `dispatch` once with every ticket it is handing to one sub-agent, marks the
+# phases that agent moves through, and calls `return` once with each ticket and
+# the status it came back with. Agent runtime therefore stays separable from the
+# operator idle time between dispatches, and the cost of a dispatch stays
+# divisible by the tickets it actually resolved.
 #
 # Every row carries both a human-readable UTC timestamp and an epoch-seconds
 # integer. The second column is not redundant: readers do all arithmetic on it
 # and never parse a date back into a number, which is exactly where GNU and BSD
 # `date` diverge. Only `date -u +%Y-%m-%dT%H:%M:%SZ` and `date +%s` are used.
 #
+# Every row of one dispatch shares one epoch, because that epoch is what groups
+# them: the clock is read once per command and the same pair of values is
+# written to every row the command appends. Stamping each row separately would
+# split one dispatch into as many groups as it carried tickets, and every one of
+# them would read as an interrupted run.
+#
 # The log is append-only: the header is written once, when the file does not yet
 # exist, and rows are appended with `>>` and never rewritten.
 #
-# `report` reads the log back and prints, per ticket, the agent runtime and the
-# idle gap that preceded its dispatch as two separate figures. Separating them is
-# the point: a merge-timestamp gap folds operator idle time and dropped
-# connections into what looks like agent work.
+# `report` reads the log back and prints, per dispatch group, the tickets it
+# carried and how each ended, the agent runtime, the idle gap that preceded the
+# dispatch, where the time went inside it, and the runtime divided by the tickets
+# the group RESOLVED. Separating those is the point: a merge-timestamp gap folds
+# operator idle time and dropped connections into what looks like agent work, and
+# a cost stated per ticket carried reads a group that blocked half its work as
+# twice as cheap as it was.
 #
 # Usage:
-#   scripts/drain-log.sh dispatch <TICKET>
-#   scripts/drain-log.sh return <TICKET> <STATUS>
+#   scripts/drain-log.sh dispatch <TICKET>...
+#   scripts/drain-log.sh phase orient|implement|verify|bookkeep
+#   scripts/drain-log.sh return <TICKET> <STATUS>...
 #   scripts/drain-log.sh report
-#   scripts/drain-log.sh -- dispatch <TICKET>   # -- ends the options
+#   scripts/drain-log.sh -- dispatch <TICKET>...   # -- ends the options
 #
 # `--` means one thing across the card: the option list ends here and everything
 # behind it is positional. This script's first positional is a SUBCOMMAND, so
@@ -32,13 +45,13 @@
 # `dispatch <TICKET>` records, and never turns `dispatch` into an unknown mode.
 #
 # Behind the subcommand there is no option list left to end: every argument
-# there is one of that subcommand's operands, so `dispatch -- SFT-0001` is a
-# two-operand dispatch and a usage error rather than a marked-up one-operand
-# one. Nothing is lost by that, because a ticket ID is `<PREFIX>-<NNNN>` under
-# the convention and can never begin with a hyphen, so no real operand ever
-# needs protecting from an option parser that stopped one argument earlier.
-# That last sentence is a claim about the input, so this script now checks it
-# rather than assuming it: see require_ticket_id below (SFT-0039).
+# there is one of that subcommand's operands. `dispatch` is variadic, so a `--`
+# behind it stands in a ticket position and is refused as the non-ID it is.
+# Nothing is lost by that, because a ticket ID is `<PREFIX>-<NNNN>` under the
+# convention and can never begin with a hyphen, so no real operand ever needs
+# protecting from an option parser that stopped one argument earlier. That last
+# sentence is a claim about the input, so this script checks it rather than
+# assuming it: see require_ticket_id below (SFT-0039).
 #
 # Exit codes: 0 success | 2 setup/usage error.
 
@@ -47,8 +60,9 @@ set -uo pipefail
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
 usage() {
-  echo "usage: drain-log.sh dispatch <TICKET>" >&2
-  echo "       drain-log.sh return <TICKET> <STATUS>" >&2
+  echo "usage: drain-log.sh dispatch <TICKET>..." >&2
+  echo "       drain-log.sh phase orient|implement|verify|bookkeep" >&2
+  echo "       drain-log.sh return <TICKET> <STATUS>..." >&2
   echo "       drain-log.sh report" >&2
   echo "note: -- ends the options; it may stand in front of the subcommand" >&2
   exit 2
@@ -62,8 +76,11 @@ LOG="$SIFT/RUNLOG.md"
 # permanent. The cost is not the bad row but what `report` makes of it: it pairs
 # a return with its dispatch by string equality on this column, so
 # `dispatch <PREFIX>-004` followed by `return <PREFIX>-0040` splits one ticket
-# into an INCOMPLETE and an ORPHAN record and drops the pair out of the median.
-# The run then reads as an interrupted connection when it was a keystroke.
+# into an INCOMPLETE group and an ORPHAN record and drops the group out of the
+# median. The run then reads as an interrupted connection when it was a
+# keystroke. Every ticket argument of the variadic forms goes through this, not
+# just the first one: a batch is exactly where a typo in a later position would
+# otherwise ride along unchecked.
 #
 # SHAPE ONLY — never a lookup for a ticket file. This is the one card script
 # that writes, and the orchestrator stamps `return` AFTER the sub-agent has
@@ -100,7 +117,41 @@ require_ticket_id() {
   exit 2
 }
 
-# Read the log back and print the per-ticket attribution table.
+# Read the clock once per command. Both values are written to every row the
+# command appends, so a group is one epoch and the grouping the reader does is
+# an integer comparison rather than a guess about proximity.
+stamp() {
+  UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  EPOCH="$(date +%s)"
+}
+
+# The header is laid down lazily, by the first write of a drain, and never again.
+ensure_log() {
+  [ -f "$LOG" ] || {
+    {
+      echo "# Run log"
+      echo
+      echo "Append-only. One row per drain event; rows are never rewritten."
+      echo
+      echo "| event | ticket | phase | utc | epoch | status |"
+      echo "|---|---|---|---|---|---|"
+    } > "$LOG" || {
+      echo "error: cannot create the run log: $LOG" >&2
+      exit 2
+    }
+  }
+}
+
+# append_row <event> <ticket> <phase> <utc> <epoch> <status> — one row, six
+# columns, a literal dash in every cell the event has no use for.
+append_row() {
+  printf '| %s | %s | %s | %s | %s | %s |\n' "$1" "$2" "$3" "$4" "$5" "$6" >> "$LOG" || {
+    echo "error: cannot append to the run log: $LOG" >&2
+    exit 2
+  }
+}
+
+# Read the log back and print the per-group attribution blocks.
 #
 # All arithmetic is integer arithmetic on the `epoch` column. The `utc` column is
 # never parsed back into a number and `date` is never used for arithmetic, since
@@ -137,87 +188,137 @@ report() {
       return d "s (" m "m" s "s)"
     }
 
-    # Print one padded line with its trailing padding removed, so an empty last
-    # column never leaves trailing whitespace behind.
-    function row(line) { sub(/[[:space:]]+$/, "", line); print line }
-
     function note_add(k, text) {
       rnote[k] = (rnote[k] == "") ? text : rnote[k] "; " text
     }
 
     # runtime < 0 means "no duration": incomplete, orphaned or corrupt. Such a
-    # record is never counted in the median.
-    function push(id, runtime, idle_text, status, text,   k) {
+    # record is never counted in the median and never yields a cost figure, so
+    # the division below is guarded by the same test that hides the runtime.
+    #
+    # Integer division throughout: POSIX awk arithmetic is floating point, and
+    # an unrounded per-ticket figure prints unreadably.
+    function push(tickets, runtime, idle_text, phases, resolved, note,   k) {
       k = ++nrec
-      rid[k] = id; rrt[k] = runtime; ridle[k] = idle_text; rst[k] = status
+      rtick[k] = tickets; rrt[k] = runtime; ridle[k] = idle_text
+      rphase[k] = (phases == "") ? "-" : phases
+      rres[k] = resolved
       rnote[k] = ""
-      if (text != "") note_add(k, text)
+      if (note != "") note_add(k, note)
+      rper[k] = (runtime >= 0 && resolved > 0) ? human(int(runtime / resolved)) : "-"
       return k
     }
 
+    # Close the open group into one record. A ret_epoch below zero means no
+    # return row ever arrived, which is the signature of an interrupted
+    # connection and must read as incomplete rather than inherit a duration.
+    function close_group(ret_epoch,
+                         i, d, k, tickets, phases, runtime, resolved,
+                         idle, idle_text, idle_note, note) {
+      tickets = ""; phases = ""; resolved = 0
+      for (i = 1; i <= og_n; i++) {
+        if (i > 1) tickets = tickets ", "
+        tickets = tickets og_t[i] " " ((og_s[i] == "") ? "-" : og_s[i])
+        if (og_s[i] == "done") resolved++
+      }
+
+      # Each phase runs to the next phase mark, and the last one runs to the
+      # return that closed the group. A last phase with no return has no end, so
+      # it reports a dash rather than a number nothing measured.
+      for (i = 1; i <= og_np; i++) {
+        if (i < og_np) d = og_pe[i + 1] - og_pe[i]
+        else if (ret_epoch >= 0) d = ret_epoch - og_pe[i]
+        else d = -1
+        if (i > 1) phases = phases ", "
+        phases = phases og_pn[i] " " ((d < 0) ? "-" : human(d))
+      }
+
+      note = ""
+      if (ret_epoch < 0) {
+        runtime = -1
+        note = "INCOMPLETE (no return row)"
+      } else {
+        runtime = ret_epoch - og_epoch
+        if (runtime < 0) { runtime = -1; note = "CORRUPT (negative runtime)" }
+      }
+
+      idle_text = "-"; idle_note = ""
+      if (ret_epoch >= 0 && have_prev) {
+        idle = og_epoch - prev_return
+        if (idle < 0) { idle_text = "CORRUPT"; idle_note = "CORRUPT (negative idle gap)" }
+        else idle_text = human(idle)
+      }
+
+      k = push(tickets, runtime, idle_text, phases, resolved, note)
+      if (idle_note != "") note_add(k, idle_note)
+      if (ret_epoch >= 0) { prev_return = ret_epoch; have_prev = 1 }
+      og = 0
+    }
+
     !/^[[:space:]]*\|/ { next }        # table rows only
-    NF < 7 { next }                    # a well-formed row is | a | b | c | d | e |
+    NF < 8 { next }                    # a six-column row is | a | b | c | d | e | f |
     {
-      event = trim($2); ticket = trim($3); epoch = trim($5); status = trim($6)
-      if (event != "dispatch" && event != "return") next   # header and separator
+      event = trim($2); ticket = trim($3); phase = trim($4)
+      epoch = trim($6); status = trim($7)
+      if (event != "dispatch" && event != "return" && event != "phase") next
 
       if (epoch !~ /^[0-9]+$/) {
-        push(ticket, -1, "-", status, "CORRUPT (unreadable epoch \"" epoch "\")")
+        push((event == "phase") ? "phase " phase : ticket " " status,
+             -1, "-", "-", 0, "CORRUPT (unreadable epoch \"" epoch "\")")
         next
       }
       epoch = epoch + 0
 
+      # A dispatch under a new epoch is a new group, so any group still open
+      # never got its return row.
       if (event == "dispatch") {
-        # A dispatch while another ticket is still open means that one never
-        # returned. This is the signature of an interrupted connection, and it
-        # must read as incomplete rather than inherit a duration.
-        if (open_id != "") push(open_id, -1, "-", "-", "INCOMPLETE (no return row)")
-        open_id = ticket; open_epoch = epoch
+        if (og && epoch != og_epoch) close_group(-1)
+        if (!og) { og = 1; og_epoch = epoch; og_n = 0; og_np = 0 }
+        og_n++; og_t[og_n] = ticket; og_s[og_n] = ""
         next
       }
 
-      if (open_id == "") {
-        push(ticket, -1, "-", status, "ORPHAN (return with no dispatch row)")
-        next
-      }
-      if (open_id != ticket) {
-        push(open_id, -1, "-", "-", "INCOMPLETE (no return row)")
-        push(ticket, -1, "-", status, "ORPHAN (return with no dispatch row)")
-        open_id = ""
+      if (event == "phase") {
+        if (!og) {
+          push("phase " phase, -1, "-", "-", 0, "ORPHAN (phase with no dispatch row)")
+          next
+        }
+        og_np++; og_pn[og_np] = phase; og_pe[og_np] = epoch
         next
       }
 
-      runtime = epoch - open_epoch
-      idle_text = "-"
-      idle_note = ""
-      if (have_prev) {
-        idle = open_epoch - prev_return
-        if (idle < 0) { idle_text = "CORRUPT"; idle_note = "CORRUPT (negative idle gap)" }
-        else idle_text = human(idle)
+      # A return names one member of the open group. One that names anything
+      # else is an orphan on its own account, and the group it interrupted is
+      # left open: group membership is explicit, so a stray return says nothing
+      # about whether the real members will still come back.
+      matched = 0
+      if (og) {
+        for (i = 1; i <= og_n; i++) {
+          if (og_t[i] == ticket && og_s[i] == "") { og_s[i] = status; matched = 1; break }
+        }
       }
-      if (runtime < 0) {
-        k = push(ticket, -1, idle_text, status, "CORRUPT (negative runtime)")
-      } else {
-        k = push(ticket, runtime, idle_text, status, "")
+      if (!matched) {
+        push(ticket " " status, -1, "-", "-", 0, "ORPHAN (return with no dispatch row)")
+        next
       }
-      if (idle_note != "") note_add(k, idle_note)
 
-      prev_return = epoch; have_prev = 1
-      open_id = ""
+      pending = 0
+      for (i = 1; i <= og_n; i++) if (og_s[i] == "") pending++
+      if (pending == 0) close_group(epoch)
     }
 
     END {
-      if (open_id != "") push(open_id, -1, "-", "-", "INCOMPLETE (no return row)")
+      if (og) close_group(-1)
 
       if (nrec == 0) {
         print "no drain events recorded in " logpath
         exit 0
       }
 
-      # Median definition: sort the completed runtimes ascending and take element
-      # int((n + 1) / 2) counting from 1 — the LOWER of the two middle values when
-      # the count is even. Incomplete, orphaned and corrupt records contribute
-      # nothing to n.
+      # Median definition: sort the completed group runtimes ascending and take
+      # element int((n + 1) / 2) counting from 1 — that is,
+      # the LOWER of the two middle values when the count is even. Incomplete,
+      # orphaned and corrupt records contribute nothing to n.
       n = 0
       for (i = 1; i <= nrec; i++) if (rrt[i] >= 0) v[++n] = rrt[i]
       for (i = 2; i <= n; i++) {           # insertion sort: POSIX awk has no asort
@@ -231,17 +332,35 @@ report() {
         if (rrt[i] >= 0 && median > 0 && rrt[i] > 10 * median)
           note_add(i, "SLOW (" int(rrt[i] / median) "x median)")
 
-      fmt = "%-12s  %-18s  %-18s  %-10s  %s"
-      row(sprintf(fmt, "ticket", "runtime", "idle", "status", "note"))
-      row(sprintf(fmt, "------------", "------------------", "------------------", "----------", "----"))
+      # The aggregate the batching is measured against: every second a completed
+      # group spent, over every ticket those groups resolved. A group that
+      # resolved nothing still contributes its runtime, because that time was
+      # spent whether or not anything came of it.
+      total = 0; resolved_total = 0
       for (i = 1; i <= nrec; i++)
-        row(sprintf(fmt, rid[i], (rrt[i] >= 0) ? human(rrt[i]) : "-", ridle[i], rst[i], rnote[i]))
+        if (rrt[i] >= 0) { total += rrt[i]; resolved_total += rres[i] }
+
+      for (i = 1; i <= nrec; i++) {
+        if (i > 1) print ""
+        print "group " i
+        print "  tickets: " rtick[i]
+        print "  runtime: " ((rrt[i] >= 0) ? human(rrt[i]) : "-")
+        print "  idle before: " ridle[i]
+        print "  phases: " rphase[i]
+        print "  per ticket resolved: " rper[i]
+        print "  notes: " ((rnote[i] == "") ? "-" : rnote[i])
+      }
 
       print ""
       if (n > 0)
-        print "median runtime: " human(median) " across " n " completed ticket(s) of " nrec
+        print "median runtime: " human(median) " across " n " completed group(s) of " nrec
       else
-        print "median runtime: - (no completed tickets of " nrec ")"
+        print "median runtime: - (no completed groups of " nrec ")"
+      if (resolved_total > 0)
+        print "minutes per ticket resolved: " human(int(total / resolved_total)) \
+              " across " resolved_total " resolved ticket(s) in " n " completed group(s)"
+      else
+        print "minutes per ticket resolved: - (no tickets resolved)"
       print "note: runtime is stamped by the orchestrator around the dispatch, so it"
       print "      includes a few seconds of dispatch overhead and is an upper bound."
     }
@@ -264,48 +383,56 @@ while [ $# -gt 0 ]; do
 done
 
 MODE="${1:-}"
-TICKET="${2:-}"
+[ $# -gt 0 ] && shift
 
+# Both writing gates ahead of the header write as well as the append: a refused
+# command line must leave the tree exactly as it found it, and the log is
+# append-only, so there is no second command that could take a bad row back out.
 case "$MODE" in
   dispatch)
-    [ $# -eq 2 ] || usage
-    STATUS="-"
+    [ $# -ge 1 ] || usage
+    for arg in "$@"; do require_ticket_id "$arg"; done
+    stamp
+    ensure_log
+    for arg in "$@"; do append_row dispatch "$arg" - "$UTC" "$EPOCH" -; done
+    ;;
+  phase)
+    [ $# -eq 1 ] || usage
+    case "$1" in
+      orient|implement|verify|bookkeep) ;;
+      *)
+        echo "error: not a drain phase: $1" >&2
+        usage
+        ;;
+    esac
+    stamp
+    ensure_log
+    append_row phase - "$1" "$UTC" "$EPOCH" -
     ;;
   return)
-    [ $# -eq 3 ] || usage
-    STATUS="$3"
+    # Pairs, so an odd count means one ticket has no status — and since the
+    # columns are positional, a missing status would silently shift every
+    # remaining ticket into the status column.
+    [ $# -ge 2 ] || usage
+    [ $(( $# % 2 )) -eq 0 ] || usage
+    pos=0
+    for arg in "$@"; do
+      pos=$((pos + 1))
+      if [ $((pos % 2)) -eq 1 ]; then require_ticket_id "$arg"
+      elif [ -z "$arg" ]; then usage
+      fi
+    done
+    stamp
+    ensure_log
+    while [ $# -gt 0 ]; do
+      append_row return "$1" - "$UTC" "$EPOCH" "$2"
+      shift 2
+    done
     ;;
   report)
-    [ $# -eq 1 ] || usage
+    [ $# -eq 0 ] || usage
     report
     exit $?
     ;;
   *) usage ;;
 esac
-
-[ -n "$TICKET" ] || usage
-[ -n "$STATUS" ] || usage
-
-# Both writing modes, one gate, ahead of the header write as well as the append:
-# a refused command line must leave the tree exactly as it found it.
-require_ticket_id "$TICKET"
-
-[ -f "$LOG" ] || {
-  {
-    echo "# Run log"
-    echo
-    echo "Append-only. One row per drain event; rows are never rewritten."
-    echo
-    echo "| event | ticket | utc | epoch | status |"
-    echo "|---|---|---|---|---|"
-  } > "$LOG" || {
-    echo "error: cannot create the run log: $LOG" >&2
-    exit 2
-  }
-}
-
-printf '| %s | %s | %s | %s | %s |\n' \
-  "$MODE" "$TICKET" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(date +%s)" "$STATUS" >> "$LOG" || {
-  echo "error: cannot append to the run log: $LOG" >&2
-  exit 2
-}

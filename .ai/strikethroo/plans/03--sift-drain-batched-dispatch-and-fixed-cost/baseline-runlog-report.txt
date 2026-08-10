@@ -1,0 +1,34 @@
+ticket        runtime             idle                status      note
+------------  ------------------  ------------------  ----------  ----
+SFT-0008      1297s (21m37s)      -                   done
+SFT-0015      491s (8m11s)        44s                 done
+SFT-0016      666s (11m6s)        24s                 done
+SFT-0013      429s (7m9s)         29s                 done
+SFT-0014      374s (6m14s)        16s                 done
+SFT-0017      802s (13m22s)       32s                 done
+SFT-0018      523s (8m43s)        31s                 done
+SFT-0019      1077s (17m57s)      22s                 done
+SFT-0022      684s (11m24s)       33s                 done
+SFT-0020      618s (10m18s)       34s                 done
+SFT-0021      990s (16m30s)       22s                 done
+SFT-0023      713s (11m53s)       34s                 done
+SFT-0030      983s (16m23s)       8194s (2h16m34s)    done
+SFT-0025      578s (9m38s)        80929s (22h28m49s)  done
+SFT-0026      709s (11m49s)       25s                 done
+SFT-0028      408s (6m48s)        26s                 done
+SFT-0024      556s (9m16s)        28s                 done
+SFT-0027      615s (10m15s)       33s                 done
+SFT-0032      656s (10m56s)       52s                 done
+SFT-0034      558s (9m18s)        25s                 done
+SFT-0035      539s (8m59s)        37s                 done
+SFT-0036      783s (13m3s)        37387s (10h23m7s)   done
+SFT-0029      951s (15m51s)       74s (1m14s)         done
+SFT-0031      906s (15m6s)        27s                 done
+SFT-0033      1001s (16m41s)      35s                 done
+SFT-0037      594s (9m54s)        29s                 done
+SFT-0039      604s (10m4s)        34s                 done
+SFT-0040      788s (13m8s)        20s                 done
+
+median runtime: 656s (10m56s) across 28 completed ticket(s) of 28
+note: runtime is stamped by the orchestrator around the dispatch, so it
+      includes a few seconds of dispatch overhead and is an upper bound.

@@ -31,6 +31,18 @@ fenced blocks extracted from this file.
       naming a shared root cause, advisory only. The text states that no consistency check
       depends on it and that an absent or malformed value degrades to single-ticket
       dispatch rather than failing a run.
+- [ ] **The spec distinguishes two different bars, because they are easy to conflate and a
+      reader who applies the wrong one assigns `cluster` incorrectly.** Merging findings
+      into ONE ticket at drafting time requires one `## Direction` that holds unchanged at
+      every site — the stricter bar, owned by the sift-prime card. Carrying the same
+      `cluster` value so a drain BATCHES tickets into one dispatch requires only shared
+      context: the same root cause and overlapping files, so one agent's orientation serves
+      all of them. Their fixes may differ. State both and state which is which.
+- [ ] The spec's worked example for `cluster` is a set that genuinely fails the one-Direction
+      bar but passes the batching bar, so the distinction is concrete rather than asserted.
+      The archived whole-token-ID family is the model: SFT-0009 and SFT-0015 edit README
+      recipes, SFT-0012 edits the XSD, SFT-0025 and SFT-0031 edit `lib.sh` — one root cause,
+      five different fixes, and two natural batches along the file overlap.
 - [ ] `README.md` documents the grouping bounds — at most 4 tickets per group, combined
       effort weight at most 8, with the weights `xs`=1 `s`=2 `m`=3 `l`=5 `xl`=8 — as the
       drain's behaviour, and states that group members share one `cluster` value.

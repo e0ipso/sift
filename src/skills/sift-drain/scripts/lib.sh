@@ -9,6 +9,8 @@
 #   fm_labels <file>                — one label per line from labels: [...]
 #   SIFT_LABEL_RE                   — regex a well-formed kebab label matches
 #   label_is_kebab <label>          — true when one label matches SIFT_LABEL_RE
+#   ticket_cluster <file>           — the optional `cluster` value, or empty
+#   effort_weight <effort>          — the dispatch weight of one effort value
 #   ticket_search_dirs [--open]     — .ai/sift/open [and archive/]
 #
 # Overrides:
@@ -233,6 +235,52 @@ SIFT_LABEL_RE='^[abcdefghijklmnopqrstuvwxyz0123456789]+(-[abcdefghijklmnopqrstuv
 # label.
 label_is_kebab() {
   printf '%s\n' "$1" | grep -qE "$SIFT_LABEL_RE"
+}
+
+# --- Clusters ---------------------------------------------------------------
+# A ticket's optional `cluster` front-matter value: the advisory name of a root
+# cause several tickets share, which next-ticket.sh --group batches into a
+# single dispatch. Empty when the key is absent, and empty when the value is
+# not a well-formed kebab label — `cluster` widens a dispatch and never
+# authorises one, so a malformed value degrades to a group of one rather than
+# stopping a run over a field nothing else in the convention requires.
+#
+# It is one namespace with `labels:`, so it is judged by SIFT_LABEL_RE through
+# label_is_kebab rather than by a second pattern: a value list-labels.sh would
+# warn about must not be a value the drain silently batches on.
+#
+# The read goes through fm_value's fence walk and never through a `^cluster:`
+# grep, because a body line reading "cluster: caching" matches that anchor
+# exactly as a front-matter line does — the defect SFT-0016 and SFT-0020 fixed
+# elsewhere on this card.
+ticket_cluster() {
+  local value
+  value="$(fm_value "$1" cluster)"
+  [ -n "$value" ] || return 0
+  label_is_kebab "$value" || return 0
+  printf '%s\n' "$value"
+}
+
+# --- Effort -----------------------------------------------------------------
+# The dispatch weight of one `effort` value — the unit next-ticket.sh --group
+# sizes a batch in, so that four extra-large tickets can never ride out on one
+# dispatch just because four is the count bound.
+#
+# README.md fixes the closed set xs|s|m|l|xl. Anything else — an absent key, a
+# typo, a value from a spec newer than this script — weighs what `m` weighs,
+# because refusing to size an unrecognised effort would stop a drain over a
+# front-matter value the selection path otherwise only echoes. A case statement
+# rather than an associative array: this file is sourced by whatever bash the
+# machine has, and nothing else in it needs bash 4.
+effort_weight() {
+  case "${1:-}" in
+    xs) echo 1 ;;
+    s)  echo 2 ;;
+    m)  echo 3 ;;
+    l)  echo 5 ;;
+    xl) echo 8 ;;
+    *)  echo 3 ;;
+  esac
 }
 
 # Print absolute directories to search. Pass --open to skip archive/.

@@ -107,7 +107,15 @@ roadmap_rows() {
     # for free: a run of digits cannot stop mid-number, so ACME-0001 and
     # ACME-00011 stay distinct rows in either order. This is byte-for-byte the
     # ROW_ID_PAT that roadmap-append.sh in sift-prime matches a ticket cell
-    # with; the two cards ship separately and must not drift apart.
+    # with, and that second copy is a recorded decision rather than an accident:
+    # AGENTS.md under "Duplication between cards" (SFT-0038) holds that the cards
+    # install independently and neither directory may source a file from the
+    # other, so the rule is written out once per card and a drift between them is
+    # caught by a test rather than by a tree that is already wrong. The test is
+    # "the reader and the writer classify every cell of one table alike" in
+    # tests/scripts/prime-backlog.test.sh, which drives one fixture table through
+    # both cards — change this rule and roadmap-append.sh in the same commit, and
+    # run that test to prove they still agree.
     BEGIN { pat = prefix "-[0-9][0-9][0-9][0-9][0-9]*" }
     # The ID a cell holds, or "" when it holds none. Whole-token on the left so a
     # suffix of a longer word is not an ID, and [[:alnum:]] rather than a spelled
@@ -124,9 +132,15 @@ roadmap_rows() {
     # A rejected match is walked past rather than abandoning the cell, so a cell
     # reading XACME-0001 ACME-0002 still yields ACME-0002.
     #
-    # This is cell_id from roadmap-append.sh in sift-prime, restated because the
-    # two cards ship separately and cannot source each other; only the parameter
-    # is renamed, so it does not shadow the struck-flag array s below.
+    # This is cell_id from roadmap-append.sh in sift-prime, restated by the same
+    # recorded decision as the pattern above: AGENTS.md under "Duplication
+    # between cards" (SFT-0038) keeps one copy of the rule per card and pays for
+    # it with the agreement test, "the reader and the writer classify every cell
+    # of one table alike" in tests/scripts/prime-backlog.test.sh, which drives one
+    # fixture table through both cards. Change this copy and the sift-prime one in
+    # the same commit, and run that test to prove they still agree. Only the
+    # parameter is renamed here, so it does not shadow the struck-flag array s
+    # below.
     function cell_id(cs,   id, before) {
       while (match(cs, pat)) {
         id = substr(cs, RSTART, RLENGTH)

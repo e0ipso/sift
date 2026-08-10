@@ -30,8 +30,10 @@ integer arithmetic. Both as already practised in `src/skills/sift-drain/scripts/
 - [ ] **Baseline captured before any edit.** `src/skills/sift-drain/scripts/drain-log.sh report`
       is run against the current `.ai/sift/RUNLOG.md` and its verbatim output is saved to
       `.ai/strikethroo/plans/03--sift-drain-batched-dispatch-and-fixed-cost/baseline-runlog-report.txt`.
-      That file must contain the strings `median runtime: 618s (10m18s)`,
-      `across 21 completed ticket(s) of 22`, and `INCOMPLETE (no return row)`.
+      That file must contain the strings `median runtime: 656s (10m56s)` and
+      `across 28 completed ticket(s) of 28`. If the figures differ, the drain has run
+      again — record what the report actually prints and say so, rather than editing the
+      expectation to match.
 - [ ] `drain-log.sh dispatch SFT-0001 SFT-0002` appends exactly two rows to the log, both
       with the same `epoch` value, `event` of `dispatch`, and `phase` of `-`.
 - [ ] `drain-log.sh phase orient` appends exactly one row with `event` of `phase`,
@@ -53,7 +55,7 @@ integer arithmetic. Both as already practised in `src/skills/sift-drain/scripts/
       and grows cases for: a multi-ticket dispatch, phase rows, a mixed `done`/`blocked`
       return, the `per ticket resolved` arithmetic, and a rejected phase name.
 - [ ] **Runnable gate:** `./tests/run.sh scripts static` exits 0 with 0 failures, and
-      `./tests/run.sh` exits 0 printing `OK` with at least 412 tests and 0 failures.
+      `./tests/run.sh` exits 0 printing `OK` with at least 426 tests and 0 failures.
 - [ ] `src/skills/sift-drain/scripts/lib.sh` is **not** modified by this task (task 2 owns
       it and runs concurrently).
 
@@ -99,9 +101,29 @@ None. This task starts from the current tree.
 Run `src/skills/sift-drain/scripts/drain-log.sh report` from the repository root and
 redirect its stdout to
 `.ai/strikethroo/plans/03--sift-drain-batched-dispatch-and-fixed-cost/baseline-runlog-report.txt`.
-Confirm the file contains `median runtime: 618s (10m18s)`. Once the schema changes, the
+Confirm the file contains `median runtime: 656s (10m56s)`. Once the schema changes, the
 current `RUNLOG.md` becomes unreadable by the new report and this figure cannot be
 recovered. Do not skip this and do not do it later.
+
+**Two behaviours landed on this script after the plan was written. Preserve both — they
+are recent bug fixes and re-breaking them is a regression, not a rewrite.**
+
+- `require_ticket_id` (SFT-0039, commit `9560854`) refuses a ticket argument that is not
+  `$PREFIX-` plus four-or-more digits, before anything is written. The log is append-only,
+  so a typo is permanent, and `report` pairs a return to its dispatch by string equality on
+  that column — `dispatch SFT-004` then `return SFT-0040` splits one ticket into an
+  INCOMPLETE and an ORPHAN and drops the pair out of the median. Apply it to **every**
+  ticket argument of the new multi-ticket `dispatch` and `return` forms, not just the
+  first. It is a shape check only and must never become a lookup for a ticket file: the
+  orchestrator stamps `return` after the sub-agent archived and moved the file.
+- The report hands `awk` the log path through the **environment and `ENVIRON`**, never
+  through `-v` (SFT-0040, commit `1f8ee78`). `-v` re-scans its argument for ANSI escapes,
+  so a path holding a backslash and a `t` arrives inside `awk` as a real tab. Read it once
+  in `BEGIN` so the report still spends one `awk`. Any new value the rewritten report needs
+  from the shell goes the same way. `-F` is a flag, not a value, and stays as it is.
+
+`--` end-of-options handling also landed across the whole card (SFT-0033, commit
+`0b400a9`). Keep this script's existing arm and its usage note accurate for the new modes.
 
 **Step 1 — the writer.**
 Keep `set -uo pipefail` and the existing `lib.sh` sourcing line unchanged. Replace the

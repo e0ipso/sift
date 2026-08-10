@@ -63,7 +63,7 @@ and the register matters; `bash` for the section-contract test.
       named heading in a copy of `README.md` used as a fixture — makes the test fail. Prove
       the guard catches the damage rather than only that it passes today.
 - [ ] **Runnable gate:** `./tests/run.sh` exits 0 printing `OK` with 0 failures and a test
-      count strictly greater than 412.
+      count strictly greater than 426.
 - [ ] `SKILL.md`, `run-management.md` and `wave-gate.md` are **not** modified by this task
       (task 6 owns them and runs concurrently).
 
@@ -173,7 +173,7 @@ whose third ticket failed must not redo the two that succeeded and already merge
 
 **Step 9 — prove it.** Run the new test file standalone first and read its `# SUMMARY`
 line. Then `./tests/run.sh static` and then `./tests/run.sh` in full. Confirm `OK`, 0
-failures, and a total test count above the 412 baseline — an unchanged count means the new
+failures, and a total test count above the 426 baseline — an unchanged count means the new
 file was not picked up.
 
 </details>

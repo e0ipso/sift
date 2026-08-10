@@ -122,9 +122,20 @@ machine has, and the rest of the file uses only portable constructs.
 **Step 3 — `next-ticket.sh --group`.**
 
 Argument parsing today is a `while`/`case` loop with an `*)` arm that exits 2 on an unknown
-flag — SFT-0017 put that there deliberately, so keep it and add a `--group)` arm. Do not
-add a `--` end-of-options arm here; SFT-0033 is the open ticket that covers that across all
-the drain scripts and this task must not pre-empt it.
+flag — SFT-0017 put that there deliberately, so keep it and add a `--group)` arm.
+
+The loop **already has a `--` end-of-options arm**: SFT-0033 (commit `0b400a9`) landed
+`--` across the whole card after this plan was written, and this script's arm accepts the
+marker and then treats anything behind it as a usage error, because it takes no positional.
+`--group` is a flag, so it belongs in the option list ahead of the marker and that
+behaviour is unchanged — but the `usage()` note reading "this script takes no argument
+behind it" must stay true, so do not introduce a positional. If `--group` ever needs an
+argument, make it `--group` plus a flag value, not a trailing operand.
+
+Any new `awk` invocation added here hands its values through the **environment and
+`ENVIRON`**, never through `-v` (SFT-0037/SFT-0040, commits `0d2e4f5` and `1f8ee78`): `-v`
+re-scans its argument for ANSI escapes, so a value holding a backslash and a `t` arrives as
+a real tab. `-F` is a flag, not a value.
 
 Keep the existing single-ticket selection loop exactly as-is to choose the lead. That
 guarantees the byte-identical default output the acceptance criteria require, and it keeps

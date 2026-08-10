@@ -343,9 +343,11 @@ reporting rather than hiding.
    commit.
 4. `drain-log.sh report` states minutes per ticket **resolved** and a per-phase breakdown
    within a dispatch, and both are reproducible from the appended log alone.
-5. The remaining open backlog is worked through the new path and the resulting figures are
-   reported against the recorded baseline of 21 tickets / 4.0 h / 11.3 min mean / 618 s
-   median — with the sample size and its bias toward batching stated alongside.
+5. Group formation is proven on fixtures — a multi-ticket group, both bounds, and the
+   degenerate single-ticket case — and the recorded baseline (28 tickets / 5.5 h /
+   11.8 min mean / 656 s median, captured before the schema change) is preserved for a
+   later live comparison. A live batched dispatch is **not** achievable in this execution
+   and its absence is reported rather than papered over; see Self Validation step 3.
 6. No new installable dependency is introduced, and every added recipe passes the
    portability group on both GNU and BSD option sets.
 7. The strictly sequential guarantee is intact: no concurrency is introduced, and the card
@@ -356,35 +358,42 @@ reporting rather than hiding.
 Execute these after all tasks complete. Each inspects the real system.
 
 1. **Reproduce the baseline before changing the log format.** Run `drain-log.sh report`
-   against the current `RUNLOG.md` and capture its output verbatim. Confirm it shows 21
-   completed tickets, a 618-second median, and SFT-0036 flagged `INCOMPLETE`. Preserve that
+   against the current `RUNLOG.md` and capture its output verbatim. Confirm it shows
+   `across 28 completed ticket(s) of 28` and `median runtime: 656s (10m56s)`. Preserve that
    output as the before-figure; the schema change supersedes the file afterwards.
 2. **Run the full verification story.** Execute `tests/run.sh` and confirm every group
-   passes. Record the exact test and assertion totals.
-3. **Exercise a real batched dispatch.** Drain the remaining open backlog — SFT-0029,
-   SFT-0031, SFT-0033, SFT-0036 — through the new path. SFT-0031 and SFT-0033 are cluster
-   tails of already-shipped work, so at least one dispatch must carry more than one ticket
-   for the batching path to have been exercised at all. If every group degenerates to a
-   single ticket, the component is unvalidated and must be reported as such.
-4. **Verify rule 9 held under batching.** Run the roadmap consistency check and confirm it
-   exits zero. Then inspect `git log` for the batch branch and confirm each ticket has its
-   own commit containing its implementation, its archive move under the mirrored
-   `archive/<milestone>/<category>/` path, and its roadmap strike — not one commit covering
-   several tickets.
-5. **Verify the new attribution is real, not simulated.** Run `drain-log.sh report` on the
-   log produced in step 3 and confirm it names the tickets each dispatch carried, reports a
-   per-phase breakdown, and states minutes per ticket resolved. Confirm the arithmetic by
-   recomputing one dispatch's figures by hand from the epoch column.
+   passes. Record the exact test and assertion totals against the 426 tests / 1574
+   assertions / 0 failures / 2 skipped baseline.
+3. **A live batched dispatch cannot be exercised in this execution — report that, do not
+   simulate it.** The backlog drained to a single open ticket (SFT-0038) while this plan
+   was being written, and one ticket cannot form a group. The batching path is therefore
+   validated on **fixtures only**, by task 2's group-formation cases: a two-ticket group,
+   the count bound, the weight bound, a blocked member excluded, an absent `cluster` key,
+   and a malformed one. State plainly in the execution summary that no live multi-ticket
+   dispatch ran and that the wall-clock saving is consequently unmeasured. Do not
+   manufacture tickets to create a group — a batch of invented work measures nothing.
+4. **Verify rule 9 is still satisfiable under batching by reading the contract, not by
+   running one.** Confirm `roadmap-check.sh` exits zero on the live tree, and confirm the
+   ticket-agent prompt instructs one commit per ticket carrying that ticket's
+   implementation, archive move and roadmap strike together. The end-to-end proof waits for
+   a real batched drain.
+5. **Verify the new attribution computes correctly on a hand-built log.** Write a fixture
+   `RUNLOG.md` containing a two-ticket group with fixed epoch integers and phase rows, run
+   `drain-log.sh report` against it, and confirm it names both tickets, reports a per-phase
+   breakdown, and states minutes per ticket resolved. Recompute that group's figures by hand
+   from the epoch column and confirm they match. A fixed-epoch fixture is the honest
+   instrument here — the live log has no batched group in it to read.
 6. **Verify the bounded-read contract.** Confirm every `README.md` section the ticket-agent
    prompt names still exists in `README.md` and in `src/skills/sift-init/assets/README.md`,
    and that the convention-assets check reports no drift between the spec and its shipped
    mirror.
 7. **Verify no new dependency.** Confirm the portability group passes and that no new
    recipe invokes a binary outside the baseline userland without a `command -v` guard.
-8. **Report the comparison honestly.** State the before figures from step 1, the after
-   figures from step 5, the sample size, and the fact that the after-sample is biased
-   toward batching. Report the instrumentation's own cost as a separate line. If the
-   measured improvement is small or absent, report that rather than re-framing it.
+8. **Report the comparison honestly.** State the before figures from step 1 and record that
+   there are no after figures, because no live batched dispatch ran. Name what was proven
+   (group formation, bound enforcement, report arithmetic — all on fixtures) and what was
+   not (any wall-clock saving). The plan's whole premise is that the saving is measurable;
+   claiming it on fixture evidence would be the exact failure this step exists to prevent.
 
 ## Documentation
 
@@ -523,7 +532,7 @@ acceptance criteria.
 
 Each phase closes with a conventional commit per `POST_PHASE.md`. The full suite
 (`./tests/run.sh`) must exit 0 with 0 failures at every phase boundary; the baseline before
-this plan is 412 tests / 1470 assertions / 0 failures / 2 skipped.
+this plan is 426 tests / 1574 assertions / 0 failures / 2 skipped.
 
 ### Execution Summary
 - Total Phases: 3

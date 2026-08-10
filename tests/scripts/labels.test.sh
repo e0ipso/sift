@@ -414,6 +414,36 @@ assert_contains "$(cat "$DRAIN/list-labels.sh")" 'ENVIRON["SIFT_LABEL_RE"]' \
 assert_not_contains "$(cat "$DRAIN/list-labels.sh")" '-v kebab=' \
   "and no longer carries its own -v spelling of it"
 
+test_case "the warning names a ticket path holding a backslash verbatim (SFT-0037)"
+# awk's -v re-scans its argument for ANSI escapes, so a filename carrying the two
+# characters "\" and "t" arrived inside awk with a real tab in its place: the
+# warning named a file that is not on disk, and an operator sent to fix the label
+# was sent to the wrong one — the one failure mode a diagnostic must not have.
+# The path now reaches awk through ENVIRON, beside the pattern SFT-0029 moved.
+d="$(newdir)"; make_tree "$d" ACME
+p="$(ticket "$d" open v1/bug ACME-0001 'back\tick' 'Alpha' 'labels: [Foo Bar]')"
+assert_file "$p" "the fixture really carries a backslash in its name"
+labels "$d"
+named="$(printf '%s\n' "$R_ERR" | sed -n 's/^warning: \(.*\): not kebab-case.*/\1/p')"
+assert_eq "${p#"$d/"}" "$named" \
+  "the warning names the path as it is spelled on disk, not an escape-processed one"
+assert_file "$d/$named" "so the path an operator is handed resolves to a real file"
+
+test_case "no -v carries data into any awk in list-labels.sh (SFT-0037)"
+# Criterion 1, asserted mechanically over the file's runnable text rather than by
+# reading it: `-v name=` is awk's data form and the one the escape re-scan rides
+# in on, while a bare `-v` flag on some other tool is not data and stays legal.
+# Comments are stripped because the paragraph above the awk call has to be free
+# to name the construct it exists to warn about.
+code="$(grep -v '^[[:space:]]*#' "$DRAIN/list-labels.sh")"
+carriers="$(printf '%s\n' "$code" \
+  | grep -E '(^|[[:space:]])-v[[:space:]]+[A-Za-z_][A-Za-z_0-9]*=' || true)"
+assert_eq "" "$carriers" "every value reaches awk through the environment"
+assert_contains "$code" 'SIFT_LABEL_TICKET="${f#"$ROOT/"}"' \
+  "the ticket path is exported for the pass rather than passed as an argument"
+assert_contains "$code" 'ENVIRON["SIFT_LABEL_TICKET"]' \
+  "and read once in the same BEGIN block as the kebab pattern"
+
 # --- Neither script writes ---------------------------------------------------
 
 test_case "reading the label index decides nothing on disk"

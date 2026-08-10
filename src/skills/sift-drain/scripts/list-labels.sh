@@ -64,12 +64,14 @@ done < <(ticket_search_dirs $SEARCH_FLAG) | sort | while read -r f; do
   #
   # The refusal rule is lib.sh's SIFT_LABEL_RE, the same string tickets-by-label.sh
   # tests its argument against, so the warning cannot come to disagree with the
-  # lookup it names. It arrives through the environment and ENVIRON rather than
-  # -v, because -v re-scans its argument for ANSI escapes: the pattern holds no
-  # backslash today, and adding one later must not change it on the way in. Read
-  # once in BEGIN, so the sweep still spends one awk per ticket and none per label.
-  fm_labels "$f" | SIFT_LABEL_RE="$SIFT_LABEL_RE" awk -v t="${f#"$ROOT/"}" '
-    BEGIN { kebab = ENVIRON["SIFT_LABEL_RE"] }
+  # lookup it names. Both it and the ticket path arrive through the environment
+  # and ENVIRON rather than -v, because -v re-scans its argument for ANSI escapes:
+  # a path holding the two characters "\" and "t" would be named with a real tab
+  # in it, so the warning would point at a file that does not exist and send an
+  # operator to the wrong one. Both are read once in BEGIN, so the sweep still
+  # spends one awk per ticket and none per label.
+  fm_labels "$f" | SIFT_LABEL_RE="$SIFT_LABEL_RE" SIFT_LABEL_TICKET="${f#"$ROOT/"}" awk '
+    BEGIN { kebab = ENVIRON["SIFT_LABEL_RE"]; t = ENVIRON["SIFT_LABEL_TICKET"] }
     !seen[$0]++ {
       print
       if ($0 !~ kebab) {

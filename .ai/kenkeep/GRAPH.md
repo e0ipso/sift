@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:3670a7e0b86e976d53829baea82309f483f255211695783203cb07494db53384'
-node_count: 34
+nodes_hash: 'sha256:57dcd44384173b4a45349e35a1eb5e03698425144935296f0e26b781adec0ccb'
+node_count: 55
 ---
 # kenkeep Graph
 
-Total nodes: 34
+Total nodes: 55
 
 ## map-sift-drain-skill
 
@@ -88,6 +88,30 @@ Total nodes: 34
 - **tags:** sift, tickets, schemas
 - **relates_to:** map-sift-ticket-body-sections
 
+## practice-a-one-way-set-comparison-never-sees-a-withdrawal
+
+- **kind:** practice
+- **title:** A one-way set comparison never sees a withdrawal
+- **path:** practice-a-one-way-set-comparison-never-sees-a-withdrawal.md
+- **tags:** sift-init, convention, tickets
+- **relates_to:** practice-check-then-act-cp-is-not-a-create-if-absent, practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version
+
+## practice-a-roadmap-row-is-its-first-ticket-cell
+
+- **kind:** practice
+- **title:** A roadmap row is its first ticket cell, not any mention of the ID
+- **path:** practice-a-roadmap-row-is-its-first-ticket-cell.md
+- **tags:** sift, roadmap, tickets, convention
+- **relates_to:** practice-match-a-sift-ticket-id-as-a-whole-token, practice-keep-roadmap-in-sync-same-change
+
+## practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version
+
+- **kind:** practice
+- **title:** A stale document's remedy cannot live only inside the new version
+- **path:** practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version.md
+- **tags:** docs, convention, sift-init, gotcha
+- **relates_to:** practice-treat-sift-spec-edits-as-api-changes
+
 ## practice-account-for-ai-sift-being-gitignored
 
 - **kind:** practice
@@ -96,6 +120,22 @@ Total nodes: 34
 - **tags:** sift-drain, git, gotcha, search
 - **relates_to:** map-sift-drain-skill
 
+## practice-an-apostrophe-in-an-embedded-awk-comment-closes-the-shell-string
+
+- **kind:** practice
+- **title:** An apostrophe in an embedded awk comment closes the shell string
+- **path:** practice-an-apostrophe-in-an-embedded-awk-comment-closes-the-shell-string.md
+- **tags:** awk, shell, portability, gotcha, sift-drain
+- **relates_to:** practice-keep-recipes-portable-gnu-and-bsd
+
+## practice-assert-only-interleaving-invariant-properties-in-a-race-test
+
+- **kind:** practice
+- **title:** Assert only interleaving-invariant properties in a race test
+- **path:** practice-assert-only-interleaving-invariant-properties-in-a-race-test.md
+- **tags:** testing, concurrency, sift-init
+- **relates_to:** practice-prove-the-damage-before-asserting-the-guard
+
 ## practice-batch-test-authoring-at-the-wave-gate
 
 - **kind:** practice
@@ -103,6 +143,14 @@ Total nodes: 34
 - **path:** sift-drain/practice-batch-test-authoring-at-the-wave-gate.md
 - **tags:** sift-drain, testing, orchestration
 - **relates_to:** map-sift-drain-skill
+
+## practice-check-then-act-cp-is-not-a-create-if-absent
+
+- **kind:** practice
+- **title:** Check-then-act cp is not a create-if-absent
+- **path:** practice-check-then-act-cp-is-not-a-create-if-absent.md
+- **tags:** concurrency, portability, sift-init, tickets
+- **relates_to:** practice-assert-only-interleaving-invariant-properties-in-a-race-test
 
 ## practice-dedupe-sift-prime-proposals-against-open-and-archive
 
@@ -130,6 +178,14 @@ Total nodes: 34
 - **relates_to:** practice-account-for-ai-sift-being-gitignored, map-sift-init-deterministic-project-root-gate-and-tree-materialization
 - **derived_from:** 0784ce94-7d65-4e60-92d2-a0044e4045b0:practice:1
 
+## practice-give-a-reports-own-state-a-key-the-echoed-data-cannot-collide-with
+
+- **kind:** practice
+- **title:** Give a report's own state a key the echoed data cannot collide with
+- **path:** practice-give-a-reports-own-state-a-key-the-echoed-data-cannot-collide-with.md
+- **tags:** sift-drain, cli, convention
+- **relates_to:** map-sift-drain-skill
+
 ## practice-ground-sift-prime-proposals-in-goal-gap-evidence-with-citations
 
 - **kind:** practice
@@ -138,6 +194,29 @@ Total nodes: 34
 - **tags:** sift-prime, tickets, evidence
 - **relates_to:** map-sift-prime-the-skill-that-fills-a-sift-backlog, practice-write-atomic-evidence-based-tickets
 - **derived_from:** 5448174b-fef4-4061-9f43-64dad9c0fad7:practice:2
+
+## practice-guard-a-recipe-before-its-first-write-not-its-last
+
+- **kind:** practice
+- **title:** Guard a recipe before its first write, not before its last
+- **path:** practice-guard-a-recipe-before-its-first-write-not-its-last.md
+- **tags:** sift, shell, cookbook, convention
+- **relates_to:** practice-treat-sift-spec-edits-as-api-changes, practice-move-tickets-and-edit-front-matter-together
+
+## practice-guard-an-unmatched-glob-with-a-d-test-never-nullglob
+
+- **kind:** practice
+- **title:** Guard an unmatched glob with a -d/-f test, never nullglob
+- **path:** practice-guard-an-unmatched-glob-with-a-d-test-never-nullglob.md
+- **tags:** portability, shell, gotcha, sift, convention
+- **relates_to:** practice-keep-recipes-portable-gnu-and-bsd
+
+## practice-honour-with-a-second-loop-never-a-bare-break
+
+- **kind:** practice
+- **title:** Honour -- with a second loop, never a bare break
+- **path:** practice-honour-with-a-second-loop-never-a-bare-break.md
+- **tags:** shell, cli, sift-drain, gotcha, portability
 
 ## practice-keep-recipes-portable-gnu-and-bsd
 
@@ -155,6 +234,14 @@ Total nodes: 34
 - **tags:** sift, tickets, roadmap
 - **relates_to:** practice-move-tickets-and-edit-front-matter-together
 
+## practice-match-a-sift-ticket-id-as-a-whole-token
+
+- **kind:** practice
+- **title:** Match a sift ticket ID as a whole token, never as a substring
+- **path:** practice-match-a-sift-ticket-id-as-a-whole-token.md
+- **tags:** sift, tickets, convention, cookbook
+- **relates_to:** practice-keep-recipes-portable-gnu-and-bsd, practice-never-renumber-or-reuse-a-ticket-id
+
 ## practice-move-tickets-and-edit-front-matter-together
 
 - **kind:** practice
@@ -171,6 +258,14 @@ Total nodes: 34
 - **tags:** sift-prime, orchestration, agents
 - **relates_to:** map-sift-prime-the-skill-that-fills-a-sift-backlog, practice-orchestrate-sift-drain-never-implement, practice-keep-roadmap-in-sync-same-change, practice-never-renumber-or-reuse-a-ticket-id
 - **derived_from:** 5448174b-fef4-4061-9f43-64dad9c0fad7:practice:3
+
+## practice-neutralise-greps-no-match-status-with-exit-code-1-not-true
+
+- **kind:** practice
+- **title:** Neutralise grep's no-match status with `|| [ $? -eq 1 ]`, never `|| true`
+- **path:** practice-neutralise-greps-no-match-status-with-exit-code-1-not-true.md
+- **tags:** portability, shell, gotcha, sift, convention
+- **relates_to:** practice-keep-recipes-portable-gnu-and-bsd
 
 ## practice-never-push-or-file-upstream-during-a-drain
 
@@ -220,6 +315,38 @@ Total nodes: 34
 - **tags:** sift-drain, orchestration, agents
 - **relates_to:** map-sift-drain-skill
 
+## practice-prove-a-rewrite-left-the-rest-of-the-file-alone-with-diff
+
+- **kind:** practice
+- **title:** Prove a rewrite left the rest of the file alone with diff
+- **path:** practice-prove-a-rewrite-left-the-rest-of-the-file-alone-with-diff.md
+- **tags:** testing, shell, sift, gotcha, convention
+- **relates_to:** map-sift-test-suite-runs-the-readme-recipes-themselves
+
+## practice-prove-the-damage-before-asserting-the-guard
+
+- **kind:** practice
+- **title:** Prove the damage before asserting the guard
+- **path:** practice-prove-the-damage-before-asserting-the-guard.md
+- **tags:** testing, security, sift-init
+- **relates_to:** practice-tree-digest-cannot-see-an-empty-directory
+
+## practice-publish-a-staged-write-with-ln-and-restore-the-umask-mode
+
+- **kind:** practice
+- **title:** Publish a staged write with ln, and restore the umask mode
+- **path:** practice-publish-a-staged-write-with-ln-and-restore-the-umask-mode.md
+- **tags:** portability, concurrency, sift-init
+- **relates_to:** practice-check-then-act-cp-is-not-a-create-if-absent
+
+## practice-report-nothing-to-compare-as-its-own-finding
+
+- **kind:** practice
+- **title:** Report "nothing to compare" as its own finding, never as agreement
+- **path:** practice-report-nothing-to-compare-as-its-own-finding.md
+- **tags:** sift, shell, gotcha, cookbook, convention
+- **relates_to:** practice-scope-front-matter-rewrites-to-the-fence, practice-neutralise-greps-no-match-status-with-exit-code-1-not-true
+
 ## practice-resolve-the-sift-project-root-with-tier-a-b-c
 
 - **kind:** practice
@@ -238,6 +365,14 @@ Total nodes: 34
 - **relates_to:** map-sift-drain-skill
 - **derived_from:** 3d98e758-6e1e-49bc-9ac8-e90500ee56bb:practice:0
 
+## practice-scope-front-matter-rewrites-to-the-fence
+
+- **kind:** practice
+- **title:** Scope a front-matter rewrite to the fence, not just to the line start
+- **path:** practice-scope-front-matter-rewrites-to-the-fence.md
+- **tags:** sift, shell, gotcha, cookbook, convention
+- **relates_to:** practice-never-write-data-through-a-sed-replacement-text, practice-move-tickets-and-edit-front-matter-together
+
 ## practice-sift-drain-sub-agents-decide-for-themselves
 
 - **kind:** practice
@@ -255,6 +390,14 @@ Total nodes: 34
 - **relates_to:** map-sift-prime-the-skill-that-fills-a-sift-backlog
 - **derived_from:** 5448174b-fef4-4061-9f43-64dad9c0fad7:practice:0
 
+## practice-strip-a-uniq-c-count-off-the-front-never-read-it-as-a-field
+
+- **kind:** practice
+- **title:** Strip a uniq -c count off the front of the line, never read it as a field
+- **path:** practice-strip-a-uniq-c-count-off-the-front-never-read-it-as-a-field.md
+- **tags:** portability, shell, gotcha, sift
+- **relates_to:** practice-keep-recipes-portable-gnu-and-bsd
+
 ## practice-surface-every-self-filed-ticket-and-honest-progress
 
 - **kind:** practice
@@ -262,6 +405,14 @@ Total nodes: 34
 - **path:** sift-drain/practice-surface-every-self-filed-ticket-and-honest-progress.md
 - **tags:** sift-drain, reporting, orchestration
 - **relates_to:** practice-orchestrate-sift-drain-never-implement
+
+## practice-the-collated-range-scan-targets-globs-not-usage-strings
+
+- **kind:** practice
+- **title:** The collated-range scan targets globs, not every bracket in the text
+- **path:** practice-the-collated-range-scan-targets-globs-not-usage-strings.md
+- **tags:** portability, shell, testing, gotcha, sift
+- **relates_to:** practice-never-write-a-z-glob-ranges-in-shell-validation, map-sift-test-suite-runs-the-readme-recipes-themselves
 
 ## practice-treat-sift-spec-edits-as-api-changes
 
@@ -278,6 +429,22 @@ Total nodes: 34
 - **path:** sift-drain/practice-treat-the-dev-environment-as-shared.md
 - **tags:** sift-drain, testing, safety
 - **relates_to:** practice-batch-test-authoring-at-the-wave-gate
+
+## practice-tree-digest-cannot-see-an-empty-directory
+
+- **kind:** practice
+- **title:** tree_digest cannot see an empty directory
+- **path:** practice-tree-digest-cannot-see-an-empty-directory.md
+- **tags:** testing, shell, sift, gotcha, convention
+- **relates_to:** practice-prove-a-rewrite-left-the-rest-of-the-file-alone-with-diff, map-sift-test-suite-runs-the-readme-recipes-themselves
+
+## practice-wrap-a-cookbook-recipe-in-a-subshell-never-bash-e-c
+
+- **kind:** practice
+- **title:** Wrap a cookbook recipe in a subshell, never in bash -e -c
+- **path:** practice-wrap-a-cookbook-recipe-in-a-subshell-never-bash-e-c.md
+- **tags:** sift, shell, cookbook, awk, gotcha
+- **relates_to:** practice-guard-a-recipe-before-its-first-write-not-its-last, practice-an-apostrophe-in-an-embedded-awk-comment-closes-the-shell-string
 
 ## practice-write-atomic-evidence-based-tickets
 

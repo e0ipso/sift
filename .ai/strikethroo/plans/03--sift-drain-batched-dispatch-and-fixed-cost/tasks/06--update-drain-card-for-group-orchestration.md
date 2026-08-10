@@ -2,7 +2,7 @@
 id: 6
 group: "drain-card"
 dependencies: [1, 2, 4]
-status: "pending"
+status: "completed"
 created: 2026-08-10
 skills:
   - prompt-engineering

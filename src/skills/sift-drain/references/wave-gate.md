@@ -4,9 +4,9 @@ The gate runs after the last ticket of a wave merges and before the first ticket
 next wave is dispatched. It is the **only** place full suites execute.
 
 Order: e2e specialist first (it exercises the real product and surfaces the integration
-fallout unit-level tests miss), then batch coverage, then fix agents, then the close. One
-agent may carry the batch coverage **and** the close; the e2e specialist always runs alone,
-first.
+fallout unit-level tests miss), then batch coverage, then fix agents, then the wave's one
+knowledge-capture pass, then the close. One agent may carry the batch coverage **and** the
+close; the e2e specialist always runs alone, first.
 
 ## Rules for every gate agent
 
@@ -24,8 +24,8 @@ State these in each prompt — they are what keep the gate trustworthy:
   base, or the manifests; verify named paths against the live tree.
 - Never `git push`; never edit the sift-drain skill's files; never file anything on an
   external tracker — an upstream proposal becomes a `type: dx` sift ticket.
-- Capture durable knowledge at the end if the project has a capture skill; resolve curation
-  conflicts conservatively, without pausing for user input.
+- **Do not capture durable knowledge.** Capture happens once per wave, in the pass below,
+  and an agent that also runs it fragments the wave into competing entries.
 
 ## 1. E2E specialist agent
 
@@ -152,7 +152,52 @@ REPORT (only this):
   tickets filed: <IDs> | none
 ```
 
-## 4. Closing the wave
+## 4. Knowledge capture — once, for the whole wave
+
+Run exactly one capture pass here, after the last fix agent merges and before the wave
+summary, over the sub-agent reports the wave collected. This is the **only** place a drain
+captures knowledge: neither ticket agents nor the gate agents above do it. The candidates
+arrive on each report's `deferred to the wave gate:` line, which carries durable knowledge
+alongside the waived criteria — a ticket agent names what it learned and this pass decides
+what survives the wave.
+
+The reason a future editor needs: a per-ticket agent can only see its own dispatch, so it
+writes what was true mid-wave and the rest of the wave then overtakes it — three of the last
+drain's captured nodes were stale on arrival for exactly that. One pass that has read every
+report writes fewer entries and fewer wrong ones.
+
+Skip it if the project has no knowledge-base capture skill; say so in the summary rather
+than silently omitting it.
+
+```
+You are the knowledge-capture pass closing Wave {{WAVE}} of the sift roadmap in
+{{PROJECT_ROOT}}. Every ticket of this wave has merged and the gate is green.
+
+WAVE {{WAVE}} REPORTS (their `deferred to the wave gate:` lines name the candidates):
+{{COLLECTED_SUB_AGENT_REPORTS}}
+
+TASK
+Run the project's knowledge-base capture skill ONCE over the material above, for the wave
+as a whole. Capture what stays true after this wave: conventions, gotchas that cost an
+agent real time, and named things that now exist. Do not capture ticket-by-ticket
+narration, and do not capture a fact one later ticket of this same wave has already
+overtaken — you can see the whole wave, which is precisely why this runs here.
+
+Resolve any curation conflict YOURSELF, conservatively: prefer the live tree and the newest
+user directives over an older entry's claim. Never pause for user input. Zero durable
+candidates from a routine wave is a valid outcome, not a failure.
+
+Verify against the live tree before writing an entry that names a path, a command or an
+interface. Never `git push`; never edit the sift-drain skill's files.
+
+REPORT (only this):
+  status: done | blocked
+  summary: <one paragraph: what the wave taught that outlives it>
+  entries captured: <one line each> | none
+  conflicts resolved: <older claim -> what the live tree says> | none
+```
+
+## 5. Closing the wave
 
 The wave closes only when **all** full runs are green, with exact totals. Re-run them after
 the last fix agent merges — a fix agent only re-ran what its root cause touched.

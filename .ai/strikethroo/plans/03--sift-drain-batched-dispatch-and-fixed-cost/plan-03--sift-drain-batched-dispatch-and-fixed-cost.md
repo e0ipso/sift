@@ -539,10 +539,20 @@ repository-agnostic.*
 *Single task by necessity:* the spec describes the shapes tasks 001 and 002 implement, and
 is read by both Phase 3 tasks.
 
-### Phase 3: Orchestration prose
+### ✅ Phase 3: Orchestration prose
 **Parallel Tasks:**
-- Task 005: Rewrite the canonical ticket-agent prompt for group dispatch, bounded reads and phase stamps (depends on: 001, 002, 004)
-- Task 006: Update the sift-drain card for group orchestration and gate-level knowledge capture (depends on: 001, 002, 004)
+- ✔️ Task 005: Rewrite the canonical ticket-agent prompt for group dispatch, bounded reads and phase stamps (depends on: 001, 002, 004) — `completed`
+- ✔️ Task 006: Update the sift-drain card for group orchestration and gate-level knowledge capture (depends on: 001, 002, 004) — `completed`
+
+*Closed 2026-08-10 against an independently re-run suite: 455 tests, 1714 assertions,
+0 failures, 2 skipped, exit 0 — the count rose by the new contract test file, so it was
+picked up. Verified beyond the agents' reports: the intra-wave-parallelism rejection appears
+in the diff as unchanged context rather than as a `+`/`-` line, so it survived byte-identically;
+`STEP 9` is gone from the prompt and per-agent capture is replaced by an explicit
+prohibition in `wave-gate.md` with the pass relocated to gate section 4; the surviving
+`{{TICKET_ID}}`/`{{TICKET_PATH}}` placeholders are scoped to the blocked-marking
+sub-template, not stale single-ticket leftovers; and `README.md` is byte-identical to its
+committed state despite a task-5 out-of-band edit (see Noteworthy Events).*
 
 *Parallel-safe:* 005 owns `references/ticket-agent-prompt.md` plus a new test file, 006 owns
 `SKILL.md`, `references/wave-gate.md` and `references/run-management.md`. Their one shared

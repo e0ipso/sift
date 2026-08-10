@@ -20,6 +20,29 @@ rule:
   job is to check branches and `git log` for the ID and verify the behaviour live, then
   finish the bookkeeping rather than redo the work.
 
+### Grouping happens after the lead is chosen
+
+`next-ticket.sh --group` changes none of the above. The script proposes a **lead** by
+roadmap order and then widens the dispatch with tickets carrying that lead's `cluster`
+value. The priority rules stay yours, and they apply to the lead exactly as they did when a
+dispatch carried a single ticket: priority decides who goes next, `cluster` only decides
+who rides along.
+
+The failure to watch for is a group used as a queue-jumping device. A member joins a lead;
+it never earns a position of its own. So:
+
+- **A group never pulls a low-priority ticket ahead of a p1.** When priority makes you
+  override the script's lead, the override wins and the group forms around the ticket you
+  chose. A p4 must never reach the front of the run by sharing a `cluster` with something
+  that did.
+- **When the two disagree, drop the member, not the priority.** If honouring priority
+  leaves you unable to determine a group — you overrode the lead and the script's group was
+  built around a different one — dispatch that ticket alone. Batching is an optimisation;
+  the priority rule is a commitment, and an optimisation never overrides one.
+- **A group never crosses a wave boundary**, for the same reason the gate exists. That
+  bound is in the spec's dispatch-group section, along with the size limits — the script
+  enforces both, and you do not re-derive them here.
+
 ## The roadmap moves underneath you
 
 `.ai/sift` is commonly gitignored, so the tracker has no history and no diff. The user and
@@ -67,7 +90,8 @@ touches an external tracker.
 ## Reporting to the user
 
 - **One line per ticket**, immediately after the agent returns: ID, what landed,
-  verification headline, wave position.
+  verification headline, wave position. A dispatch that carried a group gets one line per
+  ticket in it, each with that ticket's own outcome — never one line for the group.
 - **Every self-filed ticket, surfaced explicitly and prominently.** Every time, even when
   the same IDs were mentioned a moment earlier. The user's oversight of the backlog depends
   on it.

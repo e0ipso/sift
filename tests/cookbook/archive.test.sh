@@ -43,7 +43,7 @@ roadmap_row "$d" 2 SFT-0042 'tenant caching & sharding \| batching [x]' 'SFT-004
 roadmap_row "$d" 3 SFT-0043 'Later thing' 'SFT-0042'
 before="$d/roadmap.before"; roadmap "$d" > "$before"
 
-archive "$d" SFT-0042 done 'Fixed in commit abc1234'
+archive "$d" SFT-0042 'done' 'Fixed in commit abc1234'
 after="$(roadmap "$d")"
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--tenant-caching.md"
 
@@ -69,7 +69,7 @@ d="$(newdir)"; make_tree "$d"
 ticket "$d" open backlog/bug SFT-0042 orphan 'Orphan' > /dev/null
 roadmap_row "$d" 1 SFT-0041 'Someone else' '-'
 before="$d/roadmap.before"; roadmap "$d" > "$before"
-archive "$d" SFT-0042 done 'Fixed'
+archive "$d" SFT-0042 'done' 'Fixed'
 assert_ne 0 "$R_STATUS" "exits non-zero"
 assert_contains "$R_ERR" '0 rows for SFT-0042, expected exactly 1' "reports the row count"
 assert_contains "$R_ERR" 'ROADMAP NOT UPDATED for SFT-0042' "tells the operator what to fix"
@@ -84,7 +84,7 @@ printf '\n## Wave 2\n\n| # | Ticket | Title | Needs |\n|---|---|---|---|\n' \
   >> "$d/.ai/sift/ROADMAP.md"
 roadmap_row "$d" 1 SFT-0042 'Dupe again' '-'
 before="$d/roadmap.before"; roadmap "$d" > "$before"
-archive "$d" SFT-0042 done 'Fixed'
+archive "$d" SFT-0042 'done' 'Fixed'
 assert_ne 0 "$R_STATUS" "exits non-zero"
 assert_contains "$R_ERR" '2 rows for SFT-0042, expected exactly 1' "reports the ambiguity"
 assert_eq 0 "$(changed_lines "$before" "$d")" "ROADMAP.md is byte-identical"
@@ -94,7 +94,7 @@ d="$(newdir)"; make_tree "$d"
 ticket "$d" open backlog/bug SFT-0042 again 'Again' > /dev/null
 roadmap_row "$d" 1 '~~SFT-0042~~' '~~Again~~ — done' '-'
 before="$d/roadmap.before"; roadmap "$d" > "$before"
-archive "$d" SFT-0042 done 'Fixed twice'
+archive "$d" SFT-0042 'done' 'Fixed twice'
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_contains "$R_ERR" 'SFT-0042 is already struck' "says so on stderr"
 assert_eq 0 "$(changed_lines "$before" "$d")" "ROADMAP.md is byte-identical"
@@ -106,7 +106,7 @@ ticket "$d" open backlog/bug SFT-0042 short 'Short id' > /dev/null
 ticket "$d" open backlog/bug SFT-00420 long 'Long id' > /dev/null
 roadmap_row "$d" 1 SFT-00420 'Long id' '-'
 roadmap_row "$d" 2 SFT-0042 'Short id' '-'
-archive "$d" SFT-0042 done 'Fixed'
+archive "$d" SFT-0042 'done' 'Fixed'
 after="$(roadmap "$d")"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_contains "$after" '| 1 | SFT-00420 | Long id | - |' "the longer ID's row is untouched"
@@ -118,7 +118,7 @@ ticket "$d" open backlog/bug SFT-0042 prose 'Prose' > /dev/null
 printf '\nSFT-0042 is discussed in the notes above.\n\n' >> "$d/.ai/sift/ROADMAP.md"
 roadmap_row "$d" 1 SFT-0042 'Prose' '-'
 before="$d/roadmap.before"; roadmap "$d" > "$before"
-archive "$d" SFT-0042 done 'Fixed'
+archive "$d" SFT-0042 'done' 'Fixed'
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq 2 "$(changed_lines "$before" "$d")" "only the table row changed"
 assert_contains "$(roadmap "$d")" 'SFT-0042 is discussed in the notes above.' \
@@ -133,7 +133,7 @@ printf '\n## Wave 2\n\n| # | Ticket | Title | Needs |\n|---|---|---|---|\n' \
   >> "$d/.ai/sift/ROADMAP.md"
 roadmap_row "$d" 1 SFT-0050 'Wave two work' 'SFT-0042'
 before="$d/roadmap.before"; roadmap "$d" > "$before"
-archive "$d" SFT-0050 done 'Fixed'
+archive "$d" SFT-0050 'done' 'Fixed'
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq 2 "$(changed_lines "$before" "$d")" "one line in wave 2, nothing in wave 1"
 assert_contains "$(roadmap "$d")" '| ~~SFT-0050~~ | ~~Wave two work~~ — done | SFT-0042 |' \
@@ -158,7 +158,7 @@ d="$(newdir)"; make_tree "$d"
 f="$(ticket "$d" open backlog/bug SFT-0042 nores 'No resolution key')"
 assert_eq 0 "$(grep -c '^resolution:' "$f")" "the fixture starts without the key"
 roadmap_row "$d" 1 SFT-0042 'No resolution key' '-'
-archive "$d" SFT-0042 done 'Landed'
+archive "$d" SFT-0042 'done' 'Landed'
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--nores.md"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq 1 "$(grep -c '^resolution:' "$dest")" "exactly one resolution key"
@@ -169,7 +169,7 @@ test_case "an empty resolution line is rewritten in place"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open backlog/bug SFT-0042 empty 'Empty resolution' 'resolution: ""' > /dev/null
 roadmap_row "$d" 1 SFT-0042 'Empty resolution' '-'
-archive "$d" SFT-0042 done 'Filled in'
+archive "$d" SFT-0042 'done' 'Filled in'
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--empty.md"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq 1 "$(grep -c '^resolution:' "$dest")" "still exactly one resolution key"
@@ -180,7 +180,7 @@ d="$(newdir)"; make_tree "$d"
 ticket "$d" open backlog/bug SFT-0042 specials 'Specials' > /dev/null
 roadmap_row "$d" 1 SFT-0042 'Specials' '-'
 special='Fixed & shipped | see s/foo/bar/ [x] \1 in a&b'
-archive "$d" SFT-0042 done "$special"
+archive "$d" SFT-0042 'done' "$special"
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--specials.md"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "\"$special\"" "$(fm "$dest" resolution)" "& | [ / and \\1 are all preserved"
@@ -190,7 +190,7 @@ d="$(newdir)"; make_tree "$d"
 f="$(ticket "$d" open backlog/bug SFT-0042 refuse 'Refuse')"
 roadmap_row "$d" 1 SFT-0042 'Refuse' '-'
 digest_before="$(tree_digest "$d/.ai/sift")"
-archive "$d" SFT-0042 done ''
+archive "$d" SFT-0042 'done' ''
 assert_ne 0 "$R_STATUS" "exits non-zero"
 assert_contains "$R_ERR" 'archive: RESOLUTION must be non-empty' "explains why"
 assert_file "$f" "the ticket is still in open/"
@@ -205,7 +205,7 @@ d="$(newdir)"; make_tree "$d"
 ticket "$d" open backlog/bug SFT-0001 present 'Present' > /dev/null
 roadmap_row "$d" 1 SFT-0001 'Present' '-'
 digest_before="$(tree_digest "$d/.ai/sift")"
-archive "$d" SFT-0042 done 'Fixed in commit abc1234'
+archive "$d" SFT-0042 'done' 'Fixed in commit abc1234'
 assert_ne 0 "$R_STATUS" "exits non-zero"
 assert_contains "$R_ERR" 'archive: no ticket matching SFT-0042' "one line, naming the ID"
 assert_not_contains "$R_ERR" 'no front-matter found' "it does not blame a missing file's contents"
@@ -222,7 +222,7 @@ ticket "$d" open backlog/bug SFT-0042 one 'One' > /dev/null
 ticket "$d" open platform/bug SFT-0042 two 'Two' > /dev/null
 roadmap_row "$d" 1 SFT-0042 'One' '-'
 digest_before="$(tree_digest "$d/.ai/sift")"
-archive "$d" SFT-0042 done 'Fixed'
+archive "$d" SFT-0042 'done' 'Fixed'
 assert_ne 0 "$R_STATUS" "exits non-zero"
 assert_contains "$R_ERR" 'archive: SFT-0042 does not match exactly one ticket' \
   "says which ID is ambiguous"
@@ -232,9 +232,9 @@ test_case "a second archiving pass does not duplicate the key"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open backlog/bug SFT-0042 twice 'Twice' > /dev/null
 roadmap_row "$d" 1 SFT-0042 'Twice' '-'
-archive "$d" SFT-0042 done 'First pass'
+archive "$d" SFT-0042 'done' 'First pass'
 mv "$d/.ai/sift/archive/backlog/bug/SFT-0042--twice.md" "$d/.ai/sift/open/backlog/bug/"
-archive "$d" SFT-0042 done 'Second pass'
+archive "$d" SFT-0042 'done' 'Second pass'
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--twice.md"
 assert_eq 0 "$R_STATUS" "exits 0 (the row is already struck, which is a no-op)"
 assert_eq 1 "$(grep -c '^resolution:' "$dest")" "still exactly one resolution key"
@@ -247,7 +247,7 @@ bare="$d/.ai/sift/open/backlog/bug/SFT-0042--bare.md"
 printf '# Just a heading\n\nNo front matter here.\nstatus: quoted in prose.\n' > "$bare"
 before="$d/bare.before"; cp "$bare" "$before"
 roadmap_row "$d" 1 SFT-0042 'Bare' '-'
-archive "$d" SFT-0042 done 'Landed'
+archive "$d" SFT-0042 'done' 'Landed'
 assert_ne 0 "$R_STATUS" "exits non-zero"
 assert_contains "$R_ERR" 'no front-matter found to hold resolution' "names the missing field"
 assert_file "$bare" "the ticket is not archived"
@@ -277,7 +277,7 @@ f="$(ticket "$d" open backlog/bug SFT-0042 prose 'Prose ticket')"
 body() { awk 'p { print } /^---[[:space:]]*$/ && NR > 1 && !p { p = 1 }' "$1"; }
 before="$d/body.before"; body "$f" > "$before"
 roadmap_row "$d" 1 SFT-0042 'Prose ticket' '-'
-archive "$d" SFT-0042 done 'Landed'
+archive "$d" SFT-0042 'done' 'Landed'
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--prose.md"
 after="$d/body.after"; body "$dest" > "$after"
 assert_eq 0 "$R_STATUS" "exits 0"
@@ -308,7 +308,7 @@ f="$(ticket "$d" open backlog/bug SFT-0042 spaced 'Spaced fence')"
 space_the_fence "$f"
 assert_eq 2 "$(grep -c '^--- $' "$f")" "the fixture really carries the trailing spaces"
 roadmap_row "$d" 1 SFT-0042 'Spaced fence' '-'
-archive "$d" SFT-0042 done 'Landed despite the stray space'
+archive "$d" SFT-0042 'done' 'Landed despite the stray space'
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--spaced.md"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_not_contains "$R_ERR" 'no front-matter found' "it does not deny front matter it can see"
@@ -339,7 +339,7 @@ space_the_fence "$f"
 } >> "$f"
 before="$d/body.before"; body "$f" > "$before"
 roadmap_row "$d" 1 SFT-0042 'Rules in the body' '-'
-archive "$d" SFT-0042 done 'Landed'
+archive "$d" SFT-0042 'done' 'Landed'
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--rules.md"
 after="$d/body.after"; body "$dest" > "$after"
 assert_eq 0 "$R_STATUS" "exits 0"
@@ -356,7 +356,7 @@ matrix_case() {
   d="$(newdir)"; make_tree "$d"
   ticket "$d" open backlog/bug SFT-0042 tenant 'tenant caching & sharding' > /dev/null
   roadmap_row "$d" 1 SFT-0042 'tenant caching & sharding' '-'
-  archive "$d" SFT-0042 done 'Fixed & done'
+  archive "$d" SFT-0042 'done' 'Fixed & done'
   local dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--tenant.md"
   if [ "$R_STATUS" -eq 0 ] &&
      [ "$(fm "$dest" resolution)" = '"Fixed & done"' ] &&
@@ -377,7 +377,7 @@ missing_case() {
   ticket "$d" open backlog/bug SFT-0001 present 'Present' > /dev/null
   roadmap_row "$d" 1 SFT-0001 'Present' '-'
   digest="$(tree_digest "$d/.ai/sift")"
-  archive "$d" SFT-0042 done 'Fixed'
+  archive "$d" SFT-0042 'done' 'Fixed'
   if [ "$R_STATUS" -ne 0 ] &&
      [ "$digest" = "$(tree_digest "$d/.ai/sift")" ] &&
      printf '%s\n' "$R_ERR" | grep -q 'archive: no ticket matching SFT-0042'

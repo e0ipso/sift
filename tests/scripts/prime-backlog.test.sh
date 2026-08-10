@@ -357,6 +357,22 @@ assert_eq "| 2 | ACME-0002 | Two |  |" "$(grep -F '| Two |' "$(roadmap "$d")")" 
   "in the documented shape"
 assert_eq 0 "$(removed_lines "$before" "$d")" "and the row that named it is untouched"
 
+test_case "a glued cell to the left does not hide the row beside it (SFT-0031)"
+# The writer half of the same left-edge rule. The guard picked the first cell the
+# PATTERN matched anywhere and only then asked what ID that cell held, so a
+# mistyped XACME-0001 in the ticket column hid the real ACME-0002 cell next to
+# it: the guard saw no row, appended a second one, and roadmap-check.sh failed
+# naming a duplicate. The drain reader had been reporting that row all along.
+d="$(newdir)"; make_tree "$d" ACME
+printf '| 1 | XACME-0001 | ACME-0002 | Two | - |\n' >> "$(roadmap "$d")"
+before="$(snapshot "$d")"
+append "$d" 1 ACME-0002 'Two again' ''
+assert_eq 1 "$R_STATUS" "the shadowed cell still owns the row"
+assert_contains "$R_ERR" 'error: ACME-0002 already has a row' "named in the refusal"
+assert_same "$before" "$(roadmap "$d")" "and nothing is appended"
+append "$d" 1 ACME-0001 'One' ''
+assert_eq 0 "$R_STATUS" "while the ID the typo mangled has no row at all"
+
 test_case "an ID named only in a Title cell, or in prose, is not a duplicate"
 # Same rule, the other two places an ID can be written without owning a row: a
 # title that cross-references one, and a sentence under the table.
@@ -500,5 +516,61 @@ assert_eq 0 "$R_STATUS" "wave-status.sh reads the roadmap"
 assert_contains "$(printf '%s\n' "$R_OUT" | tr -s ' ')" \
   ' 1 ACME-0001 [p2/m/open] Cache \t tenant lookups' \
   "and recovers the whole title, with the backslash-t intact"
+
+# --- One rule, asserted from both ends ---------------------------------------
+
+# reader_rows <root> — every ID the sift-drain reader reports as a row. Driven
+# through roadmap-check.sh rather than by sourcing lib.sh, so the reader is
+# exercised through a real command line: in a tree with no ticket files at all,
+# it names each row it found on a "+ STALE IN ROADMAP" line and nothing else.
+reader_rows() {
+  run_cmd "$1" env SIFT_ROOT="$1" "$DRAIN/roadmap-check.sh"
+  printf '%s\n' "$R_OUT" |
+    sed -n 's/^+ STALE IN ROADMAP: \([^ ][^ ]*\) .*/\1/p' | LC_ALL=C sort
+}
+
+# writer_rows <root> <ID…> — every candidate the append guard calls a duplicate.
+# The roadmap is restored from a copy kept outside the tree after each probe, so
+# an ID the guard lets through cannot change what the next probe reads.
+writer_rows() {
+  local root="$1"; shift
+  local keep id
+  keep="$(snapshot "$root")"
+  for id in "$@"; do
+    append "$root" 1 "$id" 'Probe' ''
+    [ "$R_STATUS" -eq 1 ] && printf '%s\n' "$id"
+    cp "$keep" "$(roadmap "$root")"
+  done | LC_ALL=C sort
+}
+
+test_case "the reader and the writer classify every cell of one table alike"
+# The two cards meet at "what is a row" and nowhere else, and they ship
+# separately, so a divergence is invisible until a tree is already wrong: the
+# reader says an ID has a row, the writer says it has none and appends a second,
+# and roadmap-check.sh reports a duplicate neither of them meant to make
+# (SFT-0031). One table carries every cell shape the rule has ever been argued
+# over — plain, glued to a word, glued but shadowing a real cell beside it,
+# struck, five digits, a Needs mention, trailing junk, and a line of prose — and
+# both cards are asked about every ID named anywhere in it.
+d="$(newdir)"; make_tree "$d" ACME
+{
+  printf '| 1 | ACME-0001 | Plain | - |\n'
+  printf '| 2 | XACME-0002 | Glued to a word | - |\n'
+  printf '| 3 | XACME-0003 | ACME-0004 | Shadowed | - |\n'
+  printf '| 4 | ~~ACME-0005~~ | ~~Struck~~ — done |  |\n'
+  printf '| 5 | ACME-00011 | Five digits | - |\n'
+  printf '| 6 | ACME-0006 | Six | ACME-0007 |\n'
+  printf '| 7 | ACME-0008x | Trailing junk | - |\n'
+  printf '\nSee ACME-0009 for background.\n'
+} >> "$(roadmap "$d")"
+want="$(printf '%s\n' ACME-0001 ACME-0004 ACME-0005 ACME-0006 ACME-0008 ACME-00011 |
+  LC_ALL=C sort)"
+got_reader="$(reader_rows "$d")"
+got_writer="$(writer_rows "$d" \
+  ACME-0001 ACME-0002 ACME-0003 ACME-0004 ACME-0005 \
+  ACME-0006 ACME-0007 ACME-0008 ACME-0009 ACME-00011)"
+assert_eq "$want" "$got_reader" "the reader reports exactly the whole-token ticket cells"
+assert_eq "$want" "$got_writer" "the writer refuses exactly the same set as duplicates"
+assert_eq "$got_reader" "$got_writer" "so neither card sees a row the other does not"
 
 summary

@@ -277,6 +277,57 @@ for cell in 'SFT-0001x' 'SFT-0001-2'; do
     "$cell: still owns the row for SFT-0001"
 done
 
+test_case "a cell whose ID is glued to a longer word holds no ID (SFT-0031)"
+# The left edge of the same whole-token rule, and the one direction in which the
+# writer was more permissive than the reader believed: roadmap_rows took
+# substr($cell, RSTART, RLENGTH) from a bare match(), so XSFT-0001 read as a row
+# for SFT-0001 while roadmap-append.sh saw none and appended a second, real one.
+# This check was where it surfaced, as a DUPLICATE blaming a cell nobody wrote.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'One' > /dev/null
+roadmap_row "$d" 1 XSFT-0001 'Typo cell' '-'
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_contains "$R_OUT" '- MISSING FROM ROADMAP: SFT-0001' "the ticket really has no row"
+assert_contains "$R_OUT" '0 roadmap rows' "and the malformed cell is not one"
+assert_not_contains "$R_OUT" 'STALE IN ROADMAP' "nor is a row invented from it"
+
+test_case "a glued cell does not shadow the real ticket cell to its right"
+# Tightening the pattern alone leaves this: the cell-selection loop chose the
+# first cell the pattern matched ANYWHERE, so the typo kept the row and the
+# ticket beside it was reported missing. The row belongs to the first cell that
+# HOLDS an ID.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0002 two 'Two' > /dev/null
+printf '| 1 | XSFT-0001 | SFT-0002 | Two | - |\n' >> "$d/.ai/sift/ROADMAP.md"
+check "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_contains "$R_OUT" 'OK: 1 roadmap rows / 1 ticket files' "the row is the SFT-0002 cell"
+
+test_case "a struck cell still holds its ID, and still reads as struck"
+# The guard against over-tightening that left edge: "~" is not alphanumeric, so
+# ~~SFT-0001~~ is a whole token. A guard reading "preceded by anything" would
+# unstrike every finished row in the file at once, and this check is the only
+# thing that would ever say so.
+d="$(newdir)"; make_tree "$d"
+archived "$d" SFT-0001 one 'One'
+struck_row "$d" 1 SFT-0001 'One'
+check "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_contains "$R_OUT" 'OK: 1 roadmap rows / 1 ticket files' "the struck cell is still a row"
+assert_not_contains "$R_OUT" 'ARCHIVED BUT NOT STRUCK' "and is still read as struck"
+
+test_case "an ID at the first character of its cell still holds the row"
+# There is no character before RSTART 1, and substr(cell, 0, 1) is not one
+# either — awk yields the empty string rather than erroring, so a guard that
+# trusted it would be judging nothing at all. An unpadded table reaches it.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'One' > /dev/null
+printf '|1|SFT-0001|One|-|\n' >> "$d/.ai/sift/ROADMAP.md"
+check "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_contains "$R_OUT" 'OK: 1 roadmap rows / 1 ticket files' "the unpadded row is read"
+
 # --- Several violations at once ----------------------------------------------
 
 test_case "violations accumulate and are all reported"

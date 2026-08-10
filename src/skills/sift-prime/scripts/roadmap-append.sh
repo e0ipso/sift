@@ -127,9 +127,16 @@ if ROW_ID_PAT="$ROW_ID_PAT" RA_ID="$ID" awk -F'|' '
     !/^[[:space:]]*\|/ { next }
     NF < 3 { next }
     {
-      cell = 0
-      for (i = 1; i <= NF; i++) if ($i ~ pat) { cell = i; break }
-      if (cell && cell_id($cell) == want) { found = 1; exit }
+      # The ticket cell is the FIRST cell that HOLDS an ID, not the first the
+      # pattern matches somewhere inside. Selecting on the bare pattern let a
+      # mistyped XACME-0001 to the left shadow the real ticket cell, so this
+      # guard stopped seeing a row the sift-drain reader reports and appended the
+      # duplicate roadmap-check.sh then blames on the malformed cell nobody was
+      # looking at (SFT-0031). Still the first such cell and no other: a match
+      # anywhere on the line would make a Needs mention a row again (SFT-0022).
+      rid = ""
+      for (i = 1; i <= NF; i++) { rid = cell_id($i); if (rid != "") break }
+      if (rid == want) { found = 1; exit }
     }
     END { exit (found ? 0 : 1) }
   ' "$ROADMAP"; then

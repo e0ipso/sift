@@ -524,9 +524,17 @@ guard proved to fire on the second argument of both variadic forms without appen
 `src/skills/sift-prime/references/`. No file is written by two tasks. Task 001 must capture
 the pre-change run-log baseline before its first edit.
 
-### Phase 2: Specification
+### ✅ Phase 2: Specification
 **Parallel Tasks:**
-- Task 004: Document the cluster key and the new run-log schema in the spec and its shipped mirror (depends on: 001, 002)
+- ✔️ Task 004: Document the cluster key and the new run-log schema in the spec and its shipped mirror (depends on: 001, 002) — `completed`
+
+*Closed 2026-08-10 against an independently re-run suite: 450 tests, 1701 assertions,
+0 failures, exit 0. Verified beyond the agent's report — `cmp` proves spec and mirror
+byte-identical; the diff deletes only the superseded run-log bullet and leaves rule 9's
+text untouched; the only two "migration" mentions in `README.md` are pre-existing text
+about the prefix rename and the README refresh, so no compatibility layer was smuggled in;
+and the new sections use `<PREFIX>` placeholders throughout, keeping the shipped spec
+repository-agnostic.*
 
 *Single task by necessity:* the spec describes the shapes tasks 001 and 002 implement, and
 is read by both Phase 3 tasks.

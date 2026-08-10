@@ -54,11 +54,11 @@ placeholder the same way; substitute a name from `MILESTONES.md` when you read i
   coarse lifecycle; the `status` front-matter key is the fine-grained truth.
 - **The hierarchy below the bucket is `<milestone>/<category>/`.** Both values are
   duplicated in front-matter so `grep` works even when a file has been moved.
-- **`RUNLOG.md` is written by the drain, never by hand.** The drain appends one row per
-  ticket dispatch and per ticket return, and the file is created on the first dispatch —
-  a freshly initialized tree has none. It is diagnostic timing only: it records nothing
-  about a ticket that the ticket file does not already say, so never read ticket state
-  out of it.
+- **`RUNLOG.md` is written by the drain, never by hand.** The first dispatch of a drain
+  creates it, so a freshly initialized tree has none, and every later write appends. It is
+  diagnostic timing only: it records nothing about a ticket that the ticket file does not
+  already say, so never read ticket state out of it. The row schema is under *Run log*
+  below.
 - **The tree is untracked by default.** The shipped `.gitignore` is `*` and
   `!.gitignore`, so the backlog stays local and git history stays free of ticket churn.
   Delete that file to track tickets instead; nothing else in the convention depends on
@@ -92,6 +92,7 @@ effort: m              # ✱ s | m | l | xl (honest guess, revise freely)
 created: 2026-08-05    # ✱ YYYY-MM-DD
 updated: 2026-08-05    # ✱ bump on every meaningful edit
 labels: [api, caching] # free-form kebab tags
+cluster: whole-token-ids  # optional kebab name of a root cause shared with other tickets
 depends_on: []         # list of ticket IDs that must land first, e.g. [<PREFIX>-0041]
 resolution: ""         # required non-empty when archived: one line on how it ended
 source: ""             # where the ticket came from (session, issue URL, review)
@@ -100,6 +101,107 @@ source: ""             # where the ticket came from (session, issue URL, review)
 
 Statuses `open | in-progress | blocked` live in `open/`. Statuses
 `done | wontfix | superseded` live in `archive/` and require a non-empty `resolution`.
+
+## Dispatch groups and the cluster key
+
+`cluster` is an **optional** front-matter key: a kebab-case value naming the root cause a
+ticket shares with others. It draws on the same namespace as `labels:` and is held to the
+same shape — lowercase letters and digits, single hyphens between them — so a value one
+tool would warn about is never a value another silently acts on.
+
+The key is **advisory, and nothing more**. No consistency check reads it, no ticket state
+depends on it, and no recipe in this file requires it. Its one reader is `sift-drain`,
+which uses it to hand several tickets to one sub-agent in a single dispatch. A ticket that
+carries no `cluster` is dispatched on its own, and a value that is not well-formed
+kebab-case is treated as absent and dispatched on its own too. That degradation is
+deliberate: the key widens a dispatch and never authorises one, so a missing, misspelled or
+wrongly assigned value costs the batching and nothing else. It can never fail a run.
+
+### Two bars, and which is which
+
+Two questions look alike and are settled by different tests. Answering one with the other's
+test is exactly how `cluster` gets assigned wrongly.
+
+**Merging findings into ONE ticket is the strict bar, and it belongs to drafting time —
+the `sift-prime` card owns it: several sites become one ticket only when one `## Direction`,
+a single statement of approach, holds unchanged at every one of them.** A candidate needing
+an "and at the third site, instead …" states two Directions, so it is two tickets.
+
+**Carrying the same `cluster` value so a drain BATCHES tickets into one dispatch is the
+looser bar, and it belongs to dispatch time: tickets share a value when they share enough
+context that one agent's orientation serves all of them — the same root cause, overlapping
+files — and their fixes may differ.** A group is still several tickets: each keeps its own
+`## Direction`, and each is archived and struck from `ROADMAP.md` in its own change under
+rule 9. Nothing is merged.
+
+The merge bar is the stricter one. Everything that clears it would also batch; plenty that
+batches could never have been merged. Judge `cluster` by the merge bar and related tickets
+never group, so the key does nothing and the orientation cost it exists to amortise is paid
+again per ticket. Judge a merge by the batching bar and the result is one ticket whose
+`## Direction` cannot cover its own sites — which a drafting agent will not report, it will
+invent something plausible, and the implementing agent reads that invention as its brief.
+
+### A worked example: fails the merge bar, passes the batching bar
+
+Five tickets from this convention's own backlog — `<PREFIX>-0009`, `<PREFIX>-0012`,
+`<PREFIX>-0015`, `<PREFIX>-0025` and `<PREFIX>-0031` — came from one root cause: reading a
+ticket ID as a substring instead of as a whole token, so `<PREFIX>-0042` also matched
+`<PREFIX>-00420`.
+
+They **fail the one-Direction bar**. `<PREFIX>-0009` widened a cookbook recipe's extraction
+from four digits to a whole numeric run; `<PREFIX>-0015` anchored a different recipe's
+`grep -E` with a trailing whole-ID guard; `<PREFIX>-0012` widened a pattern facet in an XSD;
+`<PREFIX>-0025` widened the row pattern in the drain's shared shell library; and
+`<PREFIX>-0031` needed the cell-selection loop *around* that pattern changed rather than the
+pattern itself — which is why the ticket before it left that site alone. One cause, five
+fixes: no single statement of approach covers a repetition count, a schema facet, a `grep`
+anchor and a surrounding loop. Merged, they would be one ticket that cannot say what it
+does.
+
+They **pass the batching bar**, and most tightly in two pairs along the files they touch.
+`<PREFIX>-0009` and `<PREFIX>-0015` both edit recipes in this file; `<PREFIX>-0025` and
+`<PREFIX>-0031` both edit the same shell library. Inside each pair the file is read once and
+the whole-token rule is understood once, and that one orientation serves both tickets even
+though the two edits are not the same edit — which is the whole of what this bar asks.
+`<PREFIX>-0012`, the XSD facet, shares the cause but no file with either pair, so it rides
+on the shared rule alone.
+
+So: five tickets, five Directions, one `cluster` value, and a drain that hands them out a
+few at a time rather than five times over. Which of them land in one dispatch is decided by
+the value and the bounds below — the drain reads the key, never the files. Give the two
+pairs two values (`whole-token-ids-recipes`, `whole-token-ids-lib`) when the file overlap is
+the orientation that matters; give all five one value when the cause alone is orientation
+enough.
+
+The IDs are this repository's own; read the example for where the line falls, not as
+convention.
+
+### The bounds a group is formed under
+
+The drain picks the lead ticket exactly as it always has — roadmap wave order, then row
+order within the wave — and only then walks forward for tickets carrying the lead's
+`cluster` value. Every member of a group carries that one value, and every member must be
+dispatchable on its own account: struck rows, archived tickets and `status: blocked` are
+never pulled into a group. `cluster` widens a dispatch; it never reorders one.
+
+A group holds **at most 4 tickets** and **at most 8 combined effort weight**:
+
+| effort | xs | s | m | l | xl |
+|---|---|---|---|---|---|
+| weight | 1 | 2 | 3 | 5 | 8 |
+
+Eight is one `xl`, so a group is at most one extra-large piece of work however that work is
+spelled, and four is what a reviewer can hold in one diff. The front-matter schema above
+fixes `effort` as `s | m | l | xl`; `xs` is weighted alongside them so a tree that writes it
+is sized rather than defaulted. Any other value — an absent key, a typo, a value from a spec
+newer than the drain — weighs what `m` weighs, because refusing to size an unrecognised
+effort would stop a drain over a field the selection path otherwise only echoes.
+
+The first ticket that would breach either bound **ends** the group rather than being stepped
+over: skipping a large member to reach a smaller one further down the roadmap would reorder
+the roadmap silently. And once the walk has passed an unstruck row that is not a member, the
+group stops at the wave boundary rather than crossing it — reaching into the next wave while
+this one still has open rows is the one thing the wave gate exists to prevent.
 
 ## Ticket body
 
@@ -239,6 +341,55 @@ front-matter wins.**
 `labels:` stays free-form kebab-case precisely because the scoped dimensions already have
 keys. Use it for topic tags (`api`, `caching`, `onboarding`), never to restate `type`,
 `priority` or `status`.
+
+## Run log
+
+`RUNLOG.md` is written by `sift-drain` and never by hand. The first dispatch of a drain
+creates it; every write after that appends, so the header is laid down once and no row is
+ever rewritten. It is **diagnostic timing only** — it records nothing about a ticket that
+the ticket file does not already say, so ticket state is read from the ticket and never
+from here.
+
+The unit it records is a **dispatch group**, not a ticket. Six columns, and a literal `-`
+in every cell an event has no use for:
+
+```markdown
+# Run log
+
+Append-only. One row per drain event; rows are never rewritten.
+
+| event | ticket | phase | utc | epoch | status |
+|---|---|---|---|---|---|
+| dispatch | <PREFIX>-0025 | - | 2026-08-10T09:15:04Z | 1786353304 | - |
+| dispatch | <PREFIX>-0031 | - | 2026-08-10T09:15:04Z | 1786353304 | - |
+| phase | - | orient | 2026-08-10T09:15:41Z | 1786353341 | - |
+| phase | - | implement | 2026-08-10T09:22:10Z | 1786353730 | - |
+| phase | - | verify | 2026-08-10T09:34:57Z | 1786354497 | - |
+| phase | - | bookkeep | 2026-08-10T09:39:02Z | 1786354742 | - |
+| return | <PREFIX>-0025 | - | 2026-08-10T09:41:12Z | 1786354872 | done |
+| return | <PREFIX>-0031 | - | 2026-08-10T09:41:12Z | 1786354872 | done |
+```
+
+Three event kinds:
+
+- **`dispatch`** — one row per ticket the group carries, written when the group is handed to
+  the sub-agent. Every row of one dispatch shares one `utc`/`epoch` pair.
+- **`phase`** — one row marking that the dispatch entered `orient`, `implement`, `verify` or
+  `bookkeep`. It names no ticket, because a phase belongs to the dispatch rather than to any
+  one member of it.
+- **`return`** — one row per ticket, written as the group comes back, carrying in `status`
+  the state that ticket ended in. These rows share one `utc`/`epoch` pair as well.
+
+**Group membership is "rows sharing a dispatch epoch".** The clock is read once per command
+and the same pair of values goes on every row that command appends, so grouping is an
+integer comparison rather than a guess about proximity. Stamping each row separately would
+split one dispatch into as many groups as it carried tickets, and every one of them would
+read as an interrupted run.
+
+Both a human-readable stamp and an epoch integer are recorded, and the second is not
+redundant: readers do all arithmetic on the integer and never parse a date back into a
+number, which is exactly where GNU and BSD `date` diverge. Writing the log needs nothing but
+`date -u +%Y-%m-%dT%H:%M:%SZ` and `date +%s`.
 
 ## Rules for agents
 

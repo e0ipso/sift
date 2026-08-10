@@ -2,7 +2,7 @@
 id: 4
 group: "spec"
 dependencies: [1, 2]
-status: "pending"
+status: "completed"
 created: 2026-08-10
 skills:
   - technical-writing

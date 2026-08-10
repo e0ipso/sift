@@ -37,6 +37,8 @@
 # one. Nothing is lost by that, because a ticket ID is `<PREFIX>-<NNNN>` under
 # the convention and can never begin with a hyphen, so no real operand ever
 # needs protecting from an option parser that stopped one argument earlier.
+# That last sentence is a claim about the input, so this script now checks it
+# rather than assuming it: see require_ticket_id below (SFT-0039).
 #
 # Exit codes: 0 success | 2 setup/usage error.
 
@@ -53,6 +55,50 @@ usage() {
 }
 
 LOG="$SIFT/RUNLOG.md"
+
+# Refuse a ticket argument that is not a ticket ID, before anything is written.
+#
+# The log is append-only and nothing in the card rewrites a row, so a typo is
+# permanent. The cost is not the bad row but what `report` makes of it: it pairs
+# a return with its dispatch by string equality on this column, so
+# `dispatch <PREFIX>-004` followed by `return <PREFIX>-0040` splits one ticket
+# into an INCOMPLETE and an ORPHAN record and drops the pair out of the median.
+# The run then reads as an interrupted connection when it was a keystroke.
+#
+# SHAPE ONLY — never a lookup for a ticket file. This is the one card script
+# that writes, and the orchestrator stamps `return` AFTER the sub-agent has
+# archived its ticket, so a check that insisted the ID name a file in open/
+# would fail the closing row of every ticket that actually completed. Archiving
+# also moves the file, so the check would depend on a path the log deliberately
+# does not record. The log states what was dispatched, not what still exists.
+#
+# The digit run is greedy rather than exactly four: %04d is a minimum width (see
+# reserve-ids.sh in sift-prime), IDs widen past 9999, and both roadmap_rows in
+# lib.sh and roadmap-append.sh already read them that way (SFT-0025). The outer
+# arm takes PREFIX, a hyphen and at least four characters; the inner one insists
+# every character after the hyphen is a digit, so the pair together accept
+# exactly PREFIX- plus four-or-more digits. This is the check roadmap-append.sh
+# applies to its own ID argument, restated because the two cards ship separately
+# and cannot source each other.
+#
+# The digit sets are spelled as [0-9] deliberately: static/portability.test.sh
+# bans a COLLATED LETTER range in a shell pattern, because [a-z] picks up B..Z
+# under a UTF-8 locale. A digit range has no such neighbours to collect, and
+# spelling one out would diverge from the pattern in roadmap-append.sh that this
+# one must stay byte-comparable with.
+require_ticket_id() {
+  case "$1" in
+    "$PREFIX"-[0-9][0-9][0-9][0-9]*)
+      case "${1#"$PREFIX"-}" in
+        *[!0-9]*) ;;
+        *) return 0 ;;
+      esac
+      ;;
+  esac
+  echo "error: not a ticket ID: $1" >&2
+  echo "hint: rule 2 makes a ticket ID $PREFIX- followed by at least four digits, e.g. $PREFIX-0001" >&2
+  exit 2
+}
 
 # Read the log back and print the per-ticket attribution table.
 #
@@ -228,6 +274,10 @@ esac
 
 [ -n "$TICKET" ] || usage
 [ -n "$STATUS" ] || usage
+
+# Both writing modes, one gate, ahead of the header write as well as the append:
+# a refused command line must leave the tree exactly as it found it.
+require_ticket_id "$TICKET"
 
 [ -f "$LOG" ] || {
   {

@@ -425,6 +425,95 @@ run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" -- report now
 check_usage "report behind the marker still takes no argument"
 assert_no_file "$root/.ai/sift/RUNLOG.md" "and none of those refusals created a log"
 
+# --- The ticket column --------------------------------------------------------
+
+test_case "a ticket argument that is not a ticket ID is refused by name (SFT-0039)"
+# The log is append-only and nothing in the card rewrites a row, so the typo has
+# to be caught at the keystroke. What makes it worth catching is what `report`
+# makes of it: it pairs a return with its dispatch by string equality on this
+# column, so `dispatch SFT-004` followed by `return SFT-0040 done` used to yield
+# an INCOMPLETE and an ORPHAN record and drop the pair out of the median — a run
+# that reads as an interrupted connection when it was a keystroke.
+#
+# `root` is left alone here: the case below it asserts on a tree that has never
+# had a run log, and a stray write would turn that assertion green for the wrong
+# reason.
+idroot="$(newdir)"
+make_tree "$idroot" SFT
+check_not_id() {  # check_not_id <the string that should have been rejected>
+  if [ "$R_STATUS" -eq 2 ] &&
+     case "$R_ERR" in *"error: not a ticket ID: $1"*) true ;; *) false ;; esac
+  then t_ok "[$1] exits 2 and the error names the string it rejected"
+  else t_fail "[$1] is refused by name" "status=$R_STATUS" "stderr=$R_ERR"; fi
+}
+for bad in SFT-004 SFT-1 SFT0001 sft-0001 SFT-0001x XSFT-0001 ACME-0001 hello; do
+  run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" dispatch "$bad"
+  check_not_id "$bad"
+done
+assert_no_file "$idroot/.ai/sift/RUNLOG.md" \
+  "a refused dispatch writes nothing at all, the header included"
+
+test_case "return refuses the same shapes, a hyphen-leading argument included (SFT-0039)"
+# The hyphen cases are the guarantee SFT-0033's `--` grammar was resting on: the
+# marker is meaningful only in front of the subcommand precisely because a real
+# ticket ID can never begin with a hyphen. Behind the subcommand a `--` is an
+# operand, and it is now refused as the non-ID it is rather than logged.
+for bad in SFT-004 -SFT-0001 --; do
+  run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" return "$bad" 'done'
+  check_not_id "$bad"
+done
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" dispatch -SFT-0001
+check_not_id "-SFT-0001"
+assert_no_file "$idroot/.ai/sift/RUNLOG.md" "and none of those refusals created a log"
+
+test_case "the shape is the whole check: no ticket file is looked for (SFT-0039)"
+# Deliberate scope. This is the one card script that WRITES, and the orchestrator
+# stamps `return` after the sub-agent has archived its ticket — so a check that
+# insisted the ID name a file in open/ would fail the closing row of every
+# ticket that actually completed. The tree here holds no tickets whatsoever.
+assert_eq "" "$(find "$idroot/.ai/sift/open" "$idroot/.ai/sift/archive" -name '*.md')" \
+  "the tree holds no ticket file for SFT-0007 to name"
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" dispatch SFT-0007
+assert_eq 0 "$R_STATUS" "a well-formed ID for a ticket that is not on disk still dispatches"
+assert_eq "SFT-0007" "$(log_field "$idroot/.ai/sift/RUNLOG.md" 1 3)" "and lands in the column"
+
+test_case "an ID wider than four digits is accepted (SFT-0025, SFT-0039)"
+# %04d is a minimum width, so IDs widen past 9999 and the digit run is matched
+# greedily. A check spelled as exactly four would refuse the first ticket over
+# the line, which is the defect SFT-0025 removed from the roadmap readers.
+idroot="$(newdir)"
+make_tree "$idroot" SFT
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" dispatch SFT-00011
+assert_eq 0 "$R_STATUS" "a five-digit ID dispatches"
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" return SFT-00011 'done'
+assert_eq 0 "$R_STATUS" "and returns"
+assert_eq "SFT-00011" "$(log_field "$idroot/.ai/sift/RUNLOG.md" 1 3)" \
+  "with the whole ID in the column, not the four leading digits of it"
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" dispatch SFT-000000001
+assert_eq 0 "$R_STATUS" "so does a nine-digit one"
+
+test_case "the check adds a refusal and changes no accepted row (SFT-0039)"
+# The regression guard. The bytes below are what the writer produced before the
+# check existed, clock columns masked; the whole file is compared rather than the
+# appended row re-read, because a row read back cannot see a rewrite above it.
+idroot="$(newdir)"
+make_tree "$idroot" SFT
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" dispatch SFT-0039
+assert_eq 0 "$R_STATUS" "the dispatch exits 0"
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" return SFT-0039 'done'
+assert_eq 0 "$R_STATUS" "the return exits 0"
+assert_eq "$LOG_HEADER
+| dispatch | SFT-0039 | UTC | EPOCH | - |
+| return | SFT-0039 | UTC | EPOCH | done |" \
+  "$(mask_clock "$idroot/.ai/sift/RUNLOG.md")" \
+  "the log a valid pair writes is byte-identical once the clock columns are masked"
+run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "and report reads it back"
+assert_eq "done" "$(report_field SFT-0039 4)" "as one completed record"
+assert_eq "" "$(report_field SFT-0039 5)" "carrying no INCOMPLETE or ORPHAN note"
+assert_contains "$(median_line)" "across 1 completed ticket(s) of 1" \
+  "and reaching the median, which a split pair never did"
+
 test_case "report against a tree with no run log exits 2 and says how one is made"
 # Distinct from an empty log: nothing has been drained here at all, and pointing
 # the operator at `dispatch` is the difference between the two.

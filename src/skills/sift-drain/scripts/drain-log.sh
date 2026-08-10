@@ -112,7 +112,18 @@ report() {
     exit 2
   }
 
-  awk -F'|' -v logpath="${LOG#"$ROOT/"}" '
+  # The log path reaches awk through the environment and ENVIRON rather than -v,
+  # the rule roadmap-append.sh states and SFT-0037 finished applying to the label
+  # warning: -v re-scans its argument for ANSI escapes, so a path holding the two
+  # characters "\" and "t" arrives inside awk as one real tab, and the message
+  # below would name a file that is not on disk. Today the value is relative to
+  # the project root and so is always the fixed string .ai/sift/RUNLOG.md, with
+  # nothing in it to mangle; the point is that the one script whose whole job is
+  # to say where the run's state lives never rests on that staying true. Read
+  # once in BEGIN, so the report still spends one awk. -F is a flag, not a value.
+  SIFT_LOG_PATH="${LOG#"$ROOT/"}" awk -F'|' '
+    BEGIN { logpath = ENVIRON["SIFT_LOG_PATH"] }
+
     # Every character class here is [[:space:]]. POSIX leaves a backslash inside
     # a bracket expression undefined, so a strict awk reads a space-backslash-t
     # class as {space, backslash, t} and eats the leading "t" of a value.

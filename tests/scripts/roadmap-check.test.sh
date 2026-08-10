@@ -28,7 +28,9 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 CHECK="$REPO_ROOT/src/skills/sift-drain/scripts/roadmap-check.sh"
 
-check() { run_cmd "$1" env SIFT_ROOT="$1" "$CHECK"; }
+# check <root> [args…] — the gate through its real command line. The pass-through
+# exists for the argument cases below; every other caller invokes it bare.
+check() { local d="$1"; shift; run_cmd "$d" env SIFT_ROOT="$d" "$CHECK" "$@"; }
 
 # archived <dir> <id> <slug> <title> [extra front-matter…]
 archived() {
@@ -353,5 +355,41 @@ before="$(tree_digest "$d")"
 check "$d"
 assert_eq 1 "$R_STATUS" "the violation run"
 assert_eq "$before" "$(tree_digest "$d")" "not one byte of the tree changed"
+
+# --- The command line --------------------------------------------------------
+
+test_case "-- ends the options, and nothing may follow it (SFT-0033)"
+# This script used to parse no arguments at all, so it answered every command
+# line — `roadmap-check.sh --` included — with the same whole-tree verdict, and
+# `roadmap-check.sh open` read as "the tree is consistent" for a scope nobody
+# had checked. SFT-0033 gave it the card's shared shape: the marker is accepted
+# and means the option list is over, and a positional is refused because this
+# script takes none. Exit 0 from a run that swallowed its argument is the
+# failure being pinned, so the fixture is a CONSISTENT tree: here the wrong
+# answer is the green one, and a case built on a violation could not tell them
+# apart.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'One' > /dev/null
+roadmap_row "$d" 1 SFT-0001 'One' '-'
+
+check "$d"
+bare_status="$R_STATUS"; bare_out="$R_OUT"; bare_err="$R_ERR"
+assert_eq 0 "$bare_status" "the fixture is consistent, so a swallowed argument would exit 0 too"
+check "$d" --
+assert_eq "$bare_status" "$R_STATUS" "the marker alone exits exactly as the bare run does"
+assert_eq "$bare_out" "$R_OUT" "and prints the same verdict, byte for byte"
+assert_eq "$bare_err" "$R_ERR" "with the same stderr"
+
+check "$d" -- open
+assert_eq 2 "$R_STATUS" "a positional behind the marker is refused, not read as a scope"
+assert_eq "" "$R_OUT" "and no verdict is printed for a scope that was never checked"
+assert_contains "$R_ERR" 'usage: roadmap-check.sh' "the usage line goes to stderr"
+assert_contains "$R_ERR" 'note: -- ends the options' "and the note documents the marker"
+
+check "$d" --bogus
+assert_eq 2 "$R_STATUS" "an unknown option is refused rather than ignored"
+assert_eq "" "$R_OUT" "so a misspelled flag cannot be mistaken for a clean tree"
+check "$d" open
+assert_eq 2 "$R_STATUS" "and so is a bare positional, marker or no marker"
 
 summary

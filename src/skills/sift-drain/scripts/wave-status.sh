@@ -7,25 +7,45 @@
 # earliest one with remaining work) and its remaining ticket IDs with priority
 # and effort, so a run can be resumed without re-reading the roadmap by eye.
 #
-# Usage: scripts/wave-status.sh
+# Usage:
+#   scripts/wave-status.sh
+#   scripts/wave-status.sh --   # -- ends the options, as elsewhere on the card
+#
+# `--` means one thing across the card: the option list ends here and everything
+# behind it is positional. This script has no positional to take, so the marker
+# is accepted and anything following it is a usage error.
+#
 # Exit codes: 0 work remains | 1 roadmap fully drained | 2 setup/usage error.
 
 set -uo pipefail
 # shellcheck source=lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
+usage() {
+  echo "usage: wave-status.sh" >&2
+  echo "note: -- ends the options; this script takes no argument behind it" >&2
+  exit 2
+}
+
 # The script reports the whole roadmap and takes no options, so every argument
 # is a mistake worth refusing: mid-drain, a silently ignored flag reads as "this
 # is the whole picture" when the caller believes it asked for something narrower.
 while [ $# -gt 0 ]; do
   case "$1" in
-    *)
-      echo "usage: wave-status.sh" >&2
-      exit 2
+    --)
+      shift
+      break
       ;;
+    *) usage ;;
   esac
   shift
 done
+
+# Behind the marker every argument is positional, and there is none to take, so
+# `wave-status.sh -- --wave 1` is refused rather than answered with the whole
+# roadmap — which is exactly the plausible wrong answer the refusal above exists
+# to prevent.
+[ $# -eq 0 ] || usage
 
 ROWS="$(roadmap_rows)"
 [ -n "$ROWS" ] || { echo "error: no ticket rows parsed from $ROADMAP" >&2; exit 2; }

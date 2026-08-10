@@ -262,6 +262,52 @@ next "$d" --include-blocked --bogus
 assert_eq 2 "$R_STATUS" "one unrecognised argument condemns the whole command line"
 assert_eq "" "$R_OUT" "even alongside the flag that is understood"
 
+test_case "-- ends the options here too, and nothing may follow it (SFT-0033)"
+# SFT-0024 made `--` mean one thing across the two label scripts; SFT-0033 gave
+# the rest of the card the same spelling, so a caller who learned it from
+# tickets-by-label.sh no longer meets a usage error at the script beside it.
+#
+# The second half is the half worth pinning. A `--) shift; break` arm with no
+# positional rule after it would silently ACCEPT `-- --include-blocked` and
+# ignore it, answering a question about the blocked tickets with a list that
+# never contained them — the exact defect SFT-0024 fixed in tickets-by-label.sh.
+# So the fixture is built for the two answers to DIFFER: blocked first, open
+# second, which makes "the flag was read" and "the flag was dropped" two
+# distinguishable reports rather than one.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' 'status: blocked' > /dev/null
+ticket "$d" open backlog/bug ACME-0002 two 'Two' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Two' '-'
+
+next "$d"
+bare_status="$R_STATUS"; bare_out="$R_OUT"; bare_err="$R_ERR"
+assert_eq "ACME-0002" "$(out_key ticket)" "bare, the blocked row is stepped over"
+next "$d" --
+assert_eq "$bare_status" "$R_STATUS" "the marker alone exits exactly as the bare run does"
+assert_eq "$bare_out" "$R_OUT" "and prints the same report, byte for byte"
+assert_eq "$bare_err" "$R_ERR" "with the same stderr"
+
+next "$d" --include-blocked
+flag_out="$R_OUT"
+assert_eq "ACME-0001" "$(out_key ticket)" "the flag changes the answer, so the two differ"
+assert_ne "$bare_out" "$flag_out" "which is what makes the next assertion able to fail"
+next "$d" --include-blocked --
+assert_eq 0 "$R_STATUS" "an option in front of the marker still applies"
+assert_eq "$flag_out" "$R_OUT" "and the report is the one the flag produces"
+
+next "$d" -- --include-blocked
+assert_eq 2 "$R_STATUS" "behind the marker the flag is a positional, and none is accepted"
+assert_eq "" "$R_OUT" "in particular it does not answer as if the flag had been read"
+assert_ne "$flag_out" "$R_OUT" "and certainly not with the blocked ticket"
+assert_contains "$R_ERR" 'usage: next-ticket.sh [--include-blocked]' "the usage line says so"
+assert_contains "$R_ERR" 'note: -- ends the options' "and the note documents the marker"
+
+next "$d" -- --
+assert_eq 2 "$R_STATUS" "a second marker is a positional too, not a second marker"
+next "$d" -- ACME-0001
+assert_eq 2 "$R_STATUS" "and a ticket ID behind it is refused: this script selects, it does not look up"
+
 test_case "dispatching decides nothing on disk"
 d="$(newdir)"; make_tree "$d" ACME
 ticket "$d" open backlog/bug ACME-0001 one 'One' > /dev/null
@@ -361,6 +407,27 @@ wave_status "$d" --wave 1
 assert_eq 2 "$R_STATUS" "a plausible-looking option is refused, not interpreted"
 assert_eq "" "$R_OUT" "in particular it does not answer as if the whole roadmap were asked for"
 assert_contains "$R_ERR" 'usage: wave-status.sh' "with the same one-line usage"
+
+test_case "wave-status.sh accepts -- and still refuses what follows it (SFT-0033)"
+# Same marker, same meaning, one script over: the whole point of SFT-0033 is
+# that a caller cannot tell the card's scripts apart by which spelling they take.
+# The refusal above is what makes the acceptance safe — the marker must not
+# become a way to smuggle `--wave 1` past the parser and read a full-roadmap
+# table as the answer to a narrower question.
+wave_status "$d"
+bare_status="$R_STATUS"; bare_out="$R_OUT"; bare_err="$R_ERR"
+wave_status "$d" --
+assert_eq "$bare_status" "$R_STATUS" "the marker alone exits exactly as the bare run does"
+assert_eq "$bare_out" "$R_OUT" "and prints the same table, byte for byte"
+assert_eq "$bare_err" "$R_ERR" "with the same stderr"
+
+wave_status "$d" -- --wave 1
+assert_eq 2 "$R_STATUS" "behind the marker the flag is a positional, and none is accepted"
+assert_eq "" "$R_OUT" "so no table is printed for a request that was refused"
+assert_contains "$R_ERR" 'note: -- ends the options' "and the usage note documents the marker"
+
+wave_status "$d" -- anything
+assert_eq 2 "$R_STATUS" "a plain word behind the marker is refused just the same"
 
 test_case "reporting progress changes nothing"
 d="$(newdir)"; make_tree "$d" ACME

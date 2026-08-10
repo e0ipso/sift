@@ -10,11 +10,44 @@
 #   - front-matter `status` agrees with the bucket the file lives in
 #
 # Output is diff-style: "-" missing, "+" stale, "!" state mismatch.
-# Exit codes: 0 consistent | 1 violations found | 2 setup error.
+#
+# Usage:
+#   scripts/roadmap-check.sh
+#   scripts/roadmap-check.sh --   # -- ends the options, as elsewhere on the card
+#
+# `--` means one thing across the card: the option list ends here and everything
+# behind it is positional. This script checks the whole tree and has no
+# positional to take, so the marker is accepted and anything following it is a
+# usage error.
+#
+# Exit codes: 0 consistent | 1 violations found | 2 setup/usage error.
 
 set -uo pipefail
 # shellcheck source=lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+
+usage() {
+  echo "usage: roadmap-check.sh" >&2
+  echo "note: -- ends the options; this script takes no argument behind it" >&2
+  exit 2
+}
+
+# This is the rule-9 gate the drain runs after every ticket agent returns, and
+# its exit code is read as a verdict on the whole tree. An argument it quietly
+# ignored — `roadmap-check.sh open/`, say — would return that verdict for a
+# scope the caller never asked about, so every argument is refused instead.
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --)
+      shift
+      break
+      ;;
+    *) usage ;;
+  esac
+  shift
+done
+
+[ $# -eq 0 ] || usage
 
 ROWS="$(roadmap_rows)"
 VIOLATIONS=0

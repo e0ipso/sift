@@ -13,6 +13,11 @@
 # Usage:
 #   scripts/next-ticket.sh                 # next dispatchable ticket
 #   scripts/next-ticket.sh --include-blocked
+#   scripts/next-ticket.sh --include-blocked --   # -- ends the options
+#
+# `--` means one thing across the card: the option list ends here and everything
+# behind it is positional. This script has no positional to take, so the marker
+# is accepted and anything following it is a usage error.
 #
 # Exit codes: 0 found | 1 nothing left to dispatch | 2 setup/usage/consistency error.
 
@@ -20,17 +25,29 @@ set -uo pipefail
 # shellcheck source=lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
+usage() {
+  echo "usage: next-ticket.sh [--include-blocked]" >&2
+  echo "note: -- ends the options; this script takes no argument behind it" >&2
+  exit 2
+}
+
 INCLUDE_BLOCKED=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --include-blocked) INCLUDE_BLOCKED=1 ;;
-    *)
-      echo "usage: next-ticket.sh [--include-blocked]" >&2
-      exit 2
+    --)
+      shift
+      break
       ;;
+    *) usage ;;
   esac
   shift
 done
+
+# Behind the marker every argument is positional, and there is no positional to
+# be: `next-ticket.sh -- --include-blocked` named a ticket, not the flag, and
+# answering with the blocked ones included would be the plausible wrong answer.
+[ $# -eq 0 ] || usage
 
 ROWS="$(roadmap_rows)"
 [ -n "$ROWS" ] || { echo "error: no ticket rows parsed from $ROADMAP" >&2; exit 2; }

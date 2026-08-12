@@ -106,6 +106,12 @@ assert_eq "$want" "$got" "why it matters"
 summary
 ```
 
+`summary` is required, and it is the last call for a reason: `run.sh` fails any file
+that exits without printing the `# SUMMARY` line, whatever its exit status. A file that
+returned early, was truncated, or died on the way there ran fewer cases than it claims,
+so an absent summary is reported as a failure naming the file rather than counted as a
+file of zero tests.
+
 `ticket` takes extra front-matter lines after the title. A line naming one of the
 required keys *replaces* that key's default rather than appending a second copy,
 so `ticket … 'type: feature'` yields a feature ticket instead of a file claiming

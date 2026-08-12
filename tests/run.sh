@@ -36,14 +36,19 @@ for f in $files; do
   out="$("$f" 2>&1)"
   status=$?
   line="$(printf '%s\n' "$out" | awk '/^# SUMMARY/ { s = $0 } END { print s }')"
+  # "printed no summary" is its own state, not a summary of zeros: the defaults
+  # below cannot tell the two apart, and a file that exits 0 having run nothing
+  # would otherwise be reported as a passing file with no cases (SFT-0045).
+  nosummary=''
+  [ -n "$line" ] || nosummary=1
   t=$(printf '%s\n' "$line" | sed -n 's/.*tests=\([0-9]*\).*/\1/p')
   a=$(printf '%s\n' "$line" | sed -n 's/.*assertions=\([0-9]*\).*/\1/p')
   fl=$(printf '%s\n' "$line" | sed -n 's/.*failures=\([0-9]*\).*/\1/p')
   sk=$(printf '%s\n' "$line" | sed -n 's/.*skipped=\([0-9]*\).*/\1/p')
   : "${t:=0}"; : "${a:=0}"; : "${fl:=0}"; : "${sk:=0}"
 
-  if [ "$status" -ne 0 ] && [ "$fl" -eq 0 ]; then
-    fl=1   # the file died before reporting; count it as one failure
+  if [ "$fl" -eq 0 ] && { [ "$status" -ne 0 ] || [ -n "$nosummary" ]; }; then
+    fl=1   # the file died, or never reported at all; count it as one failure
   fi
 
   total_tests=$((total_tests + t))
@@ -57,6 +62,9 @@ for f in $files; do
     [ -n "${SIFT_TEST_VERBOSE:-}" ] && printf '%s\n' "$out"
   else
     printf 'FAIL  %-44s %3s tests %4s assertions %s failures\n' "$rel" "$t" "$a" "$fl"
+    # Said explicitly, because the dump below is empty for a file that printed
+    # nothing — FAIL with no visible cause sends the operator looking elsewhere.
+    [ -z "$nosummary" ] || printf '      %s printed no # SUMMARY line\n' "$rel"
     printf '%s\n' "$out" | grep -v '^ok ' | sed 's/^/      /'
     failed_files="$failed_files $rel"
   fi

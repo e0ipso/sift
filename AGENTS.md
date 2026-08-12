@@ -97,8 +97,15 @@ it with a test that fails when the two classify one input differently.** Both te
 - Rule 2 is covered by "the two cards classify every ID of one list alike (SFT-0042)", which
   drives one fixture list through `roadmap-append.sh`'s argument check and `drain-log.sh`'s
   `require_ticket_id`: four digits, five digits, too few digits, a bare prefix, a prefix with
-  an empty tail, a non-digit tail, a second hyphenated group, the wrong case, and an ID glued
-  to a longer token.
+  an empty tail, a non-digit tail, a second hyphenated group, the wrong case, an ID glued
+  to a longer token, a hyphen-leading argument, and the `--` marker standing in an ID
+  position. The last two are comparable only in an OPERAND position, which the case beside it
+  pins: `drain-log.sh` parses an option list and `roadmap-append.sh` does not, so a
+  hyphen-leading word in the drain's subcommand slot is an unknown mode that
+  `require_ticket_id` never sees and the writer has no counterpart to. Both cards resolving
+  the same `<PREFIX>` is a premise of this agreement rather than a consequence of it, so the
+  two cases after it drive the same comparison across a ragged config, an inferred prefix and
+  a prefix nothing determines, with a card handed a different `SIFT_PREFIX` as the control.
 
 When either rule grows a new edge, extend that rule's fixture rather than adding a second test
 somewhere else.

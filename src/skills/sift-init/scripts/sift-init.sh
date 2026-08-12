@@ -39,11 +39,34 @@ set -u
 
 root=''; prefix=''; milestone='backlog'; suggest=0
 
+# A valued option consumes the word after it, so that word has to exist before the
+# `shift 2` that eats it. Against a one-element "$@" the shift fails, and with
+# `set -e` deliberately off the failure is discarded — `$1` is then still the same
+# option on the next pass and the loop spins on it forever, printing nothing
+# (SFT-0044). So the arity is checked per option, ahead of the consumption.
+#
+# Per option and NOT a parity test on `$#`: this script mixes valued options with
+# valueless ones (`--suggest-prefix`, `-h`/`--help`), so the parity of the argument
+# count says nothing about whether any single option received its own value. And not
+# `set -e` either — that would change the failure mode of every other command in the
+# file to fix one loop.
+#
+# The `"${2:-}"` defaults below stay regardless: they are what keeps the expansion
+# legal under `set -u`, and they are evaluated on the branch that has just been
+# proved to have a second word only because this guard exits first when it has not.
+#
+# A missing word is not an empty one. `--root ''` passes here and is refused further
+# down by `[ -n "$root" ]`, which is the right diagnostic for it; the two conditions
+# are kept apart on purpose.
+need_value() {  # need_value <option> <remaining argument count, option included>
+  [ "$2" -ge 2 ] || { echo "error: $1 requires a value" >&2; exit 2; }
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
-    --root)           root="${2:-}"; shift 2 ;;
-    --prefix)         prefix="${2:-}"; shift 2 ;;
-    --milestone)      milestone="${2:-}"; shift 2 ;;
+    --root)           need_value --root "$#";      root="${2:-}"; shift 2 ;;
+    --prefix)         need_value --prefix "$#";    prefix="${2:-}"; shift 2 ;;
+    --milestone)      need_value --milestone "$#"; milestone="${2:-}"; shift 2 ;;
     --suggest-prefix) suggest=1; shift ;;
     -h|--help)        sed -n '2,34p' "$0"; exit 0 ;;
     *) echo "error: unknown argument: $1" >&2; exit 2 ;;

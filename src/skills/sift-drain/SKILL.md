@@ -11,6 +11,19 @@ small group of tickets sharing a root cause — either way it is one agent, work
 ticket at a time. Nothing here is project-specific — sub-agents discover the repository's
 own commands and conventions themselves.
 
+**Pinned claims.** This card states things about files it does not carry, and every one of
+those claims is tagged beside the prose that makes it, on a line of the form
+`@PIN: <repo-root-relative file> <verbatim construct>`. A target ending in `/` is a card
+directory instead, and the construct is the front-matter line that directory's `SKILL.md`
+has to hold. Those lines are machine-read: `tests/static/card-prose-pins.test.sh` extracts
+every one of them, resolves the target against the repository root, and fails when the
+named construct is no longer there — so a rename cannot leave this card confidently naming
+something that has moved. State a new claim about another file, tag it the same way.
+
+```text
+@PIN: src/skills/sift-drain/ name: sift-drain
+```
+
 ## Gate: is sift initialized?
 
 Before anything else — before reading `ROADMAP.md`, before the first dispatch — run the
@@ -24,6 +37,16 @@ Before anything else — before reading `ROADMAP.md`, before the first dispatch 
 
 Never resolve the root by eye and never initialize the tree yourself: the gate is one
 script precisely so every card agrees on where `.ai/sift` lives.
+
+The state names above are the gate's own, restated here; the exit codes they pair with are
+held to the script by `tests/scripts/sift-gate.test.sh`.
+
+```text
+@PIN: src/skills/sift-init/scripts/sift-gate.sh emit "state=READY"
+@PIN: src/skills/sift-init/scripts/sift-gate.sh emit "state=UNINITIALIZED"
+@PIN: src/skills/sift-init/scripts/sift-gate.sh emit "state=INCOMPLETE"
+@PIN: src/skills/sift-init/scripts/sift-gate.sh emit "state=UNRESOLVED"
+```
 
 ## Orchestrate, never implement
 
@@ -131,6 +154,11 @@ have re-proposed the rejected thing under a new name.
    anything blocking test infrastructure — and p2 crash / data-integrity tickets ahead of
    p3/p4 stragglers. Priority chooses the **lead**; members only ever join the lead the
    priority rule already picked (`references/run-management.md`).
+
+   ```text
+   @PIN: src/skills/sift-drain/references/run-management.md ### Grouping happens after the lead is chosen
+   ```
+
 2. Run `drain-log.sh dispatch <TICKET>...` — **every** ticket in the group, in one call —
    as the last thing before the dispatch, so the stamp bounds agent runtime rather than
    your own deliberation.
@@ -203,6 +231,10 @@ tickets filed: <IDs> | none
 `references/ticket-agent-prompt.md` holds the canonical wording; this is the same block, and
 if the two ever read differently the prompt is the one the agent was actually given.
 
+```text
+@PIN: src/skills/sift-drain/references/ticket-agent-prompt.md commits: <TICKET-ID> <hash> — one per ticket that landed
+```
+
 **One `status:` line per ticket**, in dispatch order, every ticket present — and `summary:`,
 `verification:` and `live check:` are per ticket too. A group never reports one verdict for
 the batch: partial success is a normal outcome, and a collapsed status either hides a
@@ -271,3 +303,12 @@ during the run; the timing table from `drain-log.sh report`.
   knowledge-capture agents.
 - **`references/run-management.md`** — ticket intake, roadmap churn, sub-agent stalls, and
   honest progress reporting.
+
+Each bullet above claims a file exists and says what is inside it, so each is pinned on a
+section that bullet advertises:
+
+```text
+@PIN: src/skills/sift-drain/references/ticket-agent-prompt.md # Canonical sub-agent prompt for one dispatch group
+@PIN: src/skills/sift-drain/references/wave-gate.md ## 2. Batch coverage agent
+@PIN: src/skills/sift-drain/references/run-management.md ## Ticket intake
+```

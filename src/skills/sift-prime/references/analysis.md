@@ -69,6 +69,15 @@ purpose: the dimension that found a candidate decides the candidate's `type`, an
 decides the category folder it will be written into. A finding that fits no dimension
 fits no `type`, and there is nowhere on disk to put it.
 
+That makes the `Dimension` column below a restatement of the convention's own set, so it is
+pinned to it: the line below names the file and the verbatim construct that has to still be
+there, and `tests/static/card-prose-pins.test.sh` extracts it and fails when the set has
+changed underneath this table. Add or drop a dimension only together with the convention.
+
+```text
+@PIN: README.md bug | hardening | feature | test | docs | dx | release
+```
+
 | Dimension | What it looks for | Usual citation |
 |---|---|---|
 | `bug` | behaviour on disk contradicting what the docs, the tests or the code's own comments say it does | `file:line` |

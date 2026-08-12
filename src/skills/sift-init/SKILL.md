@@ -13,6 +13,18 @@ Every other sift card calls the gate here before it does anything else. Do not
 re-implement the walk in prose — the answer must be the same for every card, on every
 run, which means one script.
 
+**Pinned claim.** This card's installable identity is its front-matter `name`, which has to
+equal the directory holding it. That agreement is tagged below, on a line of the form
+`@PIN: <repo-root-relative target> <verbatim construct>` — a target ending in `/` being a
+card directory, whose `SKILL.md` front matter has to hold the construct. The line is
+machine-read: `tests/static/card-prose-pins.test.sh` extracts it and fails when the
+directory is gone or the front matter no longer carries that name, so renaming one half
+without the other cannot ship a card the harness resolves under the wrong name.
+
+```text
+@PIN: src/skills/sift-init/ name: sift-init
+```
+
 ## The gate — run this first, always
 
 ```sh

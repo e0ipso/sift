@@ -24,6 +24,37 @@ none of them; that is what keeps one allocator in the run.
 carries the same `created` date — agents that each resolve "today" independently split a
 batch across midnight and across whatever each of them believes the date to be.
 
+**Two claims the template makes about other files are pinned here.** STEP 2 names the XSD
+root element that belongs to each `type`, and the body headings STEP 3 lists are the
+convention's, copied from README's templates — both restate something that lives elsewhere,
+and a rename on the other side would starve the drafting agent of the very rule this prompt
+is trying to hand it. Each restatement is tagged on a line of the form
+`@PIN: <repo-root-relative file> <verbatim construct>`, and
+`tests/static/card-prose-pins.test.sh` extracts every one, resolving it against the
+repository root. The tags sit here rather than beside the sentences below because the
+template is a fenced block dispatched to a sub-agent verbatim; nothing is added to the text
+that agent receives.
+
+The three root elements STEP 2 names:
+
+```text
+@PIN: schemas/bug-ticket.xsd <xs:element name="bug-ticket">
+@PIN: schemas/feature-ticket.xsd <xs:element name="feature-ticket">
+@PIN: schemas/task-ticket.xsd <xs:element name="task-ticket">
+```
+
+The headings STEP 3 lists, each a section of README's body templates:
+
+```text
+@PIN: README.md ## Problem
+@PIN: README.md ## Expected behaviour
+@PIN: README.md ## Steps to reproduce
+@PIN: README.md ## Evidence
+@PIN: README.md ## Direction
+@PIN: README.md ## Alternatives considered
+@PIN: README.md ## Acceptance criteria
+```
+
 ---
 
 ## Template

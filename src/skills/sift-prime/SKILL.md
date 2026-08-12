@@ -11,6 +11,19 @@ write the tickets and the `ROADMAP.md` rows behind them. This card sits between
 `sift-init`, which creates the tree, and `sift-drain`, which empties it. Filling it is this
 card's job.
 
+**Pinned claims.** This card states things about files it does not carry, and every one of
+those claims is tagged beside the prose that makes it, on a line of the form
+`@PIN: <repo-root-relative file> <verbatim construct>`. A target ending in `/` is a card
+directory instead, and the construct is the front-matter line that directory's `SKILL.md`
+has to hold. Those lines are machine-read: `tests/static/card-prose-pins.test.sh` extracts
+every one of them, resolves the target against the repository root, and fails when the
+named construct is no longer there — so a rename cannot leave this card confidently naming
+something that has moved. State a new claim about another file, tag it the same way.
+
+```text
+@PIN: src/skills/sift-prime/ name: sift-prime
+```
+
 ## Gate: is sift initialized?
 
 Before anything else — before the first sweep agent, before reading a line of the
@@ -25,6 +38,16 @@ exit code decides:
 
 Never resolve the root by eye and never initialize the tree yourself: the gate is one
 script precisely so every card agrees on where `.ai/sift` lives.
+
+The state names above are the gate's own, restated here; the exit codes they pair with are
+held to the script by `tests/scripts/sift-gate.test.sh`.
+
+```text
+@PIN: src/skills/sift-init/scripts/sift-gate.sh emit "state=READY"
+@PIN: src/skills/sift-init/scripts/sift-gate.sh emit "state=UNINITIALIZED"
+@PIN: src/skills/sift-init/scripts/sift-gate.sh emit "state=INCOMPLETE"
+@PIN: src/skills/sift-init/scripts/sift-gate.sh emit "state=UNRESOLVED"
+```
 
 ## Orchestrate, never implement
 
@@ -250,3 +273,12 @@ Then report:
   that assigns every surviving finding before slate negotiation.
 - **`references/drafting-agent-prompt.md`** — the canonical per-row drafting sub-agent
   prompt, its placeholder table, and the retry for an agent that returns blocked.
+
+Each bullet above claims a file exists and says what is inside it, so each is pinned on a
+section that bullet advertises:
+
+```text
+@PIN: src/skills/sift-prime/references/analysis.md ## The evidence bar
+@PIN: src/skills/sift-prime/references/milestone-planner-prompt.md # Canonical milestone-planning sub-agent prompt
+@PIN: src/skills/sift-prime/references/drafting-agent-prompt.md ## When a drafting agent returns blocked
+```

@@ -1,0 +1,45 @@
+# kenkeep Index: cli
+
+↑ Parent: [kenkeep](../index.md)
+
+> kenkeep navigation: the injected body above is the root index node, the top-level catalog of branches and root-level leaves. Do not expect the whole knowledge base here; descend on demand. Read the root index node, pick one or more branches whose intent and tags match your task (several branches can be relevant), and read those branch `index.md` nodes. Descend further only where the task needs it, opening only the leaves you have confirmed are relevant. Follow each leaf's `relates_to` and `depends_on` cross edges to reach related leaves in other branches. You decide how deep to go per branch.
+
+> This index only orients you; leaves hold the durable guidance. Open at least one relevant leaf before acting.
+
+## Subfolders
+_None._
+
+## Conventions (how we build)
+- Open [**A subcommand ends the option list, so -- goes in front of it**](practice-a-subcommand-ends-the-option-list-so-the-marker-goes-in-front-of-it.md) to learn about: When the first positional is a subcommand, -- is only meaningful before it; behind it every argument is that subcommand's operand. #shell #cli #sift-drain #convention
+- Open [**Honour -- with a second loop, never a bare break**](practice-honour-with-a-second-loop-never-a-bare-break.md) to learn about: A --) shift; break arm silently discards every argument behind the marker unless a post-loop pass re-reads them as positionals. #shell #cli #sift-drain #gotcha #portability
+- Open [**Give a report's own state a key the echoed data cannot collide with**](practice-give-a-reports-own-state-a-key-the-echoed-data-cannot-collide-with.md) to learn about: A script that echoes front-matter must not reuse one of those key names for its run state; count duplicate keys to prove it. #sift-drain #cli #convention
+
+## Components (what exists)
+_None yet._
+
+## By topic
+
+### #cli
+- Open [**A subcommand ends the option list, so -- goes in front of it**](practice-a-subcommand-ends-the-option-list-so-the-marker-goes-in-front-of-it.md) — When the first positional is a subcommand, -- is only meaningful before it; behind it every argument is that subcommand's operand.
+- Open [**Give a report's own state a key the echoed data cannot collide with**](practice-give-a-reports-own-state-a-key-the-echoed-data-cannot-collide-with.md) — A script that echoes front-matter must not reuse one of those key names for its run state; count duplicate keys to prove it.
+- Open [**Validate the shape at a write boundary, never existence in the tree**](../shell/writes/practice-validate-the-shape-at-a-write-boundary-never-existence-in-the-tree.md) — An append-only log records what happened; a ticket-file lookup would refuse the closing row precisely because the work succeeded.
+### #sift-drain
+- Open [**Sub-agent autonomy is the contract in a sift drain**](../sift-drain/practice-sift-drain-sub-agents-decide-for-themselves.md) — Dispatch prompts state no answer is coming; an agent facing a judgment call decides it itself and records the call in its report.
+- Open [**When draining sift, orchestrate and never implement**](../sift-drain/practice-orchestrate-sift-drain-never-implement.md) — The orchestrator reads only the roadmap, the one ticket it is sizing, and structured sub-agent reports — never source, diffs, or raw test output.
+- Open [**Batch test authoring at the wave gate, not per ticket**](../sift-drain/practice-batch-test-authoring-at-the-wave-gate.md) — Ticket agents verify only what they touched and waive test criteria into the resolution; full suites and new tests belong to the gate.
+### #convention
+- Open [**Never write data through a sed replacement text**](../portability/practice-never-write-data-through-a-sed-replacement-text.md) — sed re-scans the replacement for & and \\1, so a title like "caching & sharding" comes back mangled; concatenate in awk instead.
+- Open [**Neutralise grep's no-match status with \`|| \[ $? -eq 1 \]\`, never \`|| true\`**](../shell/practice-neutralise-greps-no-match-status-with-exit-code-1-not-true.md) — grep exits 1 for 'nothing selected' and 2 for a real error; absorb only the 1, or an audit reports clean on a tree it half read.
+- Open [**Guard an unmatched glob with a -d/-f test, never nullglob**](../shell/practice-guard-an-unmatched-glob-with-a-d-test-never-nullglob.md) — A glob matching nothing stays literal, so a for-loop runs once for the pattern; test the entry inside the loop, not shopt.
+### #shell
+- Open [**Never write data through a sed replacement text**](../portability/practice-never-write-data-through-a-sed-replacement-text.md) — sed re-scans the replacement for & and \\1, so a title like "caching & sharding" comes back mangled; concatenate in awk instead.
+- Open [**Neutralise grep's no-match status with \`|| \[ $? -eq 1 \]\`, never \`|| true\`**](../shell/practice-neutralise-greps-no-match-status-with-exit-code-1-not-true.md) — grep exits 1 for 'nothing selected' and 2 for a real error; absorb only the 1, or an audit reports clean on a tree it half read.
+- Open [**Guard an unmatched glob with a -d/-f test, never nullglob**](../shell/practice-guard-an-unmatched-glob-with-a-d-test-never-nullglob.md) — A glob matching nothing stays literal, so a for-loop runs once for the pattern; test the entry inside the loop, not shopt.
+### #gotcha
+- Open [**Never write data through a sed replacement text**](../portability/practice-never-write-data-through-a-sed-replacement-text.md) — sed re-scans the replacement for & and \\1, so a title like "caching & sharding" comes back mangled; concatenate in awk instead.
+- Open [**Neutralise grep's no-match status with \`|| \[ $? -eq 1 \]\`, never \`|| true\`**](../shell/practice-neutralise-greps-no-match-status-with-exit-code-1-not-true.md) — grep exits 1 for 'nothing selected' and 2 for a real error; absorb only the 1, or an audit reports clean on a tree it half read.
+- Open [**Guard an unmatched glob with a -d/-f test, never nullglob**](../shell/practice-guard-an-unmatched-glob-with-a-d-test-never-nullglob.md) — A glob matching nothing stays literal, so a for-loop runs once for the pattern; test the entry inside the loop, not shopt.
+### #portability
+- Open [**Never write data through a sed replacement text**](../portability/practice-never-write-data-through-a-sed-replacement-text.md) — sed re-scans the replacement for & and \\1, so a title like "caching & sharding" comes back mangled; concatenate in awk instead.
+- Open [**Neutralise grep's no-match status with \`|| \[ $? -eq 1 \]\`, never \`|| true\`**](../shell/practice-neutralise-greps-no-match-status-with-exit-code-1-not-true.md) — grep exits 1 for 'nothing selected' and 2 for a real error; absorb only the 1, or an audit reports clean on a tree it half read.
+- Open [**Guard an unmatched glob with a -d/-f test, never nullglob**](../shell/practice-guard-an-unmatched-glob-with-a-d-test-never-nullglob.md) — A glob matching nothing stays literal, so a for-loop runs once for the pattern; test the entry inside the loop, not shopt.

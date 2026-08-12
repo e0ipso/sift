@@ -2,25 +2,28 @@
 type: map
 title: Sift ticket front-matter keys and their closed value sets
 description: >-
-  Nine required keys plus labels/depends_on/resolution/source; status, type,
-  priority and effort each draw from a closed set.
+  Nine required keys plus labels/depends_on/cluster/resolution/source; status,
+  type, priority and effort each draw from a closed set.
 tags:
   - sift
   - tickets
   - front-matter
 kk_schema_version: 3
 kk_id: map-sift-ticket-front-matter
-kk_derived_from: []
+kk_derived_from:
+  - '7dcf0144-592c-4853-a5c2-57b8ad8ad350:map:0'
 kk_relates_to:
   - map-sift-ticket-tree-layout
+  - map-the-cluster-front-matter-key-and-dispatch-groups
 kk_depends_on: []
 kk_confidence: high
 ---
 Every ticket opens with YAML front-matter. Nine keys are required: `id`,
 `title`, `status`, `type`, `milestone`, `priority`, `effort`, `created`,
 `updated`. Optional keys are `labels` (free-form kebab topic tags),
-`depends_on` (ticket IDs that must land first), `resolution`, and `source`
-(where the ticket came from — session, issue URL, review).
+`depends_on` (ticket IDs that must land first), `cluster` (kebab-case name of a
+root cause shared with other tickets), `resolution`, and `source` (where the
+ticket came from — session, issue URL, review).
 
 Closed value sets: `status` is `open | in-progress | blocked | done | wontfix |
 superseded`; `type` is `bug | hardening | feature | test | docs | dx | release`;
@@ -37,5 +40,12 @@ additive, but renaming or removing one is a breaking change to the public API.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-ticket-tree-layout](/map-sift-ticket-tree-layout.md)
+- Related: [map-sift-ticket-tree-layout](/tickets/map-sift-ticket-tree-layout.md)
+- Related: [map-the-cluster-front-matter-key-and-dispatch-groups](/tickets/map-the-cluster-front-matter-key-and-dispatch-groups.md)
 <!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [7dcf0144-592c-4853-a5c2-57b8ad8ad350:map:0](7dcf0144-592c-4853-a5c2-57b8ad8ad350:map:0)
+<!-- kk:citations:end -->

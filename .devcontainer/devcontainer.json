@@ -6,7 +6,7 @@
     "${localWorkspaceFolderBasename}-devcontainer",
     "--hostname=${localWorkspaceFolderBasename}-dev",
     "--publish",
-    "127.0.0.1:25410:34489",
+    "0.0.0.0:25410:34489",
     "--env-file",
     "${localWorkspaceFolder}/.env"
   ],

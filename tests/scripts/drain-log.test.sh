@@ -241,6 +241,37 @@ assert_eq 2 "$R_STATUS" "two phase names at once exit 2 as well"
 assert_eq "$cksum_before" "$(cksum < "$root/.ai/sift/RUNLOG.md")" \
   "and none of those refusals appended a byte"
 
+test_case "a refused phase name is quoted back, which an arity error never does (SFT-0048)"
+# Exit 2 and a usage block are what an arity error prints too, so the case above
+# cannot tell a rejected NAME from a rejected COUNT: both assertions in it would
+# survive the loss of the line that says which string was refused, leaving an
+# operator with four lines of grammar and no mention of the argument.
+#
+# So the ambiguity is built first — both arity errors are run and their stderr
+# captured — and every bad name is then required to print that same block plus a
+# line naming the value, with the diagnosis line proved to be the whole of the
+# difference by stripping it and comparing what is left.
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase
+arity_err="$R_ERR"
+assert_eq 2 "$R_STATUS" "phase with no name at all exits 2"
+assert_contains "$arity_err" "usage: drain-log.sh" "printing the usage block"
+assert_not_contains "$arity_err" "error: not a drain phase" \
+  "and nothing more: an arity error has no offending name to quote"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase orient verify
+assert_eq "$arity_err" "$R_ERR" "two names at once print that same block, byte for byte"
+for bad in bogus ORIENT implementing '' 'orient implement'; do
+  run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase "$bad"
+  assert_eq 2 "$R_STATUS" "phase [$bad] exits 2"
+  assert_contains "$R_ERR" "error: not a drain phase: $bad" \
+    "and names the string it refused"
+  assert_ne "$arity_err" "$R_ERR" "so [$bad] does not read as an arity error"
+  assert_eq "$arity_err" \
+    "$(printf '%s\n' "$R_ERR" | grep -v '^error: not a drain phase: ')" \
+    "that one line being the whole of the difference between the two refusals"
+done
+assert_eq "$cksum_before" "$(cksum < "$root/.ai/sift/RUNLOG.md")" \
+  "and diagnosing a name appended nothing either"
+
 test_case "the writer stamps a real clock"
 # The only case in this file that sleeps, and it asserts a lower bound rather
 # than an exact duration: the claim under test is "this is wall-clock", not
@@ -467,6 +498,58 @@ assert_eq "ORPHAN (return with no dispatch row)" "$(group_field 1 notes)" \
 assert_eq "120s (2m0s)" "$(group_field 2 runtime)" \
   "and the group it interrupted still closes on its own return"
 
+test_case "a phase mark with no open dispatch is an orphan record of its own (SFT-0048)"
+# The phase counterpart of the two return orphans above, and pinned the same way:
+# on the exact note text. A phase row that reached no record at all and one that
+# was folded into a neighbouring group both leave a report that reads clean, so
+# the note is the only thing that separates a stray mark from a legitimate one.
+root="$(newdir)"
+make_tree "$root" SFT
+log_new "$root"
+log_phase "$root" orient    900
+log_row "$root"   dispatch SFT-0001 1000 -
+log_phase "$root" implement 1030
+log_row "$root"   return   SFT-0001 1120 'done'
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "report exits 0"
+assert_eq 2 "$(group_count)" "the mark that preceded every dispatch is a record beside the group"
+assert_eq "phase orient" "$(group_field 1 tickets)" "which names itself by the phase it marked"
+assert_eq "-" "$(group_field 1 runtime)" "a mark with no group around it measures nothing"
+assert_eq "ORPHAN (phase with no dispatch row)" "$(group_field 1 notes)" "and says why"
+assert_eq "implement 90s (1m30s)" "$(group_field 2 phases)" \
+  "while the dispatch that followed breaks down its own mark alone"
+assert_not_contains "$(group_field 2 phases)" "orient" \
+  "the orphan is not absorbed into the next group's breakdown"
+assert_eq "120s (2m0s)" "$(group_field 2 runtime)" "whose runtime is its own dispatch-to-return span"
+
+test_case "a phase mark between two groups joins neither (SFT-0048)"
+# The second shape: not a mark before the first dispatch but one stamped after a
+# group has already closed — an orchestrator that stamped a phase after its
+# return rows, or a log two drains were appending to at once.
+root="$(newdir)"
+make_tree "$root" SFT
+log_new "$root"
+log_row "$root"   dispatch SFT-0001 1000 -
+log_phase "$root" orient   1010
+log_row "$root"   return   SFT-0001 1100 'done'
+log_phase "$root" bookkeep 1200
+log_row "$root"   dispatch SFT-0002 1300 -
+log_phase "$root" orient   1310
+log_row "$root"   return   SFT-0002 1400 'done'
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "report exits 0"
+assert_eq 3 "$(group_count)" "two groups, and the stray mark between them as its own record"
+assert_eq "orient 90s (1m30s)" "$(group_field 1 phases)" "the closed group keeps its own mark"
+assert_eq "phase bookkeep" "$(group_field 2 tickets)" "the stray mark is the record after it"
+assert_eq "ORPHAN (phase with no dispatch row)" "$(group_field 2 notes)" "named as an orphan"
+assert_eq "-" "$(group_field 2 runtime)" "carrying no runtime"
+assert_eq "orient 90s (1m30s)" "$(group_field 3 phases)" \
+  "and the group after it breaks down its own mark alone"
+assert_not_contains "$(group_field 3 phases)" "bookkeep" \
+  "so the mark that fell between the two groups was adopted by neither"
+assert_eq "median runtime: 100s (1m40s) across 2 completed group(s) of 3" "$(median_line)" \
+  "the orphan is a record and never a sample"
+
 test_case "a clock that ran backwards is corrupt, not a duration"
 # No portable monotonic clock exists in the baseline userland, so a system clock
 # adjustment mid-drain is accepted rather than solved — but it must be visible.
@@ -530,6 +613,54 @@ log_row "$root" return   SFT-0005 450 'done'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
 assert_eq "median runtime: 30s across 5 completed group(s) of 5" "$(median_line)" \
   "of 10/20/30/40/50 the median is 30"
+
+test_case "a drain in which nothing completed has no median to report (SFT-0048)"
+# Every other median assertion in this file runs against a log with at least one
+# completed group, so the arm a drain that finished nothing takes is asserted
+# nowhere. Both shapes of a record that carries no duration are driven — an
+# unpaired dispatch and an orphan return — and the record count is pinned
+# alongside the dash, so an arm that printed a bare dash for every log would
+# still fail. The last fixture is the positive control: the same log with one
+# pair closed prints the other branch.
+root="$(newdir)"
+make_tree "$root" SFT
+log_new "$root"
+log_row "$root" dispatch SFT-0001 1000 -
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "a log holding one unpaired dispatch is not an error"
+assert_eq "median runtime: - (no completed groups of 1)" "$(median_line)" \
+  "there is no runtime to take a median of, and the line says how many records it looked at"
+assert_eq "INCOMPLETE (no return row)" "$(group_field 1 notes)" \
+  "the single record having no duration to contribute"
+
+root="$(newdir)"
+make_tree "$root" SFT
+log_new "$root"
+log_row "$root" return SFT-0009 1000 'done'
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "nor is a log holding one orphaned return"
+assert_eq "median runtime: - (no completed groups of 1)" "$(median_line)" \
+  "which is a record and still not a sample"
+
+root="$(newdir)"
+make_tree "$root" SFT
+log_new "$root"
+log_phase "$root" orient 900
+log_row "$root"   return   SFT-0009 1000 'done'
+log_row "$root"   dispatch SFT-0001 1100 -
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "report exits 0"
+assert_eq 3 "$(group_count)" "three records, and no two of them a pair"
+assert_eq "median runtime: - (no completed groups of 3)" "$(median_line)" \
+  "the count in the line is the record count, not a constant"
+assert_eq "minutes per ticket resolved: - (no tickets resolved)" "$(cost_line)" \
+  "and the aggregate below it has nothing to divide either"
+log_row "$root" dispatch SFT-0002 1200 -
+log_row "$root" return   SFT-0002 1260 'done'
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "report exits 0"
+assert_eq "median runtime: 60s (1m0s) across 1 completed group(s) of 4" "$(median_line)" \
+  "one completed pair added to that same log takes the other branch"
 
 test_case "a runtime an order of magnitude over the median is flagged"
 # The success criterion stated as a machine check rather than a judgement call.
@@ -638,6 +769,59 @@ check_usage "return with an odd argument count, whose last ticket has no status"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase;            check_usage "phase with no name"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report now;       check_usage "report, which takes no argument"
 assert_no_file "$root/.ai/sift/RUNLOG.md" "no rejected command line created a log"
+
+test_case "an empty status is refused before it can become a permanent blank cell (SFT-0048)"
+# The damage first, the rule tests/README.md states under "Destructive and
+# concurrent sequences": the six-column row an ungated `return SFT-0001 ''` would
+# have appended is written into a fixture log by hand, and `report` is shown
+# reading it as a ticket that never came back. That cell would be permanent —
+# the log is append-only and nothing in the card rewrites a row — so the group
+# stays pending, closes as INCOMPLETE, and drops out of the median: a run that
+# reads as a dropped connection when the ticket was in fact returned.
+#
+# The arity check does not catch this. It counts arguments, and an empty string
+# is an argument; `return SFT-0001 'done' SFT-0002 ''` is an even count with a
+# hole in it.
+damaged="$(newdir)"
+make_tree "$damaged" SFT
+log_new "$damaged"
+log_row "$damaged" dispatch SFT-0001 1000 -
+log_row "$damaged" return   SFT-0001 1120 ''
+run_cmd "$damaged" env SIFT_ROOT="$damaged" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" "the damaged log reports without complaint, which is the problem"
+assert_eq "SFT-0001 -" "$(group_field 1 tickets)" \
+  "the blank cell reads as a ticket that reported no status at all"
+assert_eq "INCOMPLETE (no return row)" "$(group_field 1 notes)" \
+  "so the group is closed as interrupted, though its return row is right there"
+assert_eq "-" "$(group_field 1 runtime)" "and the 120 seconds it really took are lost"
+
+intact="$(newdir)"
+make_tree "$intact" SFT
+log_new "$intact"
+log_row "$intact" dispatch SFT-0001 1000 -
+log_row "$intact" return   SFT-0001 1120 'done'
+run_cmd "$intact" env SIFT_ROOT="$intact" "$DRAINLOG" report
+assert_eq "SFT-0001 done" "$(group_field 1 tickets)" \
+  "the control: those same two rows with the cell filled close the group"
+assert_eq "120s (2m0s)" "$(group_field 1 runtime)" "and keep its runtime"
+
+# The guard, against a real log with real rows in it, so "wrote nothing" is
+# byte-identity rather than the absence of a file.
+eroot="$(newdir)"
+make_tree "$eroot" SFT
+run_cmd "$eroot" env SIFT_ROOT="$eroot" "$DRAINLOG" dispatch SFT-0001 SFT-0002
+assert_eq 0 "$R_STATUS" "the dispatch that creates the log exits 0"
+empty_cksum="$(cksum < "$eroot/.ai/sift/RUNLOG.md")"
+run_cmd "$eroot" env SIFT_ROOT="$eroot" "$DRAINLOG" return SFT-0001 ''
+check_usage "return whose only status is empty"
+run_cmd "$eroot" env SIFT_ROOT="$eroot" "$DRAINLOG" return SFT-0001 'done' SFT-0002 ''
+check_usage "return whose second pair has the empty status, an even count the arity check accepts"
+run_cmd "$eroot" env SIFT_ROOT="$eroot" "$DRAINLOG" return SFT-0001 '' SFT-0002 'done'
+check_usage "return whose first pair has the empty status, with a later pair intact"
+assert_eq "$empty_cksum" "$(cksum < "$eroot/.ai/sift/RUNLOG.md")" \
+  "and none of the three appended a byte to the append-only log"
+assert_eq 2 "$(log_rows "$eroot/.ai/sift/RUNLOG.md")" \
+  "the two dispatch rows being still the whole of it"
 
 test_case "-- may stand in front of the subcommand and records the same row (SFT-0033)"
 # The card spells `--` one way (SFT-0024, SFT-0033), and this is the one script

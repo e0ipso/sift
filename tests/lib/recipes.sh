@@ -147,6 +147,40 @@ matrix_shells='bash dash'
 matrix_awks='gawk mawk nawk'
 matrix_locales='C C.utf8 en_US.utf8'
 
+# locale_available <name> — true when the machine really has that locale.
+#
+# The declaration above is intent, not inventory: `C.utf8` and `en_US.utf8` are
+# as installable as dash and mawk, and stock macOS ships neither (it spells the
+# second `en_US.UTF-8`). Without this guard a leg is labelled with a locale it
+# never entered — libc falls back to C behind a `setlocale` warning that lands in
+# the leg's captured stderr — so the collation bug the axis exists to catch
+# passes under it (SFT-0046).
+#
+# Probed by running the locale rather than by reading `locale -a`: `locale` is
+# not on the BASELINE list in tests/static/suite-contract.test.sh, and that list
+# is the suite's dependency contract. Probed through the harness's own bash and
+# never through $R_SHELL, because whether a locale exists is a property of the
+# machine and dash does not report a failed setlocale at all — probing through it
+# would call a missing locale present for the whole dash half of the sweep.
+#
+# A missing locale is skipped, never swapped for an alias spelling: substituting
+# `en_US.UTF-8` for `en_US.utf8` would label a leg with a locale it did not run
+# under, which is the same fake-green one level down.
+_locale_known=' '   # ' <name>=<0|1> ' pairs; the answer cannot change mid-run
+locale_available() {  # locale_available <name>
+  local loc="$1"
+  # POSIX guarantees these two, so the sweep can never narrow to nothing.
+  case "$loc" in C|POSIX) return 0 ;; esac
+  case "$_locale_known" in
+    *" $loc=1 "*) return 0 ;;
+    *" $loc=0 "*) return 1 ;;
+  esac
+  if [ -z "$(env LC_ALL="$loc" bash -c true 2>&1)" ]; then
+    _locale_known="$_locale_known$loc=1 "; return 0
+  fi
+  _locale_known="$_locale_known$loc=0 "; return 1
+}
+
 # for_matrix <callback> [args…] — invoke callback once per combination, with
 # R_SHELL / R_AWK / R_LOCALE set and R_LABEL naming the combination.
 #
@@ -163,6 +197,7 @@ for_matrix() {
       bin="$(command -v "$a" || true)"
       [ -n "$bin" ] || continue
       for l in $matrix_locales; do
+        locale_available "$l" || continue
         R_SHELL="$sh"; R_AWK="$bin"; R_LOCALE="$l"; R_LABEL="$sh/$a/$l"
         "$cb" "$@"
       done
@@ -183,6 +218,7 @@ for_shell_locale() {
   for sh in $matrix_shells; do
     command -v "$sh" > /dev/null 2>&1 || continue
     for l in $matrix_locales; do
+      locale_available "$l" || continue
       R_SHELL="$sh"; R_AWK=''; R_LOCALE="$l"; R_LABEL="$sh/$l"
       "$cb" "$@"
     done

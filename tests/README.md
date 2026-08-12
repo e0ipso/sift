@@ -64,9 +64,14 @@ both GNU and BSD systems. Where a recipe's behaviour could turn on the shell, th
 across all of them — `bash`/`dash` × `gawk`/`mawk`/`nawk` × `C`/`C.utf8`/
 `en_US.utf8` — via `for_matrix` in `lib/recipes.sh`. Recipes built only from
 `grep`, `sed` and `find` use `for_shell_locale`, which drops the axis that has
-nothing to vary. Every member of those axes except `bash` is an installable
-extra, so a member the machine does not have is skipped: the sweep narrows, the
-run stays green, and the suite keeps needing nothing but the baseline.
+nothing to vary. Every member of those axes except `bash` and `C` is an
+installable extra, so a member the machine does not have is skipped: the sweep
+narrows, the run stays green, and the suite keeps needing nothing but the
+baseline. The locale axis is inside that sentence, not an exception to it —
+`locale_available` in `lib/recipes.sh` probes each name by running it and skips
+the ones the machine lacks, because a leg labelled `en_US.utf8` on a host that
+falls back to `C` asserts nothing about collation. `bash` and `C` are the two
+members that are always there, so the sweep can never narrow to nothing.
 
 No BSD host is available in CI or the dev container, so the BSD half of the
 promise is covered statically instead: `static/portability.test.sh` fails the

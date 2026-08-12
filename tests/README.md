@@ -46,8 +46,19 @@ next-ticket/wave-status; `drain-log` owns the run log; `labels` owns the drain's
 label index (list-labels/tickets-by-label); `prime-backlog` owns the two ends of
 a priming pass, existing-work's dedupe corpus and roadmap-append's write. Root
 and prefix resolution is the one contract every card script shares, so it is
-swept across all of them once, in `root-resolution`, instead of being
-re-asserted per file.
+swept across them once, in `root-resolution`, instead of being re-asserted per
+file.
+
+That sweep takes every card script that can be run without writing, both cards
+included. The two writers are the named exception, and each holds the same
+contract in its own file instead — `drain-log.sh` in `drain-log`, and
+`roadmap-append.sh` in `prime-backlog` — driven by a real write command line, so
+what gets refused is the write. They cannot join the sweep because its cases run
+one command line against every entry: the sweeps asserting a *successful*
+resolution would append to the fixture tree, and the invocations that would not
+(`drain-log.sh report` on a tree with no `RUNLOG.md`, `roadmap-append.sh` with
+the wrong argument count) refuse for reasons of their own before the resolved
+root is ever used, which is not the failure the sweep is asserting.
 
 `static/suite-contract.test.sh` holds the suite to its own promises: it runs a
 generated child test file and checks the temporary tree is gone afterwards on the

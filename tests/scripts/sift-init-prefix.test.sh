@@ -63,7 +63,12 @@ done
 test_case "a lowercase prefix is rejected under a UTF-8 locale too"
 # [A-Z] is collated: under en_US.UTF-8 the order is aAbBcC…zZ, so a range would
 # accept 'abc' on exactly the machines the range was meant to be portable to.
-for loc in C C.utf8 en_US.utf8; do
+# Driven from the matrix axis and its availability guard rather than a third
+# hardcoded copy of the names: a locale the machine lacks would otherwise run
+# here under a libc fallback to C, asserting nothing about UTF-8 collation
+# (SFT-0046).
+for loc in $matrix_locales; do
+  locale_available "$loc" || continue
   for p in abc ABc; do
     root="$(newdir)"
     R_LOCALE="$loc" init_prefix "$root" "$p"

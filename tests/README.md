@@ -56,6 +56,17 @@ lifecycle with `PATH` pointing at a symlink farm of baseline POSIX utilities and
 nothing else. That list of utilities is the dependency contract — adding a name
 to it is a decision to depend on that tool.
 
+Three more promises are asserted there rather than described. A fourth generated
+child drives every assertion helper through both of its arms, so a helper that
+reported `ok` for a false claim — or `not ok` for a true one — is caught along
+with a miscounted `T_ASSERTS`. `SIFT_TEST_VERBOSE` is driven through a `cp` of
+the shipped `run.sh` over a generated child, once plain and once with the
+variable set, since the flag lives in `run.sh` rather than in the harness. And
+the no-writes digest walks the whole of `REPO_ROOT` minus a named exclusion list
+carrying a reason per entry, taken around a run of every other test file in the
+suite rather than around one heavy writer — a failure there names no single
+culprit, so it prints the difference between the two digests.
+
 ## The portability matrix
 
 The convention promises the recipes run on the Unix userland already present, on
@@ -64,9 +75,14 @@ both GNU and BSD systems. Where a recipe's behaviour could turn on the shell, th
 across all of them — `bash`/`dash` × `gawk`/`mawk`/`nawk` × `C`/`C.utf8`/
 `en_US.utf8` — via `for_matrix` in `lib/recipes.sh`. Recipes built only from
 `grep`, `sed` and `find` use `for_shell_locale`, which drops the axis that has
-nothing to vary. Every member of those axes except `bash` is an installable
-extra, so a member the machine does not have is skipped: the sweep narrows, the
-run stays green, and the suite keeps needing nothing but the baseline.
+nothing to vary. Every member of those axes except `bash` and `C` is an
+installable extra, so a member the machine does not have is skipped: the sweep
+narrows, the run stays green, and the suite keeps needing nothing but the
+baseline. The locale axis is inside that sentence, not an exception to it —
+`locale_available` in `lib/recipes.sh` probes each name by running it and skips
+the ones the machine lacks, because a leg labelled `en_US.utf8` on a host that
+falls back to `C` asserts nothing about collation. `bash` and `C` are the two
+members that are always there, so the sweep can never narrow to nothing.
 
 No BSD host is available in CI or the dev container, so the BSD half of the
 promise is covered statically instead: `static/portability.test.sh` fails the
@@ -105,6 +121,12 @@ test_case "what is being pinned"
 assert_eq "$want" "$got" "why it matters"
 summary
 ```
+
+`summary` is required, and it is the last call for a reason: `run.sh` fails any file
+that exits without printing the `# SUMMARY` line, whatever its exit status. A file that
+returned early, was truncated, or died on the way there ran fewer cases than it claims,
+so an absent summary is reported as a failure naming the file rather than counted as a
+file of zero tests.
 
 `ticket` takes extra front-matter lines after the title. A line naming one of the
 required keys *replaces* that key's default rather than appending a second copy,

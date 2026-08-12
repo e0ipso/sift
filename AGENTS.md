@@ -41,21 +41,50 @@ Two rules are in that position today, and every copy of both is listed here. Add
 rule to the list means adding its guard test in the same change.
 
 **Rule 1 — what a roadmap row is.** A row is a markdown table line, and within it the first
-cell holding a whole-token `<PREFIX>-NNNN`. The copies are `roadmap_rows` in
-`src/skills/sift-drain/scripts/lib.sh:91` (the pattern and `cell_id`, at `lib.sh:119` and
-`lib.sh:144`), which reads by that rule, and the `ROW_ID_PAT`/`cell_id` block at
-`src/skills/sift-prime/scripts/roadmap-append.sh:102` (`:122` and `:136`), which the duplicate
-guard and the append hop both write by. The two copies drifted apart three times (SFT-0022,
-SFT-0025, SFT-0031), each silently, each surfacing only once a tree was already wrong.
+cell holding a whole-token `<PREFIX>-NNNN`. Sift-drain reads by that rule in `roadmap_rows`,
+whose `BEGIN` pattern and `cell_id` are the whole of that card's copy; sift-prime writes by it
+through `ROW_ID_PAT` and the `cell_id` inside `ROW_CELL_ID_AWK`, which the duplicate guard and
+the append hop share. The two copies drifted apart three times (SFT-0022, SFT-0025, SFT-0031),
+each silently, each surfacing only once a tree was already wrong.
 
 **Rule 2 — what a well-formed ticket ID is.** `<PREFIX>`, a hyphen, and four-or-more digits
-and nothing else — greedy, because `%04d` is a minimum width and IDs widen past 9999. The
-copies are the ID-shape argument check at
-`src/skills/sift-prime/scripts/roadmap-append.sh:72-78` and `require_ticket_id` at
-`src/skills/sift-drain/scripts/drain-log.sh:114`. A divergence here surfaces the same way: a
-drain that accepts an ID prime refuses writes a run-log row for a ticket that can never take a
-roadmap row, and `report` pairs that row against nothing. This one went unrecorded and
-unguarded until SFT-0042.
+and nothing else — greedy, because `%04d` is a minimum width and IDs widen past 9999.
+Sift-prime holds it in the `case "$ID" in` argument check `roadmap-append.sh` runs before it
+writes anything; sift-drain holds it in `require_ticket_id`. A divergence here surfaces the
+same way: a drain that accepts an ID prime refuses writes a run-log row for a ticket that can
+never take a roadmap row, and `report` pairs that row against nothing. This one went unrecorded
+and unguarded until SFT-0042.
+
+**Where every copy is.** One entry per copy: the file, then the verbatim construct that holds
+the rule inside it. The entries below are parsed —
+`tests/static/agents-card-copies.test.sh` extracts them from this section rather than restating
+them, and fails when a named file is gone or when no executable line of that file still holds
+the named construct. A copy that is renamed, deleted, or moved to the other card therefore
+cannot leave this list behind still claiming it is there.
+
+```text
+@CARD-COPY: src/skills/sift-drain/scripts/lib.sh roadmap_rows() {
+@CARD-COPY: src/skills/sift-drain/scripts/lib.sh pat = prefix
+@CARD-COPY: src/skills/sift-drain/scripts/lib.sh function cell_id(
+@CARD-COPY: src/skills/sift-prime/scripts/roadmap-append.sh case "$ID" in
+@CARD-COPY: src/skills/sift-prime/scripts/roadmap-append.sh ROW_ID_PAT=
+@CARD-COPY: src/skills/sift-prime/scripts/roadmap-append.sh ROW_CELL_ID_AWK=
+@CARD-COPY: src/skills/sift-prime/scripts/roadmap-append.sh function cell_id(
+@CARD-COPY: src/skills/sift-drain/scripts/drain-log.sh require_ticket_id() {
+```
+
+**The citation form (SFT-0043): construct names, never line numbers.** SFT-0042 wrote this
+inventory as eight `file:line` citations, and SFT-0043 took the numbers back out rather than
+pinning them. A line number is the most perishable reference in the repository, and the churn
+is not hypothetical: SFT-0038, SFT-0041 and SFT-0042 each added comment lines directly above
+one of the constructs listed above, so each would have moved a citation without changing
+anything the record actually asserts. Pinning the numbers buys a suite that fails on comment
+edits, which teaches a maintainer to bump a number without reading what it points at — the
+believed-but-wrong reference this record exists to prevent, one level down. A construct name
+catches the drift that matters, which copies exist and on which card, and `grep -n` recovers a
+line number whenever a reader wants one. The cost of the choice is recorded too: a construct
+that merely moves within its own file is not drift this list can detect, and does not need to
+be.
 
 **The decision (SFT-0038, widened to rule 2 by SFT-0042): keep one copy per card, and pay for
 it with a test that fails when the two classify one input differently.** Both tests live in

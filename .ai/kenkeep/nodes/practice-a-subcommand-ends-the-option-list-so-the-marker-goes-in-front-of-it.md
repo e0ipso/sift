@@ -34,9 +34,16 @@ mean inventing a per-subcommand marker grammar the card does not have, and it wo
 
 Nothing is stranded by that reading, because a sift ticket ID is `<PREFIX>-<NNNN>` and can
 never begin with a hyphen — no real operand ever needs protecting from a parser that stopped
-one argument earlier. That is a convention guarantee rather than an enforced one, so a
-command line relying on it is only as safe as the entry point's own validation (SFT-0033
-decided this; SFT-0039 tracks the missing check in `drain-log.sh`).
+one argument earlier. SFT-0033 decided the shape while that was only a convention guarantee;
+SFT-0039 then enforced it, so `drain-log.sh`'s `require_ticket_id` now refuses a non-ID in
+both the `dispatch` and the `return` ticket position.
+
+That check sits *behind* the subcommand, which is what makes the two slots differ. A
+hyphen-leading word in an operand position is a ticket argument `require_ticket_id` refuses
+by name; the same word in the subcommand slot is an unknown mode the case arms reject
+before any validation runs — not an option, and not a rejected ID. Only the operand
+position is comparable with `sift-prime`'s ID check, and the cross-card agreement test says
+so explicitly.
 
 The shape is one option loop whose `*)` arm is a bare `break`, leaving the subcommand in
 place, and whose `--)` arm is `shift; break`, consuming the marker. Every arity check after

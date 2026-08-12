@@ -517,7 +517,7 @@ assert_contains "$(printf '%s\n' "$R_OUT" | tr -s ' ')" \
   ' 1 ACME-0001 [p2/m/open] Cache \t tenant lookups' \
   "and recovers the whole title, with the backslash-t intact"
 
-# --- One rule, asserted from both ends ---------------------------------------
+# --- Rule 1 of 2 across the cards: what a roadmap row is ---------------------
 
 # reader_rows <root> — every ID the sift-drain reader reports as a row. Driven
 # through roadmap-check.sh rather than by sourcing lib.sh, so the reader is
@@ -593,5 +593,74 @@ assert_eq "| 2 | ACME-0003 | Three |  |" \
   "the new row is numbered 2, so the glued line is no row to the hop either"
 assert_eq 0 "$(removed_lines "$before" "$d")" \
   "and the glued line is left exactly as it was found, not renumbered"
+
+# --- Rule 2 of 2 across the cards: what a ticket ID is -----------------------
+
+# writer_id_accepts <root> <ID…> — every candidate roadmap-append.sh's ID-shape
+# argument check lets past. Keyed on the message rather than on the exit status,
+# because the duplicate guard one hop later exits 1 as well and a probe rejected
+# there did pass the shape check. The roadmap is restored from a copy kept outside
+# the tree after each probe, so an ID the shape check accepted cannot turn the
+# next probe into a duplicate.
+writer_id_accepts() {
+  local root="$1"; shift
+  local keep id
+  keep="$(snapshot "$root")"
+  for id in "$@"; do
+    append "$root" 1 "$id" 'Probe' ''
+    case "$R_ERR" in
+      *'ticket ID must look like'*) ;;
+      *) printf '%s\n' "$id" ;;
+    esac
+    cp "$keep" "$(roadmap "$root")"
+  done | LC_ALL=C sort
+}
+
+# drain_id_accepts <root> <ID…> — every candidate drain-log.sh's require_ticket_id
+# lets past. Driven through `dispatch`, because a ticket argument is how an ID
+# reaches that check through a real command line. The run log is removed after
+# each probe so every one meets the same lazily-created file.
+drain_id_accepts() {
+  local root="$1"; shift
+  local id
+  for id in "$@"; do
+    run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" dispatch "$id"
+    case "$R_ERR" in
+      *'not a ticket ID'*) ;;
+      *) printf '%s\n' "$id" ;;
+    esac
+    rm -f "$root/.ai/sift/RUNLOG.md"
+  done | LC_ALL=C sort
+}
+
+test_case "the two cards classify every ID of one list alike (SFT-0042)"
+# The second rule both cards hold a copy of, and the one that had no guard until
+# SFT-0042: what a well-formed ticket ID is. roadmap-append.sh checks its ID
+# argument, drain-log.sh's require_ticket_id checks every ticket argument of a log
+# row, and neither may source the other. A divergence is invisible until a tree is
+# already inconsistent: a drain that accepts an ID prime refuses writes a run-log
+# row for a ticket that can never take a roadmap row, and `report` then pairs it
+# against nothing. One list carries every shape the rule turns on — four digits,
+# five digits, too few digits, a bare prefix, a prefix with an empty tail, a
+# non-digit tail, a second hyphenated group, the wrong case, and an ID glued to a
+# longer token on either edge — and both cards are asked about all of them.
+d="$(newdir)"; make_tree "$d" ACME
+id_cases=(
+  ACME-0001        # the canonical four-digit ID
+  ACME-00011       # five digits: %04d is a minimum width, not a maximum
+  ACME-000         # three digits, one short of the floor
+  ACME             # the bare prefix, with no hyphen and no number
+  ACME-            # the prefix and a hyphen, with an empty tail
+  ACME-0001x       # a non-digit tail, which is also the right-edge glue case
+  XACME-0002       # glued to a longer token on the left edge
+  ACME-0001-0002   # a second hyphenated group after a well-formed one
+  acme-0001        # the right shape in the wrong case
+)
+want="$(printf '%s\n' ACME-0001 ACME-00011 | LC_ALL=C sort)"
+got_writer="$(writer_id_accepts "$d" "${id_cases[@]}")"
+got_drain="$(drain_id_accepts "$d" "${id_cases[@]}")"
+assert_eq "$want" "$got_writer" "the writer accepts exactly the well-formed IDs"
+assert_eq "$want" "$got_drain" "the run log accepts exactly the same set"
+assert_eq "$got_writer" "$got_drain" "so neither card logs an ID the other cannot slot"
 
 summary

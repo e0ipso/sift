@@ -20,7 +20,9 @@
 #
 # Sandboxing: SIFT_ROOT always points into TMPROOT, and each roadmap case keeps
 # its own before-copy under TMPROOT rather than inside the tree under test. Root
-# and prefix resolution are swept across both cards by root-resolution.test.sh.
+# and prefix resolution are swept across both cards by root-resolution.test.sh —
+# across every card script that can be run without writing, which is why
+# roadmap-append.sh's half of that contract is held below instead (SFT-0050).
 
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
@@ -156,6 +158,35 @@ assert_eq "$before" "$(tree_digest "$d")" "the tree is byte-identical afterwards
 # =============================================================================
 # roadmap-append.sh — the one write in sift-prime
 # =============================================================================
+
+# --- The shared block, for the one script the sweep cannot carry -------------
+# root-resolution.test.sh runs one command line per script across all six of its
+# cases, and every valid roadmap-append.sh command line appends a row — so the
+# cases asserting a SUCCESSFUL resolution would write into the fixture tree, and
+# an invalid command line would be refused by the argument check before the
+# resolved root was ever used. Its half of the contract is therefore held here,
+# the way drain-log.sh's is held in drain-log.test.sh: with a command line that
+# is valid in every respect, so what the shared block refuses is a real write
+# (SFT-0050).
+
+test_case "a root roadmap-append.sh cannot resolve is refused, and nothing is written"
+d="$(newdir)"
+run_cmd "$d" env SIFT_ROOT="$d/nowhere" "$APPEND" 1 ACME-0001 'One' ''
+assert_eq 2 "$R_STATUS" "an unreadable SIFT_ROOT exits 2, not the writer's own exit 1"
+assert_contains "$R_ERR" 'SIFT_ROOT is not a readable directory' "naming the variable"
+run_cmd "$d" env SIFT_ROOT="$d" "$APPEND" 1 ACME-0001 'One' ''
+assert_eq 2 "$R_STATUS" "a SIFT_ROOT with no tree under it exits 2"
+assert_contains "$R_ERR" 'no .ai/sift/ directory under SIFT_ROOT' \
+  "rather than starting a roadmap of its own in an uninitialised directory"
+assert_contains "$R_ERR" 'run sift-init before priming' \
+  "with the card-specific repair hint sift-prime's lib.sh adds and sift-drain's does not"
+mkdir -p "$d/.ai/sift"
+run_cmd "$d" env SIFT_ROOT="$d" "$APPEND" 1 ACME-0001 'One' ''
+assert_eq 2 "$R_STATUS" "a tree with no ROADMAP.md exits 2"
+assert_contains "$R_ERR" 'has no ROADMAP.md' "naming the file it would have appended to"
+assert_contains "$R_ERR" 'rule 9' "and the rule that makes the file mandatory"
+assert_eq "" "$(find "$d" -name 'ROADMAP.md')" \
+  "a writer that could not resolve a tree created no roadmap anywhere under the workdir"
 
 # --- Case A: the wave already exists -----------------------------------------
 

@@ -17,6 +17,15 @@
 # an orchestrator work a wave believing it had drained one it had merely stepped
 # over.
 #
+# The --group pass reads the same states again, behind the lead, and answers two
+# of them differently on purpose (SFT-0050). An archived member is simply not a
+# member — no `skipped:` line, because the row it steps over is a row a later
+# dispatch names as its own lead. A row with no ticket file is demoted to a
+# non-member rather than failing the run, where the same row in the lead position
+# is a hard exit 2. Both asymmetries are pinned below, adjacent to the lead-loop
+# case they differ from, because a difference nothing asserts reads as a bug to
+# the next person who finds it.
+#
 # Dependency ordering is the roadmap's job, not this script's: `depends_on` is
 # the truth and ROADMAP.md is the advisory order reconciled against it in the
 # same change (README rule 9). So what is asserted here is that row order is
@@ -453,6 +462,73 @@ assert_eq "1" "$(out_key group_size)" "5 plus 5 is 10, over the bound, and the s
 assert_eq "ACME-0001" "$(out_key group_tickets)" \
   "the m-sized third row is not pulled up past the l-sized second one"
 
+# The three cases below pin the effort weights the cases above only use: xs, xl
+# and the fallback every unrecognised value takes (SFT-0050). Each arrangement is
+# sized so the expected group is arithmetically impossible at any other weight —
+# a fixture whose answer is the same whether the value weighs its own number or
+# the fallback's proves nothing about the weight it claims to pin.
+
+test_case "an xs member weighs 1, so three of them fit behind an l lead"
+# 5 + 1 + 1 + 1 is exactly 8. At the fallback's 3 the group would break at two
+# tickets (5 + 3 = 8, then 11), and at s's 2 it would break at three — so the
+# group_size below is 4 only if xs weighs 1.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' 'effort: l' 'cluster: fixed-cost' > /dev/null
+i=2
+while [ "$i" -le 4 ]; do
+  ticket "$d" open backlog/bug "ACME-000$i" "t$i" "T$i" \
+    'effort: xs' 'cluster: fixed-cost' > /dev/null
+  i=$((i + 1))
+done
+i=1
+while [ "$i" -le 4 ]; do
+  roadmap_row "$d" "$i" "ACME-000$i" "T$i" '-'
+  i=$((i + 1))
+done
+next "$d" --group
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "4" "$(out_key group_size)" "an l lead plus three xs members is 8, exactly the bound"
+assert_eq "ACME-0001 ACME-0002 ACME-0003 ACME-0004" "$(out_key group_tickets)" \
+  "all three extra-small members ride along"
+
+test_case "an xl member weighs 8, so an xl lead dispatches alone"
+# The bound is one xl-sized piece of work however it is spelled. 8 + 2 is 10, so
+# even the lightest possible member is refused — and at any lighter weight for
+# xl (5, 3, 2 or 1) the s-sized member below would join instead.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' 'effort: xl' 'cluster: fixed-cost' > /dev/null
+ticket "$d" open backlog/bug ACME-0002 two 'Two' 'effort: s' 'cluster: fixed-cost' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Two' '-'
+next "$d" --group
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "1" "$(out_key group_size)" "the lead already spends the whole weight bound"
+assert_eq "ACME-0001" "$(out_key group_tickets)" "so not even an s-sized member joins it"
+assert_not_contains "$R_OUT" 'ACME-0002--two.md' "and its file is not in the group block"
+
+test_case "an unrecognised effort weighs what m weighs, pinned from both sides"
+# Refusing to size an unknown value would stop a drain over a field the selection
+# path otherwise only echoes, so the fallback is 3. The unknown value is the
+# LEAD's, which is the call site that sizes a group before any member is read.
+# Both halves are needed: the l-sized member joins at 3 + 5 = 8, which fails if
+# the fallback were heavier, and the xs ticket behind it is then refused at 9,
+# which fails if it were lighter.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' \
+  'effort: enormous' 'cluster: fixed-cost' > /dev/null
+ticket "$d" open backlog/bug ACME-0002 two 'Two' 'effort: l' 'cluster: fixed-cost' > /dev/null
+ticket "$d" open backlog/bug ACME-0003 three 'Three' \
+  'effort: xs' 'cluster: fixed-cost' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Two' '-'
+roadmap_row "$d" 3 ACME-0003 'Three' '-'
+next "$d" --group
+assert_eq 0 "$R_STATUS" "exit 0: an effort value from outside the closed set never fails a run"
+assert_eq "enormous" "$(out_key effort)" "the unknown value is echoed as written, not corrected"
+assert_eq "2" "$(out_key group_size)" \
+  "it weighs 3, so the l member joins at exactly 8 and the xs ticket behind it does not"
+assert_eq "ACME-0001 ACME-0002" "$(out_key group_tickets)" "the unsized lead and one member"
+
 test_case "a blocked cluster member is not batched, and --include-blocked takes it"
 d="$(newdir)"; make_tree "$d" ACME
 # effort: s throughout, so the three of them weigh 6 and the count is the only
@@ -475,6 +551,88 @@ next "$d" --group --include-blocked
 assert_eq "ACME-0001 ACME-0002 ACME-0003" "$(out_key group_tickets)" \
   "the group obeys the same blocked rule the lead does, flag included"
 assert_eq "3" "$(out_key group_size)" "all three"
+
+test_case "an archived cluster member behind the lead is not batched (SFT-0050)"
+# The lead loop's own archived case sits further up this file, but it can only
+# ever meet a row IN FRONT of the chosen lead. The group pass walks the rows
+# BEHIND it, where an archived member would be re-dispatched as part of somebody
+# else's batch — finished work handed back out with no line of the report saying
+# so. Membership is dispatchability, so terminal work is not a member however it
+# is reached.
+#
+# effort: s throughout, so all three would fit inside both bounds: a group that
+# wrongly held the archived row would be a group of three, and the count below
+# fails on it rather than passing because the weight bound happened to stop it.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' \
+  'effort: s' 'cluster: batched-dispatch' > /dev/null
+ticket "$d" archive backlog/bug ACME-0002 two 'Two' \
+  'effort: s' 'status: done' 'resolution: "Shipped"' 'cluster: batched-dispatch' > /dev/null
+ticket "$d" open backlog/bug ACME-0003 three 'Three' \
+  'effort: s' 'cluster: batched-dispatch' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Two' '-'
+roadmap_row "$d" 3 ACME-0003 'Three' '-'
+next "$d" --group
+assert_eq 0 "$R_STATUS" "exit 0: an unstruck archived row behind the lead does not stop a dispatch"
+assert_eq "ACME-0001" "$(out_key ticket)" "the lead is the row the plain run picks"
+assert_eq "2" "$(out_key group_size)" "the archived row is not in the count"
+assert_eq "ACME-0001 ACME-0003" "$(out_key group_tickets)" \
+  "and the open member behind it still joins, so the group is not merely truncated"
+assert_not_contains "$R_OUT" 'ACME-0002--two.md' \
+  "no path under archive/ reaches group_files"
+assert_not_contains "$R_OUT" 'skipped:' \
+  "and the pass says nothing about the row it stepped over: a later dispatch leads with it"
+
+test_case "a group row with no ticket file is demoted, where the same row leading is exit 2"
+# The asymmetry in one fixture. Behind the lead a missing file costs the batching
+# and nothing else — the group forms from the members it can read — because
+# --group only ever widens a dispatch the lead loop already authorised. In the
+# lead position the same row is a hard refusal, since dispatching it would hand
+# an agent an ID with no file behind it. Both halves below, on one roadmap.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' 'cluster: batched-dispatch' > /dev/null
+ticket "$d" open backlog/bug ACME-0003 three 'Three' 'cluster: batched-dispatch' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Ghost' '-'
+roadmap_row "$d" 3 ACME-0003 'Three' '-'
+next "$d" --group
+assert_eq 0 "$R_STATUS" "behind the lead the run still exits 0"
+assert_eq "2" "$(out_key group_size)" "the unreadable row is not a member"
+assert_eq "ACME-0001 ACME-0003" "$(out_key group_tickets)" \
+  "and the group is formed from the members it can read"
+assert_not_contains "$(out_key group_tickets)" 'ACME-0002' "the ID nothing backs is not a member"
+assert_contains "$R_OUT" 'remaining_ids: ACME-0001 ACME-0002 ACME-0003' \
+  "though the row is still unfinished work in the wave — demoted from the group, not from the roadmap"
+
+# Same tree, same ghost row, moved into the lead position by striking the row in
+# front of it: now it is the ticket about to be handed out, and the answer flips.
+roadmap_new "$d"
+struck_row "$d" 1 ACME-0001 'One'
+roadmap_row "$d" 2 ACME-0002 'Ghost' '-'
+roadmap_row "$d" 3 ACME-0003 'Three' '-'
+next "$d" --group
+assert_eq 2 "$R_STATUS" "in the lead position the identical row refuses the whole run"
+assert_contains "$R_ERR" 'roadmap row 2 lists ACME-0002 but no ticket file exists' \
+  "naming the row, as the lead-loop case further up this file pins"
+assert_contains "$R_ERR" 'roadmap-check.sh' "with the repair tool"
+assert_eq "" "$R_OUT" "and no group is reported off a run that refused"
+
+test_case "a missing ticket file is a gap too, so the wave boundary closes behind it"
+# The demotion above is not a free pass: an unreadable row is unfinished work
+# sitting between the lead and whatever comes next, exactly like an open row of
+# another cluster. Reaching past it into wave 2 would start the next wave early.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' 'cluster: batched-dispatch' > /dev/null
+ticket "$d" open backlog/bug ACME-0003 three 'Three' 'cluster: batched-dispatch' > /dev/null
+roadmap_row "$d" 1 ACME-0001 'One' '-'
+roadmap_row "$d" 2 ACME-0002 'Ghost' '-'
+roadmap_wave "$d" 2
+roadmap_row "$d" 1 ACME-0003 'Three' '-'
+next "$d" --group
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "1" "$(out_key group_size)" "wave 1 still has a row nothing backs, so wave 2 stays shut"
+assert_eq "ACME-0001" "$(out_key group_tickets)" "the lead dispatches alone"
 
 test_case "a group does not reach into the next wave while its own has work left"
 # Batching across a wave boundary that still holds unstruck rows would start the

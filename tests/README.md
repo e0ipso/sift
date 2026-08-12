@@ -56,6 +56,17 @@ lifecycle with `PATH` pointing at a symlink farm of baseline POSIX utilities and
 nothing else. That list of utilities is the dependency contract — adding a name
 to it is a decision to depend on that tool.
 
+Three more promises are asserted there rather than described. A fourth generated
+child drives every assertion helper through both of its arms, so a helper that
+reported `ok` for a false claim — or `not ok` for a true one — is caught along
+with a miscounted `T_ASSERTS`. `SIFT_TEST_VERBOSE` is driven through a `cp` of
+the shipped `run.sh` over a generated child, once plain and once with the
+variable set, since the flag lives in `run.sh` rather than in the harness. And
+the no-writes digest walks the whole of `REPO_ROOT` minus a named exclusion list
+carrying a reason per entry, taken around a run of every other test file in the
+suite rather than around one heavy writer — a failure there names no single
+culprit, so it prints the difference between the two digests.
+
 ## The portability matrix
 
 The convention promises the recipes run on the Unix userland already present, on

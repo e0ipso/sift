@@ -54,6 +54,21 @@ esac
 WAVE=$((10#$WAVE))
 [ "$WAVE" -ge 1 ] || die "wave must be at least 1, got: $WAVE"
 
+# What a well-formed ticket ID is: PREFIX, a hyphen, and four-or-more digits and
+# nothing else. The outer arm takes the prefix, the hyphen and at least four
+# characters; the inner one insists every character after the hyphen is a digit.
+# The digit run is greedy rather than exactly four because %04d is a minimum width
+# (see reserve-ids.sh), so IDs widen past 9999.
+#
+# sift-drain's drain-log.sh states the same rule in require_ticket_id, so a run-log
+# row can never name an ID that could not have taken a roadmap row. That second
+# copy is a standing decision, not an oversight, and it is recorded in AGENTS.md
+# under "Duplication between cards" (SFT-0038, widened by SFT-0042): the cards
+# install independently and neither directory may source a file from the other, so
+# the rule is written out once per card and a drift is caught by a test rather than
+# by a tree that is already wrong. The test is "the two cards classify every ID of
+# one list alike" in tests/scripts/prime-backlog.test.sh — change this copy and the
+# drain's in the same commit, and run that test to prove they still agree.
 case "$ID" in
   "$PREFIX"-[0-9][0-9][0-9][0-9]*) ;;
   *) die "ticket ID must look like $PREFIX-NNNN, got: $ID" ;;

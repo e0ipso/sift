@@ -37,20 +37,42 @@ Because the layout and front-matter are the public API, edits to README.md are A
 
 Each card installs on its own — `sift-drain` may be present without `sift-prime`, and neither
 directory may source a file from the other — so a rule both cards need is written out twice.
-One rule is in that position today: **what a roadmap row is.** A row is a markdown table line,
-and within it the first cell holding a whole-token `<PREFIX>-NNNN`; `roadmap_rows` in
-`src/skills/sift-drain/scripts/lib.sh` reads by that rule and the duplicate guard in
-`src/skills/sift-prime/scripts/roadmap-append.sh` writes by it. The two copies drifted apart
-three times (SFT-0022, SFT-0025, SFT-0031), each silently, each surfacing only once a tree was
-already wrong.
+Two rules are in that position today, and every copy of both is listed here. Adding a third
+rule to the list means adding its guard test in the same change.
 
-**The decision (SFT-0038): keep one copy per card, and pay for it with a test that fails when
-the two classify one cell differently.** That test exists — "the reader and the writer classify
-every cell of one table alike" in `tests/scripts/prime-backlog.test.sh` — and drives one fixture
-table through both cards: a plain cell, a cell glued to a longer word, a glued cell shadowing a
-real one beside it, a struck cell, a five-digit ID, a `Needs` mention, trailing junk, and a line
-of prose. All three past divergences fail it. When the rule grows a new edge, extend that table
-rather than adding a second test somewhere else.
+**Rule 1 — what a roadmap row is.** A row is a markdown table line, and within it the first
+cell holding a whole-token `<PREFIX>-NNNN`. The copies are `roadmap_rows` in
+`src/skills/sift-drain/scripts/lib.sh:91` (the pattern and `cell_id`, at `lib.sh:119` and
+`lib.sh:144`), which reads by that rule, and the `ROW_ID_PAT`/`cell_id` block at
+`src/skills/sift-prime/scripts/roadmap-append.sh:102` (`:122` and `:136`), which the duplicate
+guard and the append hop both write by. The two copies drifted apart three times (SFT-0022,
+SFT-0025, SFT-0031), each silently, each surfacing only once a tree was already wrong.
+
+**Rule 2 — what a well-formed ticket ID is.** `<PREFIX>`, a hyphen, and four-or-more digits
+and nothing else — greedy, because `%04d` is a minimum width and IDs widen past 9999. The
+copies are the ID-shape argument check at
+`src/skills/sift-prime/scripts/roadmap-append.sh:72-78` and `require_ticket_id` at
+`src/skills/sift-drain/scripts/drain-log.sh:114`. A divergence here surfaces the same way: a
+drain that accepts an ID prime refuses writes a run-log row for a ticket that can never take a
+roadmap row, and `report` pairs that row against nothing. This one went unrecorded and
+unguarded until SFT-0042.
+
+**The decision (SFT-0038, widened to rule 2 by SFT-0042): keep one copy per card, and pay for
+it with a test that fails when the two classify one input differently.** Both tests live in
+`tests/scripts/prime-backlog.test.sh`, beside each other:
+
+- Rule 1 is covered by "the reader and the writer classify every cell of one table alike",
+  which drives one fixture table through both cards: a plain cell, a cell glued to a longer
+  word, a glued cell shadowing a real one beside it, a struck cell, a five-digit ID, a `Needs`
+  mention, trailing junk, and a line of prose. All three past divergences fail it.
+- Rule 2 is covered by "the two cards classify every ID of one list alike (SFT-0042)", which
+  drives one fixture list through `roadmap-append.sh`'s argument check and `drain-log.sh`'s
+  `require_ticket_id`: four digits, five digits, too few digits, a bare prefix, a prefix with
+  an empty tail, a non-digit tail, a second hyphenated group, the wrong case, and an ID glued
+  to a longer token.
+
+When either rule grows a new edge, extend that rule's fixture rather than adding a second test
+somewhere else.
 
 The other two options lose. Shipping one `row-reader.awk` into both cards by the same
 install-time synchronization the convention assets use (SFT-0006) buys less than it looks: only
@@ -58,9 +80,11 @@ the ten-line `cell_id` is genuinely common — the reader emits five TSV fields 
 writer only asks whether one ID owns a row, so the loops around it differ for good reasons — and
 it adds a third source of truth, a sync step to forget, and a new failure mode where a card that
 lost the file cannot read a roadmap at all. Letting `sift-prime` require `sift-drain` to be
-installed contradicts the card model outright.
+installed contradicts the card model outright. The argument was made about rule 1, where the
+shared surface is largest; it only gets weaker for rule 2, whose whole copy is six lines of
+`case`.
 
-Two obligations come with keeping the copies:
+Two obligations come with keeping the copies, and they apply to every rule on the list:
 
 - **Each card holds exactly one copy of the rule.** A second copy inside one card is the same
   bug at shorter range, which is what `roadmap-append.sh` had become: its append hop selected a

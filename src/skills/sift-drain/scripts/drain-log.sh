@@ -94,9 +94,17 @@ LOG="$SIFT/RUNLOG.md"
 # lib.sh and roadmap-append.sh already read them that way (SFT-0025). The outer
 # arm takes PREFIX, a hyphen and at least four characters; the inner one insists
 # every character after the hyphen is a digit, so the pair together accept
-# exactly PREFIX- plus four-or-more digits. This is the check roadmap-append.sh
-# applies to its own ID argument, restated because the two cards ship separately
-# and cannot source each other.
+# exactly PREFIX- plus four-or-more digits. This is byte-for-byte the check
+# roadmap-append.sh in sift-prime applies to its own ID argument, and that second
+# copy is a recorded decision rather than an accident: AGENTS.md under
+# "Duplication between cards" (SFT-0038, widened by SFT-0042) holds that the cards
+# install independently and neither directory may source a file from the other, so
+# a rule both need is written out once per card and a drift between them is caught
+# by a test rather than by a tree that is already wrong. The test is "the two cards
+# classify every ID of one list alike" in tests/scripts/prime-backlog.test.sh, which
+# drives one fixture list of ID-shaped and not-ID-shaped strings through both — so
+# change this copy and roadmap-append.sh in the same commit, and run that test to
+# prove they still agree.
 #
 # The digit sets are spelled as [0-9] deliberately: static/portability.test.sh
 # bans a COLLATED LETTER range in a shell pattern, because [a-z] picks up B..Z

@@ -172,4 +172,33 @@ assert_eq "$bogus :: $VICTIM_ANCHOR (no such file)" \
   "$(unresolved "$damaged" "$REPO_ROOT")" \
   "the comparison names exactly the missing file"
 
+test_case "the uniqueness half of the obligation, and why it is not counted here"
+# The record carries two standing obligations. "Every copy it names is still
+# there" is the one asserted above. The other — "each card holds exactly one
+# copy of the rule" — is deliberately not asserted as a count over these
+# entries, and the reason is not that the count is awkward.
+#
+# It is that the count would be green through the only violation this
+# repository has ever had. The second copy inside roadmap-append.sh was a
+# PARAPHRASE, not a repetition: the append hop selected its cell on the bare
+# pattern while the duplicate guard beside it went through cell_id (SFT-0031,
+# folded back onto one cell_id by SFT-0038). Every construct named above
+# appeared exactly once for the whole life of that bug. A guard that cannot see
+# the failure it is named after is worse than none, because it is believed.
+#
+# The exemption it would additionally need makes the same point from the other
+# side: `ROW_ID_PAT=` occurs twice in roadmap-append.sh on purpose — the
+# assignment, then the ENVIRON hand-off into awk — so the count would ship with
+# a hand-maintained exception list, which is the stale-record failure this file
+# exists to prevent rather than to reproduce.
+#
+# Where the obligation IS guarded is behaviour, because that is where a
+# paraphrase shows: "the append hop counts exactly the rows the duplicate guard
+# counts (SFT-0038)" in tests/scripts/prime-backlog.test.sh holds the two hops
+# of rule 1 inside sift-prime to one answer, and drain-log.sh's dispatch and
+# return positions are held to one refusal set through the same check in
+# tests/scripts/drain-log.test.sh for rule 2.
+skip "one-copy-per-card as a textual count over the recorded constructs" \
+  "blind to the paraphrase that was the real bug, and needs a ROW_ID_PAT= exemption"
+
 summary

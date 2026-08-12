@@ -642,8 +642,9 @@ test_case "the two cards classify every ID of one list alike (SFT-0042)"
 # row for a ticket that can never take a roadmap row, and `report` then pairs it
 # against nothing. One list carries every shape the rule turns on — four digits,
 # five digits, too few digits, a bare prefix, a prefix with an empty tail, a
-# non-digit tail, a second hyphenated group, the wrong case, and an ID glued to a
-# longer token on either edge — and both cards are asked about all of them.
+# non-digit tail, a second hyphenated group, the wrong case, an ID glued to a
+# longer token on either edge, a hyphen-leading argument and the `--` marker
+# standing in an ID position — and both cards are asked about all of them.
 d="$(newdir)"; make_tree "$d" ACME
 id_cases=(
   ACME-0001        # the canonical four-digit ID
@@ -655,6 +656,8 @@ id_cases=(
   XACME-0002       # glued to a longer token on the left edge
   ACME-0001-0002   # a second hyphenated group after a well-formed one
   acme-0001        # the right shape in the wrong case
+  -ACME-0001       # hyphen-leading, the claim the card's `--` grammar rests on
+  --               # the end-of-options marker itself, standing in an ID position
 )
 want="$(printf '%s\n' ACME-0001 ACME-00011 | LC_ALL=C sort)"
 got_writer="$(writer_id_accepts "$d" "${id_cases[@]}")"
@@ -662,5 +665,125 @@ got_drain="$(drain_id_accepts "$d" "${id_cases[@]}")"
 assert_eq "$want" "$got_writer" "the writer accepts exactly the well-formed IDs"
 assert_eq "$want" "$got_drain" "the run log accepts exactly the same set"
 assert_eq "$got_writer" "$got_drain" "so neither card logs an ID the other cannot slot"
+
+test_case "a hyphen-leading ID is comparable in an operand position and nowhere else"
+# The one shape the list above could not be taken on faith for. drain-log.sh
+# parses an option list, so the question is whether a hyphen-leading argument
+# ever reaches require_ticket_id at all — and the answer differs by POSITION,
+# which is why it is pinned here rather than assumed.
+#
+# In an operand position it does reach the check, on both cards, and both refuse
+# it: roadmap-append.sh has no option list whatsoever, so its ID is always the
+# second positional. That is what makes the two entries in the list above a real
+# comparison rather than two scripts declining for unrelated reasons.
+#
+# In drain-log.sh's SUBCOMMAND position it does not, and cannot be made to: that
+# slot holds a mode name, not a ticket, so `-ACME-0001` is an unknown mode and
+# `--` in front of it ends an option list that was already empty rather than
+# promoting the next word into a ticket. There is nothing on the sift-prime side
+# to compare that against — the writer has no mode word — so the rule is
+# comparable in operand positions and the ID-shape agreement claims nothing
+# about any other. Both refusals still have to be silent on disk.
+d="$(newdir)"; make_tree "$d" ACME
+before="$(snapshot "$d")"
+append "$d" 1 -ACME-0001 'Probe' ''
+assert_eq 1 "$R_STATUS" "the writer takes it as the ID it stands in for, and refuses it"
+assert_contains "$R_ERR" 'ticket ID must look like ACME-NNNN, got: -ACME-0001' \
+  "naming the string, so the refusal is the shape check and not an option parser"
+run_cmd "$d" env SIFT_ROOT="$d" "$DRAIN/drain-log.sh" dispatch -ACME-0001
+assert_eq 2 "$R_STATUS" "behind the subcommand the drain refuses it too"
+assert_contains "$R_ERR" 'error: not a ticket ID: -ACME-0001' \
+  "through require_ticket_id, which is the copy the record names"
+run_cmd "$d" env SIFT_ROOT="$d" "$DRAIN/drain-log.sh" -ACME-0001
+assert_eq 2 "$R_STATUS" "in the subcommand position it is a usage error"
+assert_contains "$R_ERR" 'usage: drain-log.sh dispatch' "reported as an unknown mode"
+assert_not_contains "$R_ERR" 'not a ticket ID' "require_ticket_id never sees it, so nothing compares"
+run_cmd "$d" env SIFT_ROOT="$d" "$DRAIN/drain-log.sh" -- -ACME-0001
+assert_eq 2 "$R_STATUS" "and the marker does not turn that slot into a ticket position"
+assert_not_contains "$R_ERR" 'not a ticket ID' "it ends an option list, it does not add an operand"
+assert_no_file "$d/.ai/sift/RUNLOG.md" "no refusal on either card created a run log"
+assert_same "$before" "$(roadmap "$d")" "and the roadmap is byte-identical after all four"
+
+# --- The premise both copies of rule 2 rest on: one tree, one prefix ---------
+
+# drain_id_accepts_as <root> <prefix> <ID…> — the drain probe with the prefix
+# forced through the environment instead of resolved from the tree. Both copies
+# of the ID rule spell the prefix as `$PREFIX`, so "the two cards classify every
+# ID alike" is only ever true of cards that resolved the SAME prefix. This is how
+# that premise is broken on purpose.
+drain_id_accepts_as() {
+  local root="$1" pfx="$2"; shift 2
+  local id
+  for id in "$@"; do
+    run_cmd "$root" env SIFT_ROOT="$root" SIFT_PREFIX="$pfx" \
+      "$DRAIN/drain-log.sh" dispatch "$id"
+    case "$R_ERR" in
+      *'not a ticket ID'*) ;;
+      *) printf '%s\n' "$id" ;;
+    esac
+    rm -f "$root/.ai/sift/RUNLOG.md"
+  done | LC_ALL=C sort
+}
+
+test_case "the two cards read one prefix out of one tree, however the config states it"
+# The agreement above was measured on a tree whose config says `prefix: ACME` and
+# nothing else. The prefix is itself resolved by a block each card holds its own
+# copy of, so the shapes can be byte-identical and the cards still disagree about
+# which strings are IDs — and that disagreement is the one that reaches a real
+# tree, because a config is written by hand and read by both cards.
+#
+# One ID pair is enough per scenario: with a resolved prefix of ACME, ACME-0001
+# is an ID and ZULU-0001 is not, and swapping the answer is exactly what a drifted
+# resolution does.
+d="$(newdir)"; make_tree "$d" ACME
+# Quoted, comment-trailed, and stated twice: three ways a hand-edited config goes
+# ragged at once. `head -n 1` decides, so the first line wins on both cards or
+# neither.
+printf 'prefix: "ACME"   # the ticket prefix\nprefix: ZULU\n' \
+  > "$d/.ai/sift/config/config.yaml"
+assert_eq "ACME-0001" "$(writer_id_accepts "$d" ACME-0001 ZULU-0001)" \
+  "the writer reads ACME past the quotes, the comment and the second line"
+assert_eq "ACME-0001" "$(drain_id_accepts "$d" ACME-0001 ZULU-0001)" \
+  "and the run log reads the same one, not the line below it"
+
+d="$(newdir)"; make_tree "$d" ACME
+rm "$d/.ai/sift/config/config.yaml"
+ticket "$d" open v1/bug ZULU-0001 alpha 'Alpha' > /dev/null
+assert_eq "ZULU-0001" "$(writer_id_accepts "$d" ACME-0001 ZULU-0001)" \
+  "with no config at all the writer infers the prefix from the ticket filenames"
+assert_eq "ZULU-0001" "$(drain_id_accepts "$d" ACME-0001 ZULU-0001)" \
+  "and the run log infers the same one, so the inference is not a per-card guess"
+
+d="$(newdir)"; make_tree "$d" ACME
+rm "$d/.ai/sift/config/config.yaml"
+before="$(snapshot "$d")"
+append "$d" 1 ACME-0001 'Probe' ''
+w_status="$R_STATUS"; w_err="$R_ERR"
+run_cmd "$d" env SIFT_ROOT="$d" "$DRAIN/drain-log.sh" dispatch ACME-0001
+assert_eq 2 "$w_status" "with nothing to resolve a prefix from, the writer exits 2"
+assert_eq "$w_status" "$R_STATUS" "and the drain exits the same way"
+assert_eq "$w_err" "$R_ERR" "with byte-identical stderr, the hint included"
+assert_contains "$w_err" 'cannot determine the ticket prefix' \
+  "so neither card falls back to a prefix of its own and calls IDs by it"
+assert_no_file "$d/.ai/sift/RUNLOG.md" "no run log was created"
+assert_same "$before" "$(roadmap "$d")" "and no row was appended"
+
+test_case "an environment that hands one card a different prefix is where the agreement stops"
+# The positive control for the three scenarios above, and the real-world shape of
+# the failure the record names: SIFT_PREFIX is per invocation, so an orchestrator
+# that exports it for one card and not the other gets two cards that classify the
+# same string differently — the drain writing a run-log row for a ZULU ticket that
+# can never take a roadmap row, and `report` pairing it against nothing. Without
+# this control, a probe that had stopped depending on the resolved prefix would
+# report agreement on every tree and prove nothing at all.
+d="$(newdir)"; make_tree "$d" ACME
+got_writer="$(writer_id_accepts "$d" ACME-0001 ZULU-0001)"
+got_drain="$(drain_id_accepts_as "$d" ZULU ACME-0001 ZULU-0001)"
+assert_eq "ACME-0001" "$got_writer" "the writer resolves ACME out of the tree"
+assert_eq "ZULU-0001" "$got_drain" "the drain resolves ZULU out of its environment"
+assert_ne "$got_writer" "$got_drain" \
+  "the two sets differ, so the agreements above are measurements and not tautologies"
+assert_eq "$got_writer" "$(drain_id_accepts_as "$d" ACME ACME-0001 ZULU-0001)" \
+  "handed the same prefix the writer resolved, the drain classifies alike again"
 
 summary

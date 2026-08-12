@@ -29,6 +29,44 @@ sync() { run_cmd "$1" "${R_SHELL:-bash}" "$1/src/skills/sift-init/scripts/sync-a
 
 assets_of() { printf '%s' "$1/src/skills/sift-init/assets"; }
 
+# The same card, parked where the script's three-levels-up walk lands on a tree
+# that is not a sift checkout at all: the relocated card the root guard exists
+# for. Everything the four preconditions ask for is present, so the run reaches
+# that guard with nothing above it refusing first.
+relocated_repo() {
+  local t card
+  t="$(newdir)"
+  card="$t/nested/skills/sift-init"
+  mkdir -p "$card/scripts" "$card/assets/schemas" "$t/schemas"
+  cp "$REAL_CARD/scripts/sync-assets.sh" "$card/scripts/"
+  printf '# some other tree spec\n' > "$t/README.md"
+  printf '<xsd>one</xsd>\n' > "$t/schemas/one.xsd"
+  printf '%s\n' "$t"
+}
+
+relocated_card() { printf '%s' "$1/nested/skills/sift-init"; }
+
+# A PATH prepend whose cp and rm report success without doing anything. It is
+# the fault the verification block is written against — an incomplete copy with
+# every command reporting success — and it reaches the block without a trick:
+# no symlink to a character device, no unwritable directory aborting the run
+# under set -e before the block is ever entered.
+noop_shim() {  # noop_shim <dir> → the dir, ready to prepend to PATH
+  local d="$1" c
+  mkdir -p "$d"
+  for c in cp rm; do
+    printf '#!/bin/sh\nexit 0\n' > "$d/$c"
+    chmod +x "$d/$c"
+  done
+  printf '%s' "$d"
+}
+
+# The script's real command line with that shim in front of it. run_cmd passes
+# its whole argument list through, so nothing in the harness has to know.
+sync_shimmed() {  # sync_shimmed <repo> <shim>
+  run_cmd "$1" env PATH="$2:$PATH" bash "$1/src/skills/sift-init/scripts/sync-assets.sh"
+}
+
 test_case "a first sync copies the spec and both schemas"
 t="$(fake_repo)"; a="$(assets_of "$t")"
 sync "$t"
@@ -61,17 +99,111 @@ assert_no_file "$a/schemas/one.xsd" "the removed schema left"
 assert_eq "three.xsd
 two.xsd" "$(cd "$a/schemas" && ls *.xsd | LC_ALL=C sort)" "membership matches the root"
 
-test_case "a sync that cannot write fails loudly"
+test_case "an unwritable assets directory aborts before the copy"
+# This leg is the shell killing the run at the bare `cp` under `set -e`, not
+# the script diagnosing anything, so it is pinned as that and nothing more.
+# Its old name — "a sync that cannot write fails loudly" — read as coverage of
+# the script's own refusals, which are the cases below; the last assertion is
+# what stops it standing in for them again (SFT-0049). Making this leg print a
+# `sync-assets:` line would be a change to the script, not to this file.
 t="$(fake_repo)"; a="$(assets_of "$t")"
 sync "$t"
 printf '<xsd>new</xsd>\n' > "$t/schemas/new.xsd"
 chmod 500 "$a/schemas"
 sync "$t"
-status=$R_STATUS; err=$R_ERR
+status=$R_STATUS; out=$R_OUT; err=$R_ERR
 chmod 700 "$a/schemas"
-assert_ne 0 "$status" "exits non-zero rather than reporting a clean sync"
+assert_eq 1 "$status" "exits 1 — the aborted command's status, not a diagnosed refusal"
 assert_no_file "$a/schemas/new.xsd" "and the schema is genuinely missing"
-assert_ne "" "$err" "with a diagnostic on stderr: $(printf '%s' "$err" | head -n 1)"
+assert_not_contains "$out" 'sync-assets: OK' "no clean sync is reported"
+assert_not_contains "$err" 'sync-assets:' \
+  "the script itself says nothing here: $(printf '%s' "$err" | head -n 1)"
+
+test_case "a root without the normative README is refused before any write"
+t="$(fake_repo)"; rt="$(cd "$t" && pwd -P)"
+rm "$t/README.md"
+before="$(tree_digest "$t")"
+sync "$t"
+assert_eq 2 "$R_STATUS" "exits 2"
+assert_contains "$R_ERR" "sync-assets: normative README not found at $rt/README.md" \
+  "and names the spec it could not find"
+assert_eq "$before" "$(tree_digest "$t")" "with not one byte of the fixture written"
+
+test_case "a root without schemas/ is refused before any write"
+t="$(fake_repo)"; rt="$(cd "$t" && pwd -P)"
+rm -r "$t/schemas"
+before="$(tree_digest "$t")"
+sync "$t"
+assert_eq 2 "$R_STATUS" "exits 2"
+assert_contains "$R_ERR" "sync-assets: normative schemas/ not found at $rt/schemas" \
+  "and names the directory it could not find"
+assert_eq "$before" "$(tree_digest "$t")" "with not one byte of the fixture written"
+
+test_case "a card without an assets directory is refused, not created"
+# The `mkdir -p "$assets/schemas"` further down could be read as covering this;
+# it cannot, because the refusal is above it. tree_digest hashes files only, so
+# the directory the failing path would have created is asserted separately.
+t="$(fake_repo)"; a="$(assets_of "$t")"; rt="$(cd "$t" && pwd -P)"
+rm -r "$a"
+before="$(tree_digest "$t")"
+sync "$t"
+assert_eq 2 "$R_STATUS" "exits 2"
+assert_contains "$R_ERR" \
+  "sync-assets: card assets directory not found at $rt/src/skills/sift-init/assets" \
+  "and names the assets directory it will not invent"
+assert_no_dir "$a" "the refusal creates nothing"
+assert_eq "$before" "$(tree_digest "$t")" "with not one byte of the fixture written"
+skip "the [ -d \"\$card\" ] precondition at sync-assets.sh:29" \
+  "unreachable: card is assigned by cd-ing into the script's own parent, so a missing directory aborts that assignment under set -e and the check can only ever be true"
+
+test_case "a relocated card is copied into once the root guard is removed"
+# The positive control tests/README.md requires under "Destructive and
+# concurrent sequences": without it, a guard that never ran looks exactly like
+# one that held, because the assertion below is "nothing was written".
+t="$(relocated_repo)"; card="$(relocated_card "$t")"
+grep -v 'lacks src/skills/sift-init' "$card/scripts/sync-assets.sh" > "$card/scripts/unguarded.sh"
+run_cmd "$t" bash "$card/scripts/unguarded.sh"
+assert_eq 0 "$R_STATUS" "the copy without the guard runs to completion"
+assert_same "$t/README.md" "$card/assets/README.md" \
+  "and writes the foreign root's README over the card's assets"
+
+test_case "a relocated card refuses the root it resolved"
+t="$(relocated_repo)"; card="$(relocated_card "$t")"; rt="$(cd "$t" && pwd -P)"
+before="$(tree_digest "$t")"
+run_cmd "$t" bash "$card/scripts/sync-assets.sh"
+assert_eq 2 "$R_STATUS" "exits 2"
+assert_contains "$R_ERR" "sync-assets: resolved root $rt lacks src/skills/sift-init" \
+  "and names the root it refused to sync from"
+assert_no_file "$card/assets/README.md" "the foreign README is not copied"
+assert_eq "$before" "$(tree_digest "$t")" "with not one byte of the fixture written"
+
+test_case "an incomplete sync is reported as FAIL, with every mismatch named"
+t="$(fake_repo)"; a="$(assets_of "$t")"
+printf '<xsd>ghost</xsd>\n' > "$a/schemas/ghost.xsd"
+shim="$(noop_shim "$(newdir)/shim")"
+sync_shimmed "$t" "$shim"
+assert_eq 1 "$R_STATUS" "exits 1, the documented drift status"
+assert_not_contains "$R_OUT" 'sync-assets: OK' "and reports no clean sync"
+assert_contains "$R_ERR" 'sync-assets: missing asset README.md after copy' \
+  "the absent README is named"
+assert_contains "$R_ERR" 'sync-assets: missing asset schema after copy: one.xsd' \
+  "each absent schema is named (one.xsd)"
+assert_contains "$R_ERR" 'sync-assets: missing asset schema after copy: two.xsd' \
+  "each absent schema is named (two.xsd)"
+assert_contains "$R_ERR" 'sync-assets: stale asset schema survived sync: ghost.xsd' \
+  "and the orphan that outlived the sync is named"
+assert_contains "$R_ERR" 'sync-assets: FAIL — 4 mismatch(es); assets are incomplete' \
+  "the verdict counts all four"
+
+test_case "the verdict's count moves with the number of mismatches"
+# Asserting the number rather than the word FAIL is what pins the counter as a
+# counter: a flag rendering a constant 1 passes the case above and fails here.
+t="$(fake_repo)"
+rm "$t/schemas/two.xsd"
+sync_shimmed "$t" "$shim"
+assert_eq 1 "$R_STATUS" "still exits 1"
+assert_contains "$R_ERR" 'sync-assets: FAIL — 2 mismatch(es); assets are incomplete' \
+  "one missing README and one missing schema make two, not four"
 
 test_case "the card documents one command and no hand-copying"
 skill="$(cat "$REAL_CARD/SKILL.md")"

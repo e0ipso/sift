@@ -16,8 +16,8 @@ State these in each prompt — they are what keep the gate trustworthy:
   genuinely wrong gets a sift ticket plus an annotation naming it (a skip/fixme referencing
   the ticket ID), so suites stay green-with-known-issues. Test-side problems it fixes
   itself.
-- **Extend, do not duplicate.** Fold new coverage into the existing specs and test classes
-  that already drive the relevant surface.
+- **Extend, do not duplicate.** Fold new coverage into the existing test files and test
+  classes that already drive the relevant surface.
 - **Report what you skipped**, one line per behaviour with the reason. A gate's value comes
   as much from its stated blind spots as from its assertions.
 - Discover the project's commands and conventions from AGENTS.md / CLAUDE.md, the knowledge
@@ -29,7 +29,14 @@ State these in each prompt — they are what keep the gate trustworthy:
 
 ## 1. E2E specialist agent
 
-Skip only if the project has no e2e suite. Use a strong model tier.
+Use a strong model tier. There are two skip cases, and both must appear in the wave summary:
+
+- If the project has no e2e layer at all, skip the specialist and say that no layer exists.
+- If the project has an e2e layer but this wave shipped nothing the layer can reach, skip the
+  authoring pass and say which behaviours were unreachable and why.
+
+Skipping the specialist never skips the full e2e run. Whenever the project has an e2e
+layer, the wave close still runs its full suite and reports the exact totals.
 
 ```
 You are the e2e specialist closing Wave {{WAVE}} of the sift roadmap in {{PROJECT_ROOT}}.
@@ -41,21 +48,23 @@ WAVE {{WAVE}} SHIPPED:
 {{PER_TICKET_ONE_LINE_SUMMARIES}}
 
 TASK
-Cover ONLY the browser-visible behaviour of this wave, and be deliberately lean. Walk the
-list behaviour by behaviour and decide for each whether it has a browser surface at all —
-much of a bug-fix wave does not (config-layer guards, dependency calculation, storage
-schema) and belongs to the batch coverage agent instead. You will report both lists:
-covered, and skipped-as-no-browser-surface with the reason.
+Cover ONLY the behaviour of this wave that the project's own e2e layer can reach, and be
+deliberately lean. That layer may be browser specs, an HTTP or API harness, or a CLI or shell
+lifecycle test. Walk the list behaviour by behaviour and decide for each whether it has an
+e2e surface at all. Some low-level behaviour may not (for example config-layer guards,
+dependency calculation, or storage schema) and belongs to the batch coverage agent instead,
+but those same categories may be reachable through a project's CLI, API, or lifecycle layer.
+You will report both lists: covered, and skipped-as-no-e2e-surface with the reason.
 
 Extend the existing suite: reuse its helpers and fixtures rather than inventing new ones,
-follow its spec style, and deduplicate against what existing specs already assert. If the
-wave changed the UI the fixtures drive, update the setup specs so the fixture environment
-still builds.
+follow the layer's own test conventions, and deduplicate against what existing e2e tests
+already assert. If the wave changed the interface the fixtures drive, update the fixture
+setup so the fixture environment still builds.
 
-Iterate on a single spec while developing; the deliverable is a GREEN FULL e2e run.
+Iterate on a single e2e test file while developing; the deliverable is a GREEN FULL e2e run.
 
 If a genuine product bug blocks green, do NOT paper over it: file a sift ticket per
-.ai/sift/README.md (including its ROADMAP.md placement, rule 9), skip the spec with an
+.ai/sift/README.md (including its ROADMAP.md placement, rule 9), skip the e2e test with an
 explicit fixme referencing the ticket ID, and report the ticket.
 
 Branch off local {{BASE_BRANCH}}, commit, merge back locally. NEVER `git push`.
@@ -64,9 +73,9 @@ REPORT (only this):
   status: done | blocked
   merge commit: <hash>
   summary: <one paragraph>
-  verification: e2e <N passed / M failed / K skipped> across <spec files>
+  verification: e2e <N passed / M failed / K skipped> across <e2e test files>
   behaviours covered: <one line each>
-  behaviours skipped (no browser surface): <one line each, with the reason>
+  behaviours skipped (no e2e surface): <one line each, with the reason>
   tickets filed: <IDs> | none
 ```
 
@@ -104,8 +113,9 @@ did not.
     YOURS: an integration test is the disposable environment for them.
 Cover the behaviour that shipped; do not chase a percentage.
 
-THE WAVE CLOSE is the full test suite, the full authoritative lint/static-analysis run, and
-the full e2e suite. All must be green, with exact totals reported for each.
+THE WAVE CLOSE is the full test suite, the full authoritative lint/static-analysis run, and,
+whenever the project has an e2e layer, the full e2e suite. Every run must be green, with
+exact totals reported for each; if there is no e2e layer, report that status explicitly.
 
 If a full-suite failure is a product bug rather than a test bug, do NOT fix product code
 here — report it precisely so the orchestrator can dispatch a fix agent, file a sift
@@ -119,8 +129,8 @@ REPORT (only this):
   merge commit: <hash>
   summary: <one paragraph: what is now covered>
   verification: tests <N tests, M assertions> full suite; lint <result>; static analysis
-                <result>; e2e <N passed / M failed / K skipped>; tests added: <count and
-                class names>
+                <result>; e2e <N passed / M failed / K skipped> | no e2e layer; tests
+                added: <count and class names>
   deferred criteria: covered <list> | not covered <list and why>
   failures needing a fix agent: <root-cause list> | none
   tickets filed: <IDs> | none
@@ -215,7 +225,7 @@ Wave {{WAVE}} closed.
   tickets done:    <IDs>
   tickets blocked: <IDs and one-line reasons> | none
   tickets filed:   <IDs and titles> | none
-  tests added:     <classes/counts; specs/counts>
-  suite status:    tests <N, M assertions> green; e2e <N> green; lint clean
+  tests added:     <classes/counts; e2e test files/counts>
+  suite status:    tests <N, M assertions> green; e2e <N> green | no e2e layer; lint clean
   roadmap:         <wave-status.sh, summarised in one line>
 ```

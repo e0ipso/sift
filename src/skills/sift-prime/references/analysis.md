@@ -28,6 +28,11 @@ are what the evidence bar exists to keep out of the slate.
 
 ## The evidence bar
 
+The numbered citations in this section carry an `@RULE: <repo-root-relative file> <N>
+<verbatim rule substring>` marker in a fence beside the sentence making the claim.
+`tests/static/readme-rule-citations.test.sh` extracts each marker and resolves the cited
+ordinal against README's bounded `## Rules for agents` list.
+
 Every candidate carries one of exactly two citations:
 
 - **`file:line`** — for a claim about something that exists.
@@ -38,9 +43,20 @@ vaguer form that no longer needs backing, not demoted to `p4` and kept: dropped.
 
 Two things make that bar load-bearing rather than fussy. The convention already sets it —
 rule 5 requires claims about code to cite `file:line`, and `## Evidence` is a required
-body section. And the drafting agents downstream never saw the code: an agent handed a
-candidate with no citation must either invent one or ship a body that fails rule 5, and
-an invented citation is worse than a missing one because it reads authoritative.
+body section.
+
+```text
+@RULE: README.md 5 Claims about code cite
+```
+
+And the drafting agents downstream never saw the code: an agent handed a candidate with
+no citation must either invent one or ship a body that fails rule 5, and an invented
+citation is worse than a missing one because it reads authoritative.
+
+```text
+@RULE: README.md 5 Claims about code cite
+```
+
 Enforcing the bar at proposal time is the only moment when the agent that made the claim
 is still the agent that can back it.
 

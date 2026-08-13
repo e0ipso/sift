@@ -47,6 +47,22 @@ comparison that can only run one way — `sift-init-tree`'s, because the layout
 block draws shape as well as paths — carries an explicit excused list with a
 reason per entry, and asserts the excused entries are still documented.
 
+Two of those artifacts are not `lib/recipes.sh`'s business, and their readers
+live in `static/schemas.test.sh` instead, where their only caller is. The worked
+XSD draft is reduced to the elements it opens, in document order and with their
+nesting depth, and compared against `schemas/*.xsd` three ways: every name is
+declared, the top-level sequence is an ordered *subsequence* of the declared one
+because optional elements may be omitted, and nothing declared without
+`minOccurs="0"` is missing. The render-mapping table beside it is read cell by
+cell — the only markdown table this suite parses — and both its columns are
+resolved, the left against the schemas and the right against the three body
+templates, with the reverse direction closed too so a schema that grows a body
+element gets a row or a failure. All of it is textual: a lexical read of
+`xs:element name="…"` is not XSD validation, so datatypes, patterns and
+cardinality past "optional or not" stay with `xmllint` where the machine has it.
+That split is the point rather than a compromise — the structural half needs no
+binary, so it holds on the machine the convention actually targets.
+
 Coverage there is per subject, not per file: `allocate-id`, `archive` and
 `move-milestone` own the recipes that write, `query` and `labels` own the ones
 that only read, and `validation` owns everything that audits a tree. The read-only
@@ -84,6 +100,14 @@ passing, failing and died-before-summary paths, and it runs the end-to-end
 lifecycle with `PATH` pointing at a symlink farm of baseline POSIX utilities and
 nothing else. That list of utilities is the dependency contract — adding a name
 to it is a decision to depend on that tool.
+
+The farm is also what keeps an optional binary honest in the other direction. A
+check that only ever runs when the tool happens to be installed is no check at
+all on the machine the convention targets, so `static/schemas.test.sh` tags the
+cases that must survive without one `@BASELINE-CASE`, and the contract file
+extracts those names and runs that file through the farm, asserting an `ok` line
+for each. Moving a tagged case back inside its `command -v` arm makes those lines
+disappear and the contract case red.
 
 Three more promises are asserted there rather than described. A fourth generated
 child drives every assertion helper through both of its arms, so a helper that

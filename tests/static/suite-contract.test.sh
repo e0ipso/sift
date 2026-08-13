@@ -362,6 +362,53 @@ assert_eq 0 "$R_STATUS" "the end-to-end lifecycle is green"
 assert_contains "$R_OUT" 'failures=0' "with no failing assertion"
 assert_eq "" "$R_ERR" "and nothing complaining on stderr"
 
+# baseline_cases — the cases static/schemas.test.sh tags @BASELINE-CASE, one name
+# per line. Extracted from its `test_case` lines rather than restated here: a
+# list copied into this file would pin a copy of the contract and then drift from
+# it, which is the failure the tag exists to prevent.
+baseline_cases() {
+  awk -v open="test_case \"" '
+    index($0, "@BASELINE-CASE") == 0 { next }
+    index($0, open) != 1 { next }
+    {
+      rest = substr($0, length(open) + 1)
+      e = index(rest, "\"")
+      if (e) print substr(rest, 1, e - 1)
+    }
+  ' "$SUITE/static/schemas.test.sh"
+}
+
+test_case "the schema checks that must not need xmllint really run without it"
+# The gap SFT-0054 closed, made checkable. README's worked XSD draft and the
+# render-mapping table beside it were asserted only inside schemas.test.sh's
+# `command -v xmllint` arm, and the case above pins that the farm has no
+# xmllint — so on the machine this suite simulates, the documented draft was
+# validated by nothing and the same run was green. Running that file here proves
+# the structural cases are outside the gate: move either back inside it and its
+# `ok` lines stop appearing in this output.
+#
+# The ceiling, honestly: deleting a case's tag AND moving it inside the gate in
+# the same edit withdraws both claims at once and passes. That is the standing
+# limit of every marker-driven pin in this suite — the same one
+# static/prompt-readme-sections.test.sh carries — and it is a deliberate edit to
+# a line whose comment says what it is for, not drift.
+CASES="$(baseline_cases)"
+assert_ne "" "$CASES" "schemas.test.sh names at least one case that must survive the farm"
+run_cmd "$TMPROOT" env -i PATH="$BIN" HOME="$TMPROOT" SIFT_TEST_KEEP= \
+  TMPDIR="$TMPROOT" "$SUITE/static/schemas.test.sh"
+assert_eq 0 "$R_STATUS" "the schema file is green with only bash and the POSIX utilities"
+assert_contains "$R_OUT" 'failures=0' "no assertion failed"
+while IFS= read -r name; do
+  [ -n "$name" ] || continue
+  line="$(printf '%s\n' "$R_OUT" | grep -F -e "- $name:" | head -n 1)"
+  case "$line" in
+    'ok '*) t_ok "ran without xmllint: $name" ;;
+    *) t_fail "ran without xmllint: $name" "no ok line for that case in the restricted run" ;;
+  esac
+done <<EOF
+$CASES
+EOF
+
 test_case "an absent optional tool costs a matrix axis, never a failure"
 # The portability matrix sweeps dash and three awks. None of them is baseline,
 # so on a machine without them the axis has to collapse rather than fail.

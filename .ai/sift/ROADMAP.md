@@ -82,6 +82,7 @@ change, in the same commit as the implementation (README.md, rule 9).
 | 41 | SFT-0079 | Hoist the duplicated fixture helpers into tests/lib |  |
 | 42 | SFT-0080 | Drive the prefix validator through a collated matcher | SFT-0067 |
 | 43 | SFT-0081 | Fail a cookbook case when its recipe extracts to nothing |  |
+| 44 | SFT-0082 | Decide whether .ai/sift is tracked, and make the tree agree |  |
 
 ## Wave 3
 

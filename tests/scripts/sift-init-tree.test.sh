@@ -334,6 +334,85 @@ assert_not_contains "$R_OUT" '  created  ' "nothing was created"
 assert_not_contains "$R_OUT" '  stale ' \
   "and no spec drift is reported against the copy this run just checked"
 
+test_case "a repair diagnoses a convention file it cannot stage"
+control="$(newdir)"; init "$control"
+rm "$control/.ai/sift/README.md"
+init "$control"
+assert_eq 0 "$R_STATUS" "the writable control reaches staging and succeeds"
+assert_file "$control/.ai/sift/README.md" \
+  "the writable control proves the missing convention file would be installed"
+denied_root="$(newdir)"; init "$denied_root"
+rm "$denied_root/.ai/sift/README.md"
+sift_mode="$(fixture_mode "$denied_root/.ai/sift")"
+if deny_write "$denied_root/.ai/sift"; then
+  init "$denied_root"
+  status=$R_STATUS; out=$R_OUT; err=$R_ERR
+  restore_write "$denied_root/.ai/sift"
+  assert_eq 2 "$status" "the staging failure exits 2"
+  assert_contains "$err" "cannot stage $denied_root/.ai/sift/README.md" \
+    "and names the file it could not stage"
+  assert_not_contains "$out" 'gate: READY' "the partial repair is not disguised as READY"
+  assert_not_contains "$out" '  created  .ai/sift/README.md' \
+    "the failed stage is not reported as created"
+  assert_no_file "$denied_root/.ai/sift/README.md" "no convention file appeared"
+  assert_eq "" "$(find "$denied_root/.ai/sift" -name '.sift-init.*')" \
+    "no staged temp residue remains"
+  assert_eq "$sift_mode" "$(fixture_mode "$denied_root/.ai/sift")" \
+    "the fixture restores the directory mode before the case ends"
+else
+  skip "sift-init cannot-stage arm" \
+    "this uid can write through mode 500; the denial probe restored the directory"
+fi
+
+test_case "a fresh init diagnoses a sift directory it cannot create"
+control="$(newdir)"; mkdir -p "$control/.ai"
+init "$control"
+assert_eq 0 "$R_STATUS" "the writable control reaches the tree mkdir and succeeds"
+assert_file "$control/.ai/sift/README.md" \
+  "and proves a complete tree would be written"
+denied_root="$(newdir)"; mkdir -p "$denied_root/.ai"
+ai_mode="$(fixture_mode "$denied_root/.ai")"
+if deny_write "$denied_root/.ai"; then
+  init "$denied_root"
+  status=$R_STATUS; out=$R_OUT; err=$R_ERR
+  restore_write "$denied_root/.ai"
+  assert_eq 2 "$status" "the mkdir failure exits 2"
+  assert_contains "$err" "cannot create $denied_root/.ai/sift" \
+    "and names the directory it could not create"
+  assert_not_contains "$out" 'gate: READY' "the absent tree is not disguised as READY"
+  assert_not_contains "$out" '  created  .ai/sift/' \
+    "the failed mkdir is not reported as created"
+  assert_no_dir "$denied_root/.ai/sift" "no partial sift tree appears"
+  assert_eq "$ai_mode" "$(fixture_mode "$denied_root/.ai")" \
+    "the fixture restores the directory mode before the case ends"
+else
+  skip "sift-init cannot-create-tree arm" \
+    "this uid can write through mode 500; the denial probe restored the directory"
+fi
+
+test_case "a dangling destination exercises the publish fallback"
+# Permissions cannot reach this branch: staging and publishing happen in the
+# same directory, so a denied publish denies new_temp first.  A dangling link is
+# false to [ -e ] but still makes ln fail EEXIST, leaving mv to publish the file.
+root="$(newdir)"; init "$root"
+rm "$root/.ai/sift/README.md"
+ln -s missing-target "$root/.ai/sift/README.md"
+init "$root"
+assert_eq 0 "$R_STATUS" "the fallback publish exits 0"
+assert_file "$root/.ai/sift/README.md" "the dangling link becomes a regular file"
+if [ ! -L "$root/.ai/sift/README.md" ]; then
+  t_ok "the destination is no longer a symlink"
+else
+  t_fail "the destination is no longer a symlink"
+fi
+assert_same "$REPO_ROOT/src/skills/sift-init/assets/README.md" \
+  "$root/.ai/sift/README.md" "the fallback published the complete shipped bytes"
+assert_contains "$R_OUT" '  created  .ai/sift/README.md' \
+  "the fallback reports the file as created"
+assert_contains "$R_OUT" 'gate: READY' "the fallback leaves a complete tree"
+assert_eq "" "$(find "$root/.ai/sift" -name '.sift-init.*')" \
+  "the consumed staging file leaves no residue"
+
 test_case "a repair recreates only what is missing"
 rm "$root/.ai/sift/ROADMAP.md"
 rm -rf "$root/.ai/sift/config"

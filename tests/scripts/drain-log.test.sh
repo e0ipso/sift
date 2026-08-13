@@ -162,6 +162,54 @@ assert_eq "$LOG_HEADER" "$(head -n "$LOG_HEADER_LINES" "$root/.ai/sift/RUNLOG.md
   "the header is the documented block, byte for byte"
 assert_eq 1 "$(grep -c '^| dispatch |' "$root/.ai/sift/RUNLOG.md")" "and exactly one row under it"
 
+test_case "a first dispatch diagnoses a run log it cannot create"
+control="$(newdir)"; make_tree "$control" SFT
+run_cmd "$control" env SIFT_ROOT="$control" "$DRAINLOG" dispatch SFT-0001
+assert_eq 0 "$R_STATUS" "the writable control reaches the create and succeeds"
+assert_file "$control/.ai/sift/RUNLOG.md" "the writable control proves the log would be created"
+denied_root="$(newdir)"; make_tree "$denied_root" SFT
+sift_mode="$(fixture_mode "$denied_root/.ai/sift")"
+if deny_write "$denied_root/.ai/sift"; then
+  run_cmd "$denied_root" env SIFT_ROOT="$denied_root" "$DRAINLOG" dispatch SFT-0001
+  status=$R_STATUS; err=$R_ERR
+  restore_write "$denied_root/.ai/sift"
+  assert_eq 2 "$status" "the failed create exits 2"
+  assert_contains "$err" "cannot create the run log: $denied_root/.ai/sift/RUNLOG.md" \
+    "and names the log it could not create"
+  assert_no_file "$denied_root/.ai/sift/RUNLOG.md" "no empty or partial log appears"
+  assert_eq "$sift_mode" "$(fixture_mode "$denied_root/.ai/sift")" \
+    "the fixture restores the directory mode before the case ends"
+else
+  skip "drain-log cannot-create arm" \
+    "this uid can write through mode 500; the denial probe restored the directory"
+fi
+
+test_case "a multi-ticket dispatch diagnoses a run log it cannot append"
+control="$(newdir)"; make_tree "$control" SFT; log_new "$control"
+run_cmd "$control" env SIFT_ROOT="$control" "$DRAINLOG" dispatch SFT-0001 SFT-0002
+assert_eq 0 "$R_STATUS" "the writable control reaches the append and succeeds"
+assert_eq 2 "$(log_rows "$control/.ai/sift/RUNLOG.md")" \
+  "the writable control proves both rows would be appended"
+denied_root="$(newdir)"; make_tree "$denied_root" SFT; log_new "$denied_root"
+before="$(mktemp "$TMPROOT/runlog.XXXXXX")"
+cp "$denied_root/.ai/sift/RUNLOG.md" "$before"
+log_mode="$(fixture_mode "$denied_root/.ai/sift/RUNLOG.md")"
+if deny_write "$denied_root/.ai/sift/RUNLOG.md"; then
+  run_cmd "$denied_root" env SIFT_ROOT="$denied_root" "$DRAINLOG" dispatch SFT-0001 SFT-0002
+  status=$R_STATUS; err=$R_ERR
+  restore_write "$denied_root/.ai/sift/RUNLOG.md"
+  assert_eq 2 "$status" "the failed append exits 2"
+  assert_contains "$err" "cannot append to the run log: $denied_root/.ai/sift/RUNLOG.md" \
+    "and names the log it could not append"
+  assert_same "$before" "$denied_root/.ai/sift/RUNLOG.md" \
+    "the multi-ticket write leaves no partial first row"
+  assert_eq "$log_mode" "$(fixture_mode "$denied_root/.ai/sift/RUNLOG.md")" \
+    "the fixture restores the file mode before the case ends"
+else
+  skip "drain-log cannot-append arm" \
+    "this uid can append through mode 444; the denial probe restored the file and its bytes"
+fi
+
 test_case "the header is written once and later writes only append"
 before="$(head -n "$LOG_HEADER_LINES" "$root/.ai/sift/RUNLOG.md")"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase orient

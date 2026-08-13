@@ -89,6 +89,28 @@ printf 'prefix: "ACME"\n' > "$d/.ai/sift/config/config.yaml"
 read_prefix "$d"
 assert_eq "ACME" "$R_OUT" "quotes are stripped"
 
+# SFT-0053: the two config shapes that really reach a reader. The fixtures wrote
+# a bare `prefix:` line and nothing else, so this recipe — one of the four readers
+# that claim to parse that file — had never been handed either the shape
+# sift-init.sh installs or the shape README publishes. Neither looks broken by
+# inspection (`awk '{print $2}'` discards a trailing comment, and `^prefix:`
+# skips a comment header), which is the point: nothing would have told us if one
+# became so.
+
+test_case "the prefix reads out of the shape sift-init.sh installs"
+d="$(newdir)"; make_tree "$d" ACME
+config_yaml "$d" commented ACME
+read_prefix "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "ACME" "$R_OUT" "a comment header above the key does not become the prefix"
+
+test_case "the prefix reads out of README's documented example shape"
+d="$(newdir)"; make_tree "$d" ACME
+config_yaml "$d" inline ACME
+read_prefix "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "ACME" "$R_OUT" "a trailing comment on the key's own line is discarded"
+
 test_case "no .ai/sift: the guard diagnoses and fails"
 d="$(newdir)"
 read_prefix "$d"
@@ -236,6 +258,10 @@ assert_eq "" "$R_OUT" "prints nothing"
 
 test_case "a ticket whose front matter omits milestone: is reported, whatever its body says"
 d="$(newdir)"; make_tree "$d"
+# Hand-rolled on purpose: the shape is a ticket whose `milestone:` key is ABSENT,
+# and the fixture's replace-not-append convention can only produce an EMPTY value
+# (`ticket … 'milestone:'`, which the case below this one uses). Inventing an omit
+# form for one caller is not worth it; a second caller needing it is the signal.
 mkdir -p "$d/.ai/sift/open/caching/bug"
 { echo '---'; echo 'id: SFT-0001'; echo 'title: No milestone'; echo 'status: open'
   echo 'type: bug'; echo 'priority: p2'; echo 'effort: m'
@@ -340,11 +366,40 @@ assert_eq "" "$(set_diff "$FEATURE_HEADING" "$CANON_HEADS")" \
 assert_eq "" "$(set_diff "$FEATURE_HEADING" "$FEATURE_HEADS")" \
   "…which the feature template still names"
 
+test_case "the fixture's body shapes name the headings README's templates name"
+# SFT-0053 gave `ticket` the documented bodies; a heading is parsed API, so a
+# fixture that spelled one differently would be a fixture agreeing with nothing —
+# and every suite downstream would be asserting against that spelling. The
+# fixture is compared here against the templates themselves, in template order,
+# rather than trusted to have been copied correctly.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open caching/test SFT-0010 canon 'Canonical body' body=canonical)"
+assert_eq "$CANON_HEADS" "$(grep '^## ' "$f")" \
+  "body=canonical is the four canonical sections, in order"
+f="$(ticket "$d" open caching/bug SFT-0011 bugshape 'Bug body' body=bug)"
+assert_eq "$BUG_HEADS" "$(grep '^## ' "$f")" \
+  "body=bug is the bug template, in order"
+f="$(ticket "$d" open caching/feature SFT-0012 featshape 'Feature body' body=feature)"
+assert_eq "$FEATURE_HEADS" "$(grep '^## ' "$f")" \
+  "body=feature is the feature template, in order"
+
+test_case "the body shape is chosen explicitly and never derived from type:"
+# The constraint the backfill recipe above depends on: its positive case needs a
+# ticket that IS `type: bug` and has NO `## Expected behaviour`, which a fixture
+# deriving the body from the type could not build at all.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open caching/bug SFT-0001 bare 'Bare bug')"
+assert_eq 'bug' "$(fm "$f" type)" "the default fixture is a bug"
+assert_eq "" "$(grep '^## Expected behaviour' "$f")" "…carrying no expected-behaviour section"
+f="$(ticket "$d" open caching/docs SFT-0002 docsbug 'Docs with a bug body' \
+      'type: docs' body=bug)"
+assert_eq 'docs' "$(fm "$f" type)" "and the two are independent in the other direction too"
+assert_ne "" "$(grep '^## Expected behaviour' "$f")" "…a docs ticket can carry a bug body"
+
 test_case "a bug ticket without ## Expected behaviour is listed"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open caching/bug SFT-0001 bare 'Bare bug' > /dev/null
-g="$(ticket "$d" open caching/bug SFT-0002 full 'Full bug')"
-printf '\n## Expected behaviour\nIt should work.\n' >> "$g"
+ticket "$d" open caching/bug SFT-0002 full 'Full bug' body=bug > /dev/null
 ticket "$d" open caching/feature SFT-0003 feat 'A feature' 'type: feature' > /dev/null
 run_recipe "$d" "$BUG_SECTIONS" PREFIX=SFT
 assert_eq 0 "$R_STATUS" "exits 0"
@@ -353,22 +408,18 @@ assert_eq '.ai/sift/open/caching/bug/SFT-0001--bare.md' "$R_OUT" \
 
 test_case "a tree of complete bugs prints nothing"
 d="$(newdir)"; make_tree "$d"
-g="$(ticket "$d" open caching/bug SFT-0001 full 'Full bug')"
-printf '\n## Expected behaviour\nIt should work.\n' >> "$g"
+ticket "$d" open caching/bug SFT-0001 full 'Full bug' body=bug > /dev/null
 run_recipe "$d" "$BUG_SECTIONS" PREFIX=SFT
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "" "$R_OUT" "no backfill needed"
 
 test_case "a feature ticket without ## Direction is listed"
 d="$(newdir)"; make_tree "$d"
-mkdir -p "$d/.ai/sift/open/caching/feature"
-{ echo '---'; echo 'id: SFT-0001'; echo 'title: No direction'; echo 'status: open'
-  echo 'type: feature'; echo 'milestone: caching'; echo 'priority: p2'
-  echo 'effort: m'; echo 'created: 2026-08-01'; echo 'updated: 2026-08-01'
-  echo '---'; echo; echo '## Problem'; echo 'Why we want it.'; } \
-  > "$d/.ai/sift/open/caching/feature/SFT-0001--nodir.md"
-g="$(ticket "$d" open caching/feature SFT-0002 full 'Complete feature' 'type: feature')"
-printf '\n## Direction\nBuild it this way.\n' >> "$g"
+# The default body carries `## Problem` and nothing else, which is exactly the
+# drafting gap this recipe lists.
+ticket "$d" open caching/feature SFT-0001 nodir 'No direction' 'type: feature' > /dev/null
+ticket "$d" open caching/feature SFT-0002 full 'Complete feature' 'type: feature' \
+  body=feature > /dev/null
 run_recipe "$d" "$FEATURE_MISSING" PREFIX=SFT
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq '.ai/sift/open/caching/feature/SFT-0001--nodir.md' "$R_OUT" \
@@ -379,12 +430,8 @@ test_case "the feature backfill list reads open/ only"
 # recipe deliberately does not root itself at .ai/sift the way the bug one does.
 assert_not_contains "$FEATURE_MISSING" '.ai/sift/archive' "archive is out of scope"
 d="$(newdir)"; make_tree "$d"
-mkdir -p "$d/.ai/sift/archive/caching/feature"
-{ echo '---'; echo 'id: SFT-0001'; echo 'title: Archived'; echo 'status: done'
-  echo 'type: feature'; echo 'milestone: caching'; echo 'priority: p2'
-  echo 'effort: m'; echo 'created: 2026-08-01'; echo 'updated: 2026-08-01'
-  echo 'resolution: "shipped"'; echo '---'; echo; echo '## Problem'; echo 'x'; } \
-  > "$d/.ai/sift/archive/caching/feature/SFT-0001--arch.md"
+ticket "$d" archive caching/feature SFT-0001 arch 'Archived' 'type: feature' \
+  'status: done' 'resolution: "shipped"' > /dev/null
 run_recipe "$d" "$FEATURE_MISSING" PREFIX=SFT
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "" "$R_OUT" "an archived feature is never asked for a Direction"

@@ -96,13 +96,10 @@ test_case "a body line beginning with milestone: is left alone"
 # at column 0 has that prose silently replaced. The `---` horizontal rule is in
 # the fixture because it is legal markdown and must not re-open the region.
 d="$(newdir)"; make_tree "$d"
-f="$(ticket "$d" open caching/bug SFT-0042 prose 'Prose ticket')"
-{
-  printf '\n## Direction\n'
-  printf 'milestone: caching is what the body claims.\n'
-  printf '\n---\n\n'
-  printf 'milestone: and again, after a horizontal rule.\n'
-} >> "$f"
+# The same shared adversarial body archive.test.sh drives (SFT-0053): it quotes
+# every key either rewrite touches, so the keys this recipe never writes have to
+# come through untouched alongside the one it does.
+f="$(ticket "$d" open caching/bug SFT-0042 prose 'Prose ticket' body=adversarial)"
 # Everything after the closing fence. The fence pattern matches the recipe's own
 # (SFT-0026), so this still finds the fence when the marker carries a trailing
 # space; `!p` keeps it on the *first* one, never a horizontal rule below it.
@@ -211,16 +208,8 @@ test_case "the widened fence pattern still cannot be re-opened by a body rule"
 # horizontal rule in the body — plain or spaced — is a fresh candidate for
 # re-opening it. It cannot, because `in_fm` is only ever set at NR == 1.
 d="$(newdir)"; make_tree "$d"
-f="$(ticket "$d" open caching/bug SFT-0042 rules 'Rules in the body')"
+f="$(ticket "$d" open caching/bug SFT-0042 rules 'Rules in the body' body=adversarial)"
 space_the_fence "$f"
-{
-  printf '\n## Direction\n'
-  printf 'milestone: caching is what the body claims.\n'
-  printf '\n---\n\n'
-  printf 'milestone: and again, after a plain horizontal rule.\n'
-  printf '\n--- \n\n'
-  printf 'milestone: and again, after a spaced horizontal rule.\n'
-} >> "$f"
 before="$d/body.before"; body "$f" > "$before"
 move "$d" SFT-0042 platform
 dest="$d/.ai/sift/open/platform/bug/SFT-0042--rules.md"

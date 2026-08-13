@@ -64,7 +64,7 @@ DIGEST_EXCLUDE='.git
 
 # --- Fixture cleanup ---------------------------------------------------------
 
-# make_child <pass|fail|die|helpers|silent> — a minimal test file that announces
+# make_child <pass|fail|skip|fail-skip|die|helpers|silent> — a minimal test file that announces
 # its TMPROOT. One generator, one mode per shape of child: a second generator
 # would be a second thing to keep in step with the harness.
 make_child() {
@@ -90,6 +90,8 @@ make_child() {
       silent) printf 'exit 0\n' ;;
       pass) printf 'assert_eq a a "a passing assertion"\nsummary\n' ;;
       fail) printf 'assert_eq a b "a deliberately failing assertion"\nsummary\n' ;;
+      skip) printf 'skip "a declared gap" "generated skip reason"\nsummary\n' ;;
+      fail-skip) printf 'skip "a declared gap" "generated skip reason"\nassert_eq a b "a deliberately failing assertion"\nsummary\n' ;;
       die)  printf 'printf "%%s\\n" "$deliberately_unset"\nsummary\n' ;;
       # Both arms of every assertion helper assert_eq does not already cover.
       # Written as a heredoc rather than the printf lines above because the body
@@ -238,7 +240,7 @@ assert_no_dir "$CHILD_ROOT" "the state the filesystem helpers needed went with i
 # it stands; and creating one inside tests/ would break the no-writes promise
 # below. A copy of the real file is the way out — never a second implementation
 # of it, which would pass whatever this file believed run.sh does.
-run_sh_fixture() {  # run_sh_fixture <pass|fail|die|helpers>
+run_sh_fixture() {  # run_sh_fixture <pass|fail|skip|fail-skip|die|helpers>
   local d child
   d="$(newdir)"
   cp "$SUITE/run.sh" "$d/run.sh"
@@ -273,6 +275,34 @@ assert_contains "$R_OUT" 'ok 1 - generated child: a passing assertion' \
   "and streams the assertion the plain run swallowed"
 assert_contains "$quiet" '1 tests, 1 assertions, 0 failures, 0 skipped' "the plain run's counts"
 assert_contains "$R_OUT" '1 tests, 1 assertions, 0 failures, 0 skipped' "are what the verbose run counts too"
+
+test_case "plain PASS and FAIL reports name every skip and its reason (SFT-0057)"
+# This is the ticket's requested pin: run the shipped aggregator over generated
+# children, without SIFT_TEST_VERBOSE, once through each reporting branch. The
+# same skip line must be visible exactly once in both, and the run-wide summary
+# must retain the reason while the assertion/skip counts stay the harness's.
+for mode in skip fail-skip; do
+  rundir="$(run_sh_fixture "$mode")"
+  run_cmd "$rundir" env -i PATH="$PATH" HOME="$TMPROOT" "$rundir/run.sh" fixture
+  case "$mode" in
+    skip)
+      assert_eq 0 "$R_STATUS" "the passing skip fixture keeps the run green"
+      assert_contains "$R_OUT" 'PASS  fixture/generated.test.sh' "the skip is attached to a PASS file"
+      assert_contains "$R_OUT" '1 tests, 1 assertions, 0 failures, 1 skipped' \
+        "and reporting it did not change the child's counts"
+      ;;
+    fail-skip)
+      assert_eq 1 "$R_STATUS" "the failing skip fixture keeps the run red"
+      assert_contains "$R_OUT" 'FAIL  fixture/generated.test.sh' "the skip is attached to a FAIL file"
+      assert_contains "$R_OUT" '1 tests, 2 assertions, 1 failures, 1 skipped' \
+        "and reporting it did not change the child's counts"
+      ;;
+  esac
+  assert_eq 1 "$(printf '%s\n' "$R_OUT" | grep -c '^      # SKIP a declared gap (generated skip reason)$')" \
+    "$mode prints the named skip once without verbose output"
+  assert_contains "$R_OUT" 'SKIP reasons: generated skip reason' \
+    "$mode carries the distinct reason into TOTAL"
+done
 
 test_case "a file that printed no # SUMMARY line fails the run, and is named (SFT-0045)"
 # An absent summary used to be read through the same `: "${t:=0}"` defaults an
@@ -527,6 +557,16 @@ run_cmd "$TMPROOT" env -i PATH="$BIN" HOME="$TMPROOT" SIFT_TEST_KEEP= \
   TMPDIR="$TMPROOT" "$SUITE/cookbook/allocate-id.test.sh"
 assert_eq 0 "$R_STATUS" "the matrix file is green with only bash and one awk"
 assert_contains "$R_OUT" 'failures=0' "no assertion failed"
+assert_contains "$R_OUT" '# SUMMARY tests=16 assertions=30 failures=0 skipped=0' \
+  "narrowing itself changes none of the restricted run's counts"
+for record in \
+  '# NARROWED shell dash — not installed' \
+  '# NARROWED awk gawk — not installed' \
+  '# NARROWED awk mawk — not installed' \
+  '# NARROWED awk nawk — not installed'; do
+  assert_eq 1 "$(printf '%s\n' "$R_OUT" | grep -Fxc "$record")" \
+    "the restricted run names the dropped member once: $record"
+done
 
 test_case "a locale the machine lacks costs its leg, never a fake one (SFT-0046)"
 # The same promise one axis over, and the axis where an absent member used to be
@@ -551,12 +591,15 @@ leg() {
   LEG_ERR="$LEG_ERR$R_ERR"
 }
 matrix_locales="C $BOGUS_LOCALE"; matrix_shells='bash'; matrix_awks='awk'
-for_matrix leg
-for_shell_locale leg
+narrowed_log="$leg_dir/narrowed.log"
+for_matrix leg > "$narrowed_log"
+for_shell_locale leg >> "$narrowed_log"
 matrix_locales="$saved_locales"; matrix_shells="$saved_shells"; matrix_awks="$saved_awks"
 
 assert_eq ' bash/awk/C bash/C' "$LEGS" \
   "the callback runs once per sweep for C and never for the locale the machine lacks"
+assert_eq "# NARROWED locale $BOGUS_LOCALE — not available" "$(cat "$narrowed_log")" \
+  "both entry points share one uncounted, once-per-file narrowing channel"
 assert_eq "" "$LEG_ERR" "and no leg's stderr carries a setlocale warning"
 # The positive control. Without it "no warning reached a leg" is satisfied just as
 # well by a probe that never runs anything, and the skipped locale above would be

@@ -445,6 +445,19 @@ locale_available() {  # locale_available <name>
   _locale_known="$_locale_known$loc=0 "; return 1
 }
 
+# Matrix members are optional, but dropping one is still part of the result.
+# Keep this channel separate from skip(): narrowing must not change assertion or
+# skip counts, and one absent member may be encountered by many sweeps in one
+# test file. Both matrix entry points share this seen-set and emitter.
+_matrix_narrowed_seen=' '
+matrix_narrowed() {  # matrix_narrowed <axis> <member> <reason>
+  local axis="$1" member="$2" reason="$3" key
+  key="$axis/$member"
+  case "$_matrix_narrowed_seen" in *" $key "*) return 0 ;; esac
+  _matrix_narrowed_seen="$_matrix_narrowed_seen$key "
+  printf '# NARROWED %s %s — %s\n' "$axis" "$member" "$reason"
+}
+
 # for_matrix <callback> [args…] — invoke callback once per combination, with
 # R_SHELL / R_AWK / R_LOCALE set and R_LABEL naming the combination.
 #
@@ -456,12 +469,21 @@ for_matrix() {
   local cb="$1"; shift
   local sh a l bin
   for sh in $matrix_shells; do
-    command -v "$sh" > /dev/null 2>&1 || continue
+    if ! command -v "$sh" > /dev/null 2>&1; then
+      matrix_narrowed shell "$sh" "not installed"
+      continue
+    fi
     for a in $matrix_awks; do
       bin="$(command -v "$a" || true)"
-      [ -n "$bin" ] || continue
+      if [ -z "$bin" ]; then
+        matrix_narrowed awk "$a" "not installed"
+        continue
+      fi
       for l in $matrix_locales; do
-        locale_available "$l" || continue
+        if ! locale_available "$l"; then
+          matrix_narrowed locale "$l" "not available"
+          continue
+        fi
         R_SHELL="$sh"; R_AWK="$bin"; R_LOCALE="$l"; R_LABEL="$sh/$a/$l"
         "$cb" "$@"
       done
@@ -480,9 +502,15 @@ for_shell_locale() {
   local cb="$1"; shift
   local sh l
   for sh in $matrix_shells; do
-    command -v "$sh" > /dev/null 2>&1 || continue
+    if ! command -v "$sh" > /dev/null 2>&1; then
+      matrix_narrowed shell "$sh" "not installed"
+      continue
+    fi
     for l in $matrix_locales; do
-      locale_available "$l" || continue
+      if ! locale_available "$l"; then
+        matrix_narrowed locale "$l" "not available"
+        continue
+      fi
       R_SHELL="$sh"; R_AWK=''; R_LOCALE="$l"; R_LABEL="$sh/$l"
       "$cb" "$@"
     done

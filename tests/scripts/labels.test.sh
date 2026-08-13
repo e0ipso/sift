@@ -109,8 +109,44 @@ labels "$d" --counts --open
 assert_eq "api	2 api-v2	1 caching	1" "$(flat)" "the two flags commute"
 
 test_case "a ticket with no labels key contributes nothing"
-assert_not_contains "$R_OUT" 'Epsilon' "the unlabelled ticket is not a label"
-assert_not_contains "$R_OUT" '	0' "and invents no zero-count row"
+with_unlabelled="$(newdir)"; populated "$with_unlabelled"
+without_unlabelled="$(newdir)"; populated "$without_unlabelled"
+rm "$without_unlabelled/.ai/sift/open/v1/bug/ACME-0005--epsilon.md"
+with_before="$(tree_digest "$with_unlabelled")"
+without_before="$(tree_digest "$without_unlabelled")"
+
+labels "$with_unlabelled"
+assert_eq 0 "$R_STATUS" "bare exits 0 with the unlabelled ticket present"
+with_answer="$R_OUT"
+labels "$without_unlabelled"
+assert_eq 0 "$R_STATUS" "bare exits 0 without it"
+assert_eq "$with_answer" "$R_OUT" "bare output is byte-identical"
+
+labels "$with_unlabelled" --counts
+assert_eq 0 "$R_STATUS" "--counts exits 0 with the unlabelled ticket present"
+with_answer="$R_OUT"
+labels "$without_unlabelled" --counts
+assert_eq 0 "$R_STATUS" "--counts exits 0 without it"
+assert_eq "$with_answer" "$R_OUT" "--counts output is byte-identical"
+
+labels "$with_unlabelled" --open
+assert_eq 0 "$R_STATUS" "--open exits 0 with the unlabelled ticket present"
+with_answer="$R_OUT"
+labels "$without_unlabelled" --open
+assert_eq 0 "$R_STATUS" "--open exits 0 without it"
+assert_eq "$with_answer" "$R_OUT" "--open output is byte-identical"
+
+labels "$with_unlabelled" --counts --open
+assert_eq 0 "$R_STATUS" "--counts --open exits 0 with the unlabelled ticket present"
+with_answer="$R_OUT"
+labels "$without_unlabelled" --counts --open
+assert_eq 0 "$R_STATUS" "--counts --open exits 0 without it"
+assert_eq "$with_answer" "$R_OUT" "--counts --open output is byte-identical"
+
+assert_eq "$with_before" "$(tree_digest "$with_unlabelled")" \
+  "all four reads leave the tree with the unlabelled ticket untouched"
+assert_eq "$without_before" "$(tree_digest "$without_unlabelled")" \
+  "and leave the comparison tree untouched"
 
 test_case "an unknown option is refused rather than ignored"
 labels "$d" --bogus

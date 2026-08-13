@@ -64,20 +64,30 @@ DIGEST_EXCLUDE='.git
 
 # --- Fixture cleanup ---------------------------------------------------------
 
-# make_child <pass|fail|die|helpers> — a minimal test file that announces its
-# TMPROOT. One generator, one mode per shape of child: a second generator would
-# be a second thing to keep in step with the harness.
+# make_child <pass|fail|die|helpers|silent> — a minimal test file that announces
+# its TMPROOT. One generator, one mode per shape of child: a second generator
+# would be a second thing to keep in step with the harness.
 make_child() {
   local mode="$1" f
   f="$(mktemp "$TMPROOT/child-$mode.XXXXXX")"
   {
     printf '#!/usr/bin/env bash\n'
     printf 'set -u\n'
-    printf '. "%s/lib/harness.sh"\n' "$SUITE"
-    printf 'echo "CHILD_TMPROOT=$TMPROOT"\n'
-    printf 'newdir > /dev/null\n'
-    printf 'test_case "generated child"\n'
+    # Every mode but `silent` gets the harness and a case to run in it. That one
+    # sources nothing on purpose: what it stands for is a file that exits 0
+    # having printed no summary at all — truncated, returned early, or dead
+    # before it reached `summary` — and a child that sourced the harness could
+    # not be that file, since the harness announces a TMPROOT on the way in
+    # (SFT-0045). It has no fixture for the same reason: there is nothing to
+    # leak, and the cleanup cases above are not what it is for.
+    [ "$mode" = silent ] || {
+      printf '. "%s/lib/harness.sh"\n' "$SUITE"
+      printf 'echo "CHILD_TMPROOT=$TMPROOT"\n'
+      printf 'newdir > /dev/null\n'
+      printf 'test_case "generated child"\n'
+    }
     case "$mode" in
+      silent) printf 'exit 0\n' ;;
       pass) printf 'assert_eq a a "a passing assertion"\nsummary\n' ;;
       fail) printf 'assert_eq a b "a deliberately failing assertion"\nsummary\n' ;;
       die)  printf 'printf "%%s\\n" "$deliberately_unset"\nsummary\n' ;;
@@ -263,6 +273,26 @@ assert_contains "$R_OUT" 'ok 1 - generated child: a passing assertion' \
   "and streams the assertion the plain run swallowed"
 assert_contains "$quiet" '1 tests, 1 assertions, 0 failures, 0 skipped' "the plain run's counts"
 assert_contains "$R_OUT" '1 tests, 1 assertions, 0 failures, 0 skipped' "are what the verbose run counts too"
+
+test_case "a file that printed no # SUMMARY line fails the run, and is named (SFT-0045)"
+# An absent summary used to be read through the same `: "${t:=0}"` defaults an
+# empty one takes, so a file that exited 0 having run nothing was aggregated as a
+# passing file with no cases and the run stayed green — the one failure mode a
+# harness cannot report on its own behalf, since the file that would report it is
+# the file that said nothing. `summary` is documented in tests/README.md as
+# required and as the last call for exactly this reason, which makes the
+# aggregation run.sh's promise rather than the harness's: driven through a cp of
+# the shipped run.sh, over a child that sources nothing and exits 0.
+rundir="$(run_sh_fixture silent)"
+run_cmd "$rundir" env SIFT_TEST_KEEP= "$rundir/run.sh" fixture
+assert_eq 1 "$R_STATUS" "the run exits non-zero"
+assert_contains "$R_OUT" 'FAIL  fixture/generated.test.sh' "the silent file is reported as failing"
+assert_not_contains "$R_OUT" 'PASS' "and nothing in that run is reported as passing"
+assert_contains "$R_OUT" 'fixture/generated.test.sh printed no # SUMMARY line' \
+  "with the cause named, since the dump under a silent file is empty"
+assert_contains "$R_OUT" '0 tests, 0 assertions, 1 failures, 0 skipped' \
+  "counted as one failure rather than as a file of zeros"
+assert_contains "$R_OUT" 'FAILING FILES: fixture/generated.test.sh' "and listed by name at the end"
 
 # --- Nothing is written inside the repository --------------------------------
 
@@ -465,5 +495,69 @@ run_cmd "$TMPROOT" env -i PATH="$BIN" HOME="$TMPROOT" SIFT_TEST_KEEP= \
   TMPDIR="$TMPROOT" "$SUITE/cookbook/allocate-id.test.sh"
 assert_eq 0 "$R_STATUS" "the matrix file is green with only bash and one awk"
 assert_contains "$R_OUT" 'failures=0' "no assertion failed"
+
+test_case "a locale the machine lacks costs its leg, never a fake one (SFT-0046)"
+# The same promise one axis over, and the axis where an absent member used to be
+# indistinguishable from a present one: `command -v` answers for dash and the
+# awks, but a missing locale is not a missing binary — libc falls back to C
+# behind a setlocale warning and the leg runs anyway, labelled with a locale it
+# never entered. Every collation assertion under that label was then asserting
+# about C while reporting otherwise.
+#
+# The axis is poisoned with a name no machine carries, for the length of this
+# case, and both sweeps are driven because `locale_available` guards both. The
+# shell and awk axes are pinned to one member each so the labels below are the
+# whole of what ran: `awk` rather than gawk/mawk/nawk because it is the baseline
+# name, so this case cannot narrow to nothing on a machine with no optional awk.
+saved_locales="$matrix_locales"; saved_shells="$matrix_shells"; saved_awks="$matrix_awks"
+BOGUS_LOCALE='zz_ZZ.no-such-locale'
+leg_dir="$(newdir)"
+LEGS=''; LEG_ERR=''
+leg() {
+  LEGS="$LEGS $R_LABEL"
+  run_recipe "$leg_dir" 'printf "%s\n" "a b"'
+  LEG_ERR="$LEG_ERR$R_ERR"
+}
+matrix_locales="C $BOGUS_LOCALE"; matrix_shells='bash'; matrix_awks='awk'
+for_matrix leg
+for_shell_locale leg
+matrix_locales="$saved_locales"; matrix_shells="$saved_shells"; matrix_awks="$saved_awks"
+
+assert_eq ' bash/awk/C bash/C' "$LEGS" \
+  "the callback runs once per sweep for C and never for the locale the machine lacks"
+assert_eq "" "$LEG_ERR" "and no leg's stderr carries a setlocale warning"
+# The positive control. Without it "no warning reached a leg" is satisfied just as
+# well by a probe that never runs anything, and the skipped locale above would be
+# proof of nothing: this is the output the axis produces when the guard is absent.
+R_LOCALE="$BOGUS_LOCALE"
+run_recipe "$leg_dir" 'printf "%s\n" "a b"'
+R_LOCALE=C
+assert_contains "$R_ERR" 'setlocale' \
+  "a leg really entered on that name would have warned, which is what the guard prevents"
+
+test_case "a reworded README anchor turns the file that reads it red (SFT-0052)"
+# The other half of the extraction contract. Each owning file asserts that a
+# reworded anchor extracts NOTHING; what nothing costs is asserted here, once,
+# because it takes a whole repository to measure. lib/recipes.sh resolves
+# REPO_ROOT from its own location, so a copy of the tree under TMPROOT is a tree
+# whose README a case may reword — the one edit the digest above exists to
+# forbid in the real one.
+#
+# One block stands for the seven: the run-log schema, whose owning file is the
+# cheapest to run and whose non-empty assertion is the first thing it does. What
+# is being pinned is not that block in particular but that an empty extraction is
+# a red file rather than a comparison of two empty sets, which is the rule
+# tests/README.md states for all of them.
+child="$(newdir)"
+cp -R "$REPO_ROOT/README.md" "$REPO_ROOT/schemas" "$REPO_ROOT/src" "$SUITE" "$child/"
+run_cmd "$child" env SIFT_TEST_KEEP= TMPDIR="$TMPROOT" "$child/tests/scripts/drain-log.test.sh"
+assert_eq 0 "$R_STATUS" "the relocated copy is green before the damage, so the copy itself is not the variable"
+damaged="$(readme_reworded "$child" "$ANCHOR_RUNLOG")" || damaged=''
+assert_eq "$child/README.md" "$damaged" "its README is the one the reworded copy replaces"
+run_cmd "$child" env SIFT_TEST_KEEP= TMPDIR="$TMPROOT" "$child/tests/scripts/drain-log.test.sh"
+assert_eq 1 "$R_STATUS" "the same file fails once its anchor no longer matches"
+assert_contains "$R_OUT" 'not ok' "with a failing assertion"
+assert_contains "$R_OUT" 'the run-log block is there to read' \
+  "and it is the extraction that fails, named, rather than a comparison passing on two empty sets"
 
 summary

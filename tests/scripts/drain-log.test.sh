@@ -1089,4 +1089,21 @@ assert_contains "$R_ERR" 'cannot determine the ticket prefix' "saying what is mi
 assert_contains "$R_ERR" 'export SIFT_PREFIX' "with both ways to fix it"
 assert_no_file "$root/.ai/sift/RUNLOG.md" "and writes nothing on the way out"
 
+# --- The run-log extraction's negative control (SFT-0052, criterion 9) --------
+
+test_case "a reworded run-log anchor extracts nothing rather than the wrong block"
+# `the run-log block is there to read` is asserted at the top of this file, and
+# until now only ever against a README whose anchor matched. This is the other
+# state: the extractor's own anchor constant is reworded in a copy, and the
+# extraction goes empty rather than silently returning some neighbouring fence.
+# What an empty extraction costs the run is asserted once, on a relocated copy of
+# the repository, in static/suite-contract.test.sh.
+work="$(newdir)"
+damaged="$(readme_reworded "$work" "$ANCHOR_RUNLOG")" || damaged=''
+assert_ne "" "$damaged" "the anchor line is in README.md to be reworded"
+README="${damaged:-$README}"
+assert_eq "" "$(readme_runlog_schema)" "an anchor that no longer matches yields no block at all"
+README="$REPO_ROOT/README.md"
+assert_ne "" "$(readme_runlog_schema)" "and the real README still extracts, so the case put it back"
+
 summary

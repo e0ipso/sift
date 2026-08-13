@@ -195,4 +195,21 @@ assert_not_contains "$R_OUT" '  orphan ' "nothing is reported once the sets agre
 assert_not_contains "$R_OUT" 'legacy-ticket' "and the withdrawn name is gone from the report"
 assert_contains "$R_OUT" 'gate: READY' "the tree still passes the gate"
 
+# --- The refresh extraction's negative control (SFT-0052, criterion 9) --------
+
+test_case "a reworded refresh anchor extracts nothing rather than the wrong block"
+# The remedy case above asserts the refresh recipe extracts before it compares
+# the initializer's output against it. That assertion is the whole protection
+# against a reworded anchor turning this file into a comparison of two empty
+# strings, and it had never been run against an anchor that stopped matching.
+work="$(newdir)"
+damaged="$(readme_reworded "$work" "$ANCHOR_REFRESH")" || damaged=''
+assert_ne "" "$damaged" "the anchor line is in README.md to be reworded"
+README="${damaged:-$README}"
+assert_eq "" "$(readme_refresh_resolved "$CARD" "$root")" \
+  "an anchor that no longer matches yields no commands at all"
+README="$REPO_ROOT/README.md"
+assert_ne "" "$(readme_refresh_resolved "$CARD" "$root")" \
+  "and the real README still extracts, so the case put it back"
+
 summary

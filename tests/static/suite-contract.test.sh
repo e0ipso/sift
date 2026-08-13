@@ -296,6 +296,38 @@ assert_contains "$R_OUT" 'FAILING FILES: fixture/generated.test.sh' "and listed 
 
 # --- Nothing is written inside the repository --------------------------------
 
+test_case "tree_digest is stable until a file changes"
+# Every no-writes assertion in the suite depends on this helper returning a
+# meaningful value and moving when bytes move. Restore the fixture between
+# mutations so each unequal arm stands on its own: in particular, an earlier
+# size change must not make the same-size rewrite look covered without cksum.
+digest_root="$(newdir)"
+printf 'x\n' > "$digest_root/watched"
+printf 'keep\n' > "$digest_root/removed"
+tree_d0="$(tree_digest "$digest_root")"
+assert_ne "" "$tree_d0" "a non-empty tree produces a non-empty digest"
+assert_eq "$tree_d0" "$(tree_digest "$digest_root")" \
+  "an unchanged tree produces the same digest"
+
+printf 'appended\n' >> "$digest_root/watched"
+assert_ne "$tree_d0" "$(tree_digest "$digest_root")" \
+  "appending bytes moves the digest"
+printf 'x\n' > "$digest_root/watched"
+
+printf 'y\n' > "$digest_root/watched"
+assert_ne "$tree_d0" "$(tree_digest "$digest_root")" \
+  "a same-size rewrite moves the digest through its checksum"
+printf 'x\n' > "$digest_root/watched"
+
+printf 'added\n' > "$digest_root/added"
+assert_ne "$tree_d0" "$(tree_digest "$digest_root")" \
+  "adding a file moves the digest"
+rm "$digest_root/added"
+
+rm "$digest_root/removed"
+assert_ne "$tree_d0" "$(tree_digest "$digest_root")" \
+  "removing a file moves the digest"
+
 # repo_digest [root] — every regular file under <root>, default REPO_ROOT, except
 # DIGEST_EXCLUDE, with its size and checksum. The whole working tree and not an
 # allowlist of subdirectories: a stray file at the repository root, or an edit to

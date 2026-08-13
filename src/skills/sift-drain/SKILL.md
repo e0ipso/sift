@@ -251,17 +251,22 @@ the diff.
 
 A wave closes only after this, before any ticket of the next wave is dispatched:
 
-1. **E2E specialist agent** first (skip only if the project has no e2e suite): covers only
-   **browser-visible** wave behaviour, deliberately lean, extending existing specs rather
-   than duplicating them, and reporting one line per behaviour covered *and* per behaviour
-   skipped as having no browser surface.
+1. **E2E specialist agent** first: covers only the wave behaviour the project's own e2e
+   layer can reach, deliberately lean, extending existing e2e tests rather than duplicating
+   them, and reporting one line per behaviour covered *and* per behaviour skipped as having
+   no e2e surface. There are two skip cases, and both appear in the wave summary: if the
+   project has no e2e layer, say so; if the layer exists but this wave shipped nothing it can
+   reach, skip the authoring pass and say which behaviours were unreachable and why. Skipping
+   the specialist never skips the full e2e run: whenever a layer exists, the wave close runs
+   it and reports its totals.
 2. **Batch coverage agent** — "write tests, not too many, mostly integration." Its
    coverage list is the **waived criteria collected from the wave's archived tickets**,
    folded into existing test classes where natural, plus the destructive sequences a
    shared dev environment could not run live.
 3. **This is the only place the FULL suites run**, all as the wave-close: full test suite,
-   full lint/static analysis, full e2e — exact totals reported for each. One agent may
-   carry the batch coverage and the close.
+   full lint/static analysis, and full e2e whenever the project has an e2e layer — exact
+   totals reported for each run, or an explicit no-layer status for e2e. One agent may carry
+   the batch coverage and the close.
 4. **One fix agent per root cause** of any fallout — not one per failing test. Test agents
    never fix product code: they file a ticket and annotate the test with its ID so suites
    stay green-with-known-issues.

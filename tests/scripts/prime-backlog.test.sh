@@ -220,6 +220,10 @@ test_case "the wave numbering continues without renumbering a row"
 # The "#" column is a continuation, never a re-derivation: a writer that
 # recomputed it from row position would silently renumber a table with a
 # hand-deleted row, and every reference to those numbers would go stale.
+# That column is read through trim(), whose whitespace class must stay
+# [[:space:]] rather than the non-portable space-and-backslash-t spelling.
+# This fixture fails if trim or its call disappears; tests/static/portability.test.sh
+# is the guard that enforces the portable spelling itself.
 d="$(newdir)"; make_tree "$d" ACME
 roadmap_row "$d" 1 ACME-0001 'One' '-'
 roadmap_row "$d" 4 ACME-0004 'Four' '-'
@@ -507,17 +511,6 @@ assert_eq 0 "$(tabs_in_roadmap "$d")" "the new-wave path writes no tab either"
 assert_eq '| 1 | ACME-0002 | Cache \t tenant lookups | ACME-0001 \n more |' \
   "$(grep -F 'ACME-0002' "$(roadmap "$d")")" \
   "same cells, same spacing, only the # differs"
-
-test_case "a title whose word starts with t keeps its t"
-# The bracket-expression trap the convention bans outright: a strict awk reads
-# [ \t] as {space, backslash, t} and a trim built from it eats the leading "t"
-# of "tenant". The trim in this script only ever touches the # column, and this
-# is what proves it.
-d="$(newdir)"; make_tree "$d" ACME
-roadmap_row "$d" 1 ACME-0001 'One' '-'
-append "$d" 1 ACME-0002 'tenant caching, throttled' 'ACME-0001'
-assert_eq "| 2 | ACME-0002 | tenant caching, throttled | ACME-0001 |" \
-  "$(grep -F 'ACME-0002' "$(roadmap "$d")")" "every leading t is still there"
 
 test_case "an ampersand and a percent sign are literal too"
 # & is awk's back-reference in a substitution and % is printf's directive

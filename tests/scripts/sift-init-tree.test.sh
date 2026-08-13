@@ -53,8 +53,12 @@ open/$MS/<category>/<PREFIX>-0001--short-slug.md|shape, not a path: an initialis
 archive/$MS/<category>/<PREFIX>-0001--short-slug.md|shape, not a path: the archive mirrors open/ and starts empty"
 
 # <materialised entry>|<why the layout block does not draw it>
-LAYOUT_UNDOCUMENTED='config/|the prefix file is documented under *Configuration* and required by sift-gate.sh, but the tree diagram omits it entirely (SFT-0061)
-config/config.yaml|the same omission: "The prefix lives in `.ai/sift/config/config.yaml`" is prose the diagram never draws'
+#
+# Empty since SFT-0061 drew `config/` and `config/config.yaml` into the block —
+# the only two entries this list ever carried. It stays as an empty list because
+# it is the one place a future init write the spec never mentions can be named
+# with its reason instead of going unnoticed.
+LAYOUT_UNDOCUMENTED=''
 
 # The entry column of one of the two lists above.
 excused_entries() { printf '%s\n' "$1" | sed 's/|.*//'; }
@@ -91,9 +95,10 @@ done
 
 test_case "and materialises nothing the layout block does not draw"
 # The direction the old hand-copied list could not have: a file init writes that
-# the published shape never mentions is invisible to a subset check. Exactly one
-# such entry exists today and it is a README omission, not an init bug, so it is
-# carried by name with its reason rather than silently tolerated.
+# the published shape never mentions is invisible to a subset check. Nothing is
+# extra today, and the comparison is an equality rather than a subset so it stays
+# that way from both sides: a new undocumented write fails here, and so does an
+# entry that stops being extra while its excuse is still on the list.
 assert_eq "$(excused_entries "$LAYOUT_UNDOCUMENTED")" \
   "$(set_diff "$(materialised "$root")" "$DOCUMENTED")" \
   "every extra path is one the undocumented list names, and every named one is still there"

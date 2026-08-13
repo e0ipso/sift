@@ -373,14 +373,12 @@ claims() { grep -l "^  created  $2\$" "$1"/w*.log 2>/dev/null | wc -l | tr -d ' 
 test_case "the tree itself is claimed by exactly one racing writer"
 # The lock's own guarantee: `mkdir` covers the directory, and the fresh path it
 # hands the winner is the one that writes the tracking policy and skips every
-# "existing tree" repair. Two writers believing they got a FRESH tree is the
-# defect this rules out.
+# "existing tree" repair. Two writers believing they got a FRESH tree, or no
+# writer claiming it at all, are the defects this rules out.
 raced="$(newdir)"; out="$(newdir)"
 race "$raced" "$out"
 n="$(claims "$out" '.ai/sift/')"
-if [ "$n" -le 1 ]
-then t_ok "no two writers report creating .ai/sift/"
-else t_fail "no two writers report creating .ai/sift/" "writers claiming a fresh tree: $n"; fi
+assert_eq 1 "$n" "exactly one writer reports creating .ai/sift/"
 
 test_case "a raced tree survives the race"
 # SFT-0030. Every write is staged in a temp file beside its destination and

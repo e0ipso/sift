@@ -22,35 +22,49 @@ shell_files() {
   find "$REPO_ROOT/src" "$REPO_ROOT/tests" -name '*.sh' | LC_ALL=C sort
 }
 
+shell_file_list="$(shell_files)"
+script_file_list="$(find "$REPO_ROOT/src" -path '*/scripts/*.sh' | LC_ALL=C sort)"
+test_file_list="$(find "$REPO_ROOT/tests" -name '*.test.sh' | LC_ALL=C sort)"
+
+test_case "the shell file walks actually read something"
+assert_contains "$shell_file_list" "$REPO_ROOT/tests/lib/harness.sh" \
+  "shell_files includes its known harness anchor"
+assert_contains "$script_file_list" "$REPO_ROOT/src/skills/sift-init/scripts/sift-init.sh" \
+  "the card-script walk includes its known initializer anchor"
+assert_contains "$test_file_list" "$REPO_ROOT/tests/static/shell-lint.test.sh" \
+  "the test-file walk includes its known shell-lint anchor"
+
 test_case "every shell file parses"
-count=0
-for f in $(shell_files); do
-  count=$((count + 1))
-  if err="$(bash -n "$f" 2>&1)"; then :; else t_fail "bash -n ${f#"$REPO_ROOT/"}" "$err"; fi
-done
-t_ok "$count shell files parse under bash -n"
+parse_failures="$(for f in $shell_file_list; do
+  if err="$(bash -n "$f" 2>&1)"; then
+    :
+  else
+    printf '%s\n%s\n' "${f#"$REPO_ROOT/"}" "$err"
+  fi
+done)"
+assert_eq "" "$parse_failures" "all shell files parse under bash -n"
 
 test_case "every shell file declares an interpreter"
-for f in $(shell_files); do
+missing_shebangs="$(for f in $shell_file_list; do
   head -n 1 "$f" | grep -q '^#!' \
-    || t_fail "shebang" "${f#"$REPO_ROOT/"} has no #! line"
-done
-t_ok "all shell files start with #!"
+    || echo "${f#"$REPO_ROOT/"} has no #! line"
+done)"
+assert_eq "" "$missing_shebangs" "all shell files start with #!"
 
 test_case "documented commands are executable"
-for f in $(find "$REPO_ROOT/src" -path '*/scripts/*.sh' | LC_ALL=C sort); do
+not_executable="$(for f in $script_file_list; do
   case "$(basename "$f")" in
     lib.sh) continue ;;   # sourced, never executed
   esac
-  [ -x "$f" ] || t_fail "executable bit" "${f#"$REPO_ROOT/"} is not executable"
+  [ -x "$f" ] || echo "${f#"$REPO_ROOT/"} is not executable"
 done
-for f in "$REPO_ROOT/tests/run.sh" $(find "$REPO_ROOT/tests" -name '*.test.sh'); do
-  [ -x "$f" ] || t_fail "executable bit" "${f#"$REPO_ROOT/"} is not executable"
-done
-t_ok "every card script and test file is runnable"
+for f in "$REPO_ROOT/tests/run.sh" $test_file_list; do
+  [ -x "$f" ] || echo "${f#"$REPO_ROOT/"} is not executable"
+done)"
+assert_eq "" "$not_executable" "every card script and test file is runnable"
 
 test_case "no CRLF line endings"
-crlf="$(for f in $(shell_files) "$README"; do
+crlf="$(for f in $shell_file_list "$README"; do
   if grep -lq "$(printf '\r')" "$f" 2>/dev/null; then echo "${f#"$REPO_ROOT/"}"; fi
 done)"
 assert_eq "" "$crlf" "shell files and the spec are LF-only"

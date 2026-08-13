@@ -7,6 +7,88 @@
 # agreement between this hand-built tree and a real init is pinned in
 # tests/scripts/sift-init-tree.test.sh.
 
+# Permission-fault fixtures keep their own restore stack because a skipped
+# denial must be as clean as a denial the platform enforced.  Arrays keep paths
+# containing spaces intact; every test file sourcing this library runs in bash.
+SIFT_DENIED_PATHS=()
+SIFT_DENIED_MODES=()
+SIFT_DENIED_BACKUPS=()
+
+# fixture_mode <path> — the ordinary rwx mode as three octal digits.  Test
+# fixtures do not carry set-id or sticky bits, so POSIX ls is enough and avoids
+# depending on either incompatible spelling of stat(1).
+fixture_mode() {
+  LC_ALL=C ls -ld "$1" | awk '
+    {
+      p = substr($1, 2, 9)
+      for (i = 0; i < 3; i++) {
+        n = 0
+        if (substr(p, i * 3 + 1, 1) == "r") n += 4
+        if (substr(p, i * 3 + 2, 1) == "w") n += 2
+        if (substr(p, i * 3 + 3, 1) == "x") n += 1
+        printf "%d", n
+      }
+      printf "\n"
+    }
+  '
+}
+
+# restore_write <path> — restore the mode and, for a file probe, its bytes;
+# then remove this path from the restore stack.
+restore_write() {
+  local path="$1" i mode backup
+  for ((i=${#SIFT_DENIED_PATHS[@]} - 1; i >= 0; i--)); do
+    [ "${SIFT_DENIED_PATHS[$i]}" = "$path" ] || continue
+    mode="${SIFT_DENIED_MODES[$i]}"
+    backup="${SIFT_DENIED_BACKUPS[$i]}"
+    chmod "$mode" "$path" || return 2
+    if [ -n "$backup" ]; then
+      cp "$backup" "$path" || return 2
+      rm -f "$backup"
+    fi
+    unset 'SIFT_DENIED_PATHS[i]' 'SIFT_DENIED_MODES[i]' 'SIFT_DENIED_BACKUPS[i]'
+    return 0
+  done
+  return 2
+}
+
+# deny_write <path> — remove write permission, record how to restore it, and
+# prove the current uid is actually denied.  Directory probes create a child;
+# file probes append one byte and keep a backup so even a root/non-enforcing
+# platform returns the file byte-identical.  A non-zero result means the caller
+# must emit a named skip: chmod alone is not evidence that writes are denied.
+deny_write() {
+  local path="$1" mode backup='' probe index
+  mode="$(fixture_mode "$path")" || return 2
+  if [ -d "$path" ]; then
+    chmod 500 "$path" || return 2
+  elif [ -f "$path" ]; then
+    backup="$(mktemp "$TMPROOT/denied-file.XXXXXX")" || return 2
+    cp "$path" "$backup" || { rm -f "$backup"; return 2; }
+    chmod 444 "$path" || { rm -f "$backup"; return 2; }
+  else
+    return 2
+  fi
+
+  index="${#SIFT_DENIED_PATHS[@]}"
+  SIFT_DENIED_PATHS[$index]="$path"
+  SIFT_DENIED_MODES[$index]="$mode"
+  SIFT_DENIED_BACKUPS[$index]="$backup"
+
+  if [ -d "$path" ]; then
+    probe="$path/.sift-write-probe.$$.$index"
+    if ( : > "$probe" ) 2>/dev/null; then
+      rm -f "$probe"
+      restore_write "$path"
+      return 1
+    fi
+  elif ( printf x >> "$path" ) 2>/dev/null; then
+    restore_write "$path"
+    return 1
+  fi
+  return 0
+}
+
 # make_tree <dir> [prefix] — a minimal but gate-complete tree at <dir>/.ai/sift.
 make_tree() {
   local dir="$1" prefix="${2:-SFT}"

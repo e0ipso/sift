@@ -8,6 +8,7 @@ set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
 . "$DIR/../lib/harness.sh"
 . "$DIR/../lib/recipes.sh"
+. "$DIR/../lib/fixtures.sh"
 
 REAL_CARD="$REPO_ROOT/src/skills/sift-init"
 
@@ -67,6 +68,37 @@ sync_shimmed() {  # sync_shimmed <repo> <shim>
   run_cmd "$1" env PATH="$2:$PATH" bash "$1/src/skills/sift-init/scripts/sync-assets.sh"
 }
 
+test_case "the permission helper reports a platform where chmod denies nothing"
+# A no-op chmod models uid 0's DAC override without requiring the suite itself
+# to run as root.  The probe must report non-zero, restore bytes and mode, and
+# leave no probe/backup residue so every caller can turn this result into SKIP.
+probe_root="$(newdir)"
+mkdir "$probe_root/dir"
+printf 'original bytes\n' > "$probe_root/file"
+for probe_path in "$probe_root/dir" "$probe_root/file"; do
+  probe_mode="$(fixture_mode "$probe_path")"
+  probe_bytes=''
+  [ -f "$probe_path" ] && probe_bytes="$(cat "$probe_path")"
+  (
+    chmod() { return 0; }
+    deny_write "$probe_path"
+  )
+  probe_status=$?
+  assert_eq 1 "$probe_status" \
+    "$(basename "$probe_path"): a write-through denial is reported to the caller"
+  assert_eq "$probe_mode" "$(fixture_mode "$probe_path")" \
+    "$(basename "$probe_path"): the original mode remains in place"
+  if [ -f "$probe_path" ]; then
+    assert_eq "$probe_bytes" "$(cat "$probe_path")" \
+      "file: the append probe restores the original bytes"
+  else
+    assert_eq "" "$(find "$probe_path" -mindepth 1)" \
+      "dir: the create probe removes its child"
+  fi
+done
+assert_eq "" "$(find "$TMPROOT" -name 'denied-file.*')" \
+  "the write-through probes leave no restore backup behind"
+
 test_case "a first sync copies the spec and both schemas"
 t="$(fake_repo)"; a="$(assets_of "$t")"
 sync "$t"
@@ -106,18 +138,32 @@ test_case "an unwritable assets directory aborts before the copy"
 # the script's own refusals, which are the cases below; the last assertion is
 # what stops it standing in for them again (SFT-0049). Making this leg print a
 # `sync-assets:` line would be a change to the script, not to this file.
+control="$(fake_repo)"; control_assets="$(assets_of "$control")"
+sync "$control"
+printf '<xsd>new</xsd>\n' > "$control/schemas/new.xsd"
+sync "$control"
+assert_eq 0 "$R_STATUS" "the writable control reaches the copy and succeeds"
+assert_file "$control_assets/schemas/new.xsd" \
+  "the writable control proves the new schema would be copied"
 t="$(fake_repo)"; a="$(assets_of "$t")"
 sync "$t"
 printf '<xsd>new</xsd>\n' > "$t/schemas/new.xsd"
-chmod 500 "$a/schemas"
-sync "$t"
-status=$R_STATUS; out=$R_OUT; err=$R_ERR
-chmod 700 "$a/schemas"
-assert_eq 1 "$status" "exits 1 — the aborted command's status, not a diagnosed refusal"
-assert_no_file "$a/schemas/new.xsd" "and the schema is genuinely missing"
-assert_not_contains "$out" 'sync-assets: OK' "no clean sync is reported"
-assert_not_contains "$err" 'sync-assets:' \
-  "the script itself says nothing here: $(printf '%s' "$err" | head -n 1)"
+schemas_mode="$(fixture_mode "$a/schemas")"
+if deny_write "$a/schemas"; then
+  sync "$t"
+  status=$R_STATUS; out=$R_OUT; err=$R_ERR
+  restore_write "$a/schemas"
+  assert_eq 1 "$status" "exits 1 — the aborted command's status, not a diagnosed refusal"
+  assert_no_file "$a/schemas/new.xsd" "and the schema is genuinely missing"
+  assert_not_contains "$out" 'sync-assets: OK' "no clean sync is reported"
+  assert_not_contains "$err" 'sync-assets:' \
+    "the script itself says nothing here: $(printf '%s' "$err" | head -n 1)"
+  assert_eq "$schemas_mode" "$(fixture_mode "$a/schemas")" \
+    "the fixture restores the directory mode before the case ends"
+else
+  skip "sync-assets unwritable-directory abort" \
+    "this uid can write through mode 500; the denial probe restored the directory"
+fi
 
 test_case "a root without the normative README is refused before any write"
 t="$(fake_repo)"; rt="$(cd "$t" && pwd -P)"

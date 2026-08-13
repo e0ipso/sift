@@ -190,6 +190,78 @@ assert_eq "" "$(find "$d" -name 'ROADMAP.md')" \
 
 # --- Case A: the wave already exists -----------------------------------------
 
+test_case "an existing-wave build failure is diagnosed without a partial roadmap"
+control="$(newdir)"; make_tree "$control" ACME
+append "$control" 1 ACME-0001 'One' ''
+assert_eq 0 "$R_STATUS" "the writable control reaches the existing-wave build and succeeds"
+assert_contains "$(cat "$(roadmap "$control")")" 'ACME-0001' \
+  "the writable control proves the row would be built"
+d="$(newdir)"; make_tree "$d" ACME
+before="$(snapshot "$d")"
+sift_mode="$(fixture_mode "$d/.ai/sift")"
+if deny_write "$d/.ai/sift"; then
+  append "$d" 1 ACME-0001 'One' ''
+  status=$R_STATUS; err=$R_ERR
+  restore_write "$d/.ai/sift"
+  assert_eq 1 "$status" "the failed redirect exits 1"
+  assert_contains "$err" 'failed to build the updated roadmap for wave 1' \
+    "and names the build arm"
+  assert_same "$before" "$(roadmap "$d")" "the roadmap is byte-identical"
+  assert_no_file "$d/.ai/sift/ROADMAP.md.tmp" "no temporary file was created"
+  assert_eq "$sift_mode" "$(fixture_mode "$d/.ai/sift")" \
+    "the fixture restores the directory mode before the case ends"
+else
+  skip "roadmap-append failed-build arm" \
+    "this uid can write through mode 500; the denial probe restored the directory"
+fi
+
+test_case "a failed roadmap move is diagnosed after a successful redirect"
+control="$(newdir)"; make_tree "$control" ACME
+: > "$control/.ai/sift/ROADMAP.md.tmp"
+append "$control" 1 ACME-0001 'One' ''
+assert_eq 0 "$R_STATUS" "the writable control redirects through the pre-created temp and succeeds"
+assert_no_file "$control/.ai/sift/ROADMAP.md.tmp" \
+  "the writable control proves the move consumes the temp"
+d="$(newdir)"; make_tree "$d" ACME
+: > "$d/.ai/sift/ROADMAP.md.tmp"
+before="$(snapshot "$d")"
+sift_mode="$(fixture_mode "$d/.ai/sift")"
+if deny_write "$d/.ai/sift"; then
+  append "$d" 1 ACME-0001 'One' ''
+  status=$R_STATUS; err=$R_ERR
+  if [ -f "$d/.ai/sift/ROADMAP.md.tmp" ]; then tmp_survived=yes; else tmp_survived=no; fi
+  restore_write "$d/.ai/sift"
+  rm -f "$d/.ai/sift/ROADMAP.md.tmp"
+  assert_eq 1 "$status" "the failed rename exits 1"
+  assert_contains "$err" 'failed to move' "and names the move arm"
+  assert_same "$before" "$(roadmap "$d")" "the roadmap is byte-identical"
+  assert_eq yes "$tmp_survived" \
+    "the redirect ran before mv failed, so this is not the earlier build arm"
+  assert_no_file "$d/.ai/sift/ROADMAP.md.tmp" \
+    "the restored fixture removes the temp residue before the case ends"
+  assert_eq "$sift_mode" "$(fixture_mode "$d/.ai/sift")" \
+    "the fixture restores the directory mode before the case ends"
+else
+  skip "roadmap-append failed-move arm" \
+    "this uid can write through mode 500; the denial probe restored the directory"
+fi
+
+test_case "the EXIT trap removes a temp created before a writable build failure"
+# Permission denial cannot pin this trap: before the redirect there is no temp,
+# while after a denied mv the same directory mode also denies the trap's rm.
+# `grep` accepts zero space after ##, but awk enters sections only when at least
+# one space follows it, so this fully writable file fails after the redirect.
+d="$(newdir)"; make_tree "$d" ACME
+sed 's/^## Wave 1$/##Wave 1/' "$(roadmap "$d")" > "$TMPROOT/malformed-roadmap"
+mv "$TMPROOT/malformed-roadmap" "$(roadmap "$d")"
+before="$(snapshot "$d")"
+append "$d" 1 ACME-0001 'One' ''
+assert_eq 1 "$R_STATUS" "the post-redirect awk failure exits 1"
+assert_contains "$R_ERR" 'failed to build the updated roadmap for wave 1' \
+  "the writable failure reaches the build diagnostic"
+assert_same "$before" "$(roadmap "$d")" "the malformed roadmap stays byte-identical"
+assert_no_file "$d/.ai/sift/ROADMAP.md.tmp" "the EXIT trap removes the created temp"
+
 test_case "a row is appended to the end of an existing wave's table"
 d="$(newdir)"; make_tree "$d" ACME
 struck_row "$d" 1 ACME-0001 'One'

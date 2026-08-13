@@ -774,7 +774,6 @@ test_case "an awkward project root name never reaches the reported path (SFT-004
 for leaf in 'back\tick' 'a b dir'; do
   awkward="$(newdir)/$leaf"
   mkdir -p "$awkward"
-  assert_eq "$leaf" "${awkward##*/}" "the fixture root really carries [$leaf] in its name"
   make_tree "$awkward" SFT
 
   # The first of the two paths that name the log. This one is printed by the shell

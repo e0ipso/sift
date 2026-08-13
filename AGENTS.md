@@ -130,10 +130,12 @@ Two obligations come with keeping the copies, and they apply to every rule on th
 
 ## Verifying a change
 
-`tests/run.sh` is the whole verification story — the test suite, the lint and the static
-analysis in one command, with no framework or runtime to install. Run it before you call
-anything done; see [tests/README.md](tests/README.md) for the groups and how to add a
-case. The cookbook tests execute the fenced blocks extracted from README.md rather than a
+`tests/run.sh` is the whole verification story — the test suite and static analysis in one
+command, plus shellcheck lint when that optional tool is available. Its plain summary names
+every skipped check and narrowed portability-matrix member, so a green run also says which
+conditional legs did not run. Run it before you call anything done; see
+[tests/README.md](tests/README.md) for the groups and how to add a case. The cookbook tests
+execute the fenced blocks extracted from README.md rather than a
 copy of them, so editing a recipe means running the suite in the same change.
 
 ## Working with Sift

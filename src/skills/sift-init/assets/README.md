@@ -34,6 +34,8 @@ placeholder the same way; substitute a name from `MILESTONES.md` when you read i
 ├── MILESTONES.md              ← what each milestone means, in intended order
 ├── ROADMAP.md                 ← advisory resolution order (tickets' depends_on is the truth)
 ├── RUNLOG.md                  ← append-only drain run log; diagnostic, never ticket state
+├── config/                    ← per-repository configuration (see "Configuration" above)
+│   └── config.yaml            ← the ticket prefix; the single place the value is defined
 ├── schemas/                   ← XSD drafting schemas (authoring aid; see "Drafting a ticket")
 │   ├── sift-common.xsd
 │   ├── bug-ticket.xsd

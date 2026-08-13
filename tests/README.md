@@ -118,7 +118,12 @@ variable set, since the flag lives in `run.sh` rather than in the harness. And
 the no-writes digest walks the whole of `REPO_ROOT` minus a named exclusion list
 carrying a reason per entry, taken around a run of every other test file in the
 suite rather than around one heavy writer — a failure there names no single
-culprit, so it prints the difference between the two digests.
+culprit, so it prints the difference between the two digests. Every entry on that
+list names a writer that runs outside the suite, and each one narrows the promise,
+so the list is audited by a case of its own: it prunes `.git`,
+`.ai/kenkeep/_sessions` and `.ai/kenkeep/.state` against a fixture root and then
+damages a file under the sibling `.ai/kenkeep/nodes`, which is repository content
+and has to stay reported.
 
 ## The portability matrix
 

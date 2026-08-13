@@ -41,7 +41,7 @@ basename dirname date cksum cmp diff od tee sleep'
 # The paths the no-writes digest below does NOT walk. This list has the same
 # standing as BASELINE: naming a path here is a decision that the suite is
 # allowed to disturb it, so every entry carries its reason and there are only
-# two.
+# three.
 #   .git                   git rewrites its own index, logs and packs for
 #                          reasons that have nothing to do with the suite, and a
 #                          cksum over the object store would cost more than the
@@ -49,8 +49,18 @@ basename dirname date cksum cmp diff od tee sleep'
 #   .ai/kenkeep/_sessions  written by session-capture hooks that run outside the
 #                          suite entirely, so a live agent session would turn the
 #                          case red for something the suite did not do.
+#   .ai/kenkeep/.state     lint, usage and bootstrap state, rewritten by the same
+#                          class of hook and on the same terms (SFT-0060): a run
+#                          launched from an agent session failed on
+#                          .ai/kenkeep/.state/lint-state.json and passed again on
+#                          a quiet tree, which blames the suite for a checksum it
+#                          never touched.
+# The sibling .ai/kenkeep/nodes is deliberately absent: node files are repository
+# content, and a suite that rewrote one is exactly what the digest is for. The
+# case after it pins that distinction.
 DIGEST_EXCLUDE='.git
-.ai/kenkeep/_sessions'
+.ai/kenkeep/_sessions
+.ai/kenkeep/.state'
 
 # --- Fixture cleanup ---------------------------------------------------------
 
@@ -256,21 +266,24 @@ assert_contains "$R_OUT" '1 tests, 1 assertions, 0 failures, 0 skipped' "are wha
 
 # --- Nothing is written inside the repository --------------------------------
 
-# repo_digest — every regular file under REPO_ROOT except DIGEST_EXCLUDE, with
-# its size and checksum. The whole working tree and not an allowlist of
-# subdirectories: a stray file at the repository root, or an edit to README.md —
-# the very file cookbook/ extracts its recipes from — used to pass this case
-# untouched.
+# repo_digest [root] — every regular file under <root>, default REPO_ROOT, except
+# DIGEST_EXCLUDE, with its size and checksum. The whole working tree and not an
+# allowlist of subdirectories: a stray file at the repository root, or an edit to
+# README.md — the very file cookbook/ extracts its recipes from — used to pass
+# this case untouched.
+#
+# The root is an argument only so the exclusion list can be audited against a
+# fixture tree below; every caller that measures the suite passes nothing.
 #
 # It inherits tree_digest's limit, which is worth knowing rather than fixing
 # here: `find -type f` never yields a directory (tests/lib/harness.sh:102), so a
 # suite that left an *empty* directory behind still passes. Widening the helper
 # is its own change; a case that can create one asserts assert_no_dir itself.
 repo_digest() {
-  local p prune=()
-  for p in $DIGEST_EXCLUDE; do prune+=(-path "$REPO_ROOT/$p" -prune -o); done
-  find "$REPO_ROOT" "${prune[@]}" -type f -print | LC_ALL=C sort | while read -r f; do
-    printf '%s ' "${f#"$REPO_ROOT/"}"
+  local root="${1:-$REPO_ROOT}" p prune=()
+  for p in $DIGEST_EXCLUDE; do prune+=(-path "$root/$p" -prune -o); done
+  find "$root" "${prune[@]}" -type f -print | LC_ALL=C sort | while read -r f; do
+    printf '%s ' "${f#"$root/"}"
     wc -c < "$f" | tr -d ' \n'
     printf ' '
     cksum < "$f" | awk '{ print $1 }'
@@ -300,6 +313,42 @@ assert_eq "" "$sweep_failed" "every file in the sweep is green"
 # single culprit, so assert_same's detail — the diff of the two digests — is the
 # only thing that tells the operator what moved.
 assert_same "$digest_before" "$digest_after" "the working tree is byte-identical afterwards"
+
+test_case "the exclusion list does not swallow .ai/kenkeep/nodes (SFT-0060)"
+# Every entry in DIGEST_EXCLUDE narrows the case above, so the list is only
+# honest while each path stays as small as its reason. `.ai/kenkeep/.state` and
+# `.ai/kenkeep/nodes` are siblings, and only the first has a writer outside the
+# suite: node files are repository content, and a suite that silently rewrote one
+# is the failure the digest exists to catch. Spelled a shade too widely — a
+# trailing component dropped, a `*` added — the exclusion would take the nodes
+# with it and the case above would go green on the damage it is watching for.
+#
+# Driven against a fixture root rather than REPO_ROOT, because the assertion
+# needs a damaged file to look at and damaging one in the working tree is the
+# thing this whole file promises never happens. repo_digest takes the root as an
+# argument for that and nothing else; the prune list it builds from
+# DIGEST_EXCLUDE is the same code either way.
+excl_root="$(newdir)"
+mkdir -p "$excl_root/.git/objects" "$excl_root/.ai/kenkeep/_sessions" \
+  "$excl_root/.ai/kenkeep/.state" "$excl_root/.ai/kenkeep/nodes"
+printf 'pack\n' > "$excl_root/.git/objects/pack-0"
+printf 'session\n' > "$excl_root/.ai/kenkeep/_sessions/capture.jsonl"
+printf 'state\n' > "$excl_root/.ai/kenkeep/.state/lint-state.json"
+printf 'node\n' > "$excl_root/.ai/kenkeep/nodes/convention.md"
+excl_before="$(repo_digest "$excl_root")"
+assert_not_contains "$excl_before" '.ai/kenkeep/.state/' \
+  "the excluded state directory is not walked at all"
+assert_contains "$excl_before" '.ai/kenkeep/nodes/convention.md' \
+  "while the node file beside it is"
+# All three exclusions move at once, the way a live session moves them.
+printf 'pack rewritten\n' > "$excl_root/.git/objects/pack-0"
+printf 'session appended\n' >> "$excl_root/.ai/kenkeep/_sessions/capture.jsonl"
+printf 'state rewritten\n' > "$excl_root/.ai/kenkeep/.state/lint-state.json"
+assert_eq "$excl_before" "$(repo_digest "$excl_root")" \
+  "a hook rewriting any of the three leaves the digest unmoved"
+printf 'damage\n' >> "$excl_root/.ai/kenkeep/nodes/convention.md"
+assert_ne "$excl_before" "$(repo_digest "$excl_root")" \
+  "and a damaged node file is still reported, so the narrowing did not over-reach"
 
 # --- Determinism -------------------------------------------------------------
 

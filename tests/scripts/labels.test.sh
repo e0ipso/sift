@@ -8,8 +8,13 @@
 # they stop agreeing — a label listed by the first with a count of two, and no
 # tickets returned by the second, is the failure shape this file exists to catch.
 #
-# Both are read-only, so every case that runs them also asserts a `tree_digest`:
-# a query that mutates the tree is the one bug reading the output cannot reveal.
+# Both are read-only, and that contract is one case at the end of this file
+# rather than an assertion per case: it drives every command-line shape the file
+# exercises — both scripts, both option orders, the `--` marker in either operand
+# position, and every refusal — against a tree it builds and digests itself,
+# before either script has run against it. A query that mutates the tree is the
+# one bug reading the output cannot reveal, and the run that would do it is the
+# first one against a tree, not the second.
 #
 # The label validator is pinned specifically because its failure is silent rather
 # than loud. `tickets-by-label.sh 'cach*'` must be refused, not expanded: a label
@@ -483,18 +488,63 @@ assert_contains "$code" 'ENVIRON["SIFT_LABEL_TICKET"]' \
 # --- Neither script writes ---------------------------------------------------
 
 test_case "reading the label index decides nothing on disk"
+# The whole file's no-writes contract, in one case: every command-line SHAPE the
+# cases above drive runs here, on a tree this case builds itself and digests
+# before either script has touched it (SFT-0070). Nine of the file's invocations
+# used to be inside the bracket, and the refusals — where a half-written temp
+# file would survive — were nearly all outside it.
+#
+# One case rather than a digest per case, deliberately: a digest beside every
+# case's own assertions multiplies the same bracket across fixtures that differ
+# only in ticket contents, and puts the contract in thirty-odd places a new case
+# can silently forget it.
 d="$(newdir)"; populated "$d"
+# The odd inputs those shapes need and `populated` does not build: labels the
+# lookup refuses, so the listing's warning path is inside the bracket too, and a
+# filename carrying a backslash — the input that once reached awk through -v and
+# came back with a tab in its place.
+ticket "$d" open v1/bug ACME-0006 odd 'Odd labels' 'labels: [Foo Bar, Caching]' > /dev/null
+ticket "$d" open v1/bug ACME-0007 'back\tick' 'Backslash' 'labels: [Foo Bar]' > /dev/null
 before="$(tree_digest "$d")"
-labels "$d"
-labels "$d" --counts
-labels "$d" --open
-labels "$d" --bogus
-by_label "$d" caching
-by_label "$d" api --paths
-by_label "$d" zeta --open
-by_label "$d" 'Caching'
-by_label "$d"
+
+# Counted rather than tallied by hand: the message below names the number of
+# invocations the bracket actually made, so adding a shape cannot leave it stale.
+shapes=0
+shape() { shapes=$((shapes + 1)); "$@"; }
+
+shape labels "$d"
+shape labels "$d" --counts
+shape labels "$d" --open
+shape labels "$d" --open --counts
+shape labels "$d" --counts --open
+shape labels "$d" --
+shape labels "$d" --counts --
+shape labels "$d" -- --counts
+shape labels "$d" --bogus
+shape labels "$d" --count
+
+shape by_label "$d" caching
+shape by_label "$d" caching --paths
+shape by_label "$d" caching --open
+shape by_label "$d" caching --open --paths
+shape by_label "$d" -- caching
+shape by_label "$d" --open --paths -- caching
+shape by_label "$d" caching --
+shape by_label "$d" nosuch-label
+shape by_label "$d"
+shape by_label "$d" --open
+shape by_label "$d" -- --paths
+shape by_label "$d" caching --bogus
+shape by_label "$d" -leading
+for two in 'api caching' 'api -- caching' '-- api caching'; do
+  # Unquoted on purpose, as in the case above: $two is a command line.
+  shape by_label "$d" $two
+done
+for bad in 'cach*' 'Caching' 'has space' 'trailing-' 'under_score' 'a--b' '.' '0-'; do
+  shape by_label "$d" "$bad"
+done
+
 assert_eq "$before" "$(tree_digest "$d")" \
-  "nine invocations, including the refused ones, and the tree is byte-identical"
+  "$shapes invocations across both scripts, refusals included, and the tree is byte-identical"
 
 summary

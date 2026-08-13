@@ -348,13 +348,49 @@ assert_contains "$R_OUT" 'FAIL: 3 rule-9 violation(s) across 2 roadmap rows / 2 
 
 # --- The read-only contract --------------------------------------------------
 
-test_case "the check reports and never repairs"
+test_case "the check reports and never repairs, from its first run onward"
 # It is run inside the same change that archives a ticket, so a check that
 # quietly fixed what it found would make the change unreviewable.
-before="$(tree_digest "$d")"
-check "$d"
-assert_eq 1 "$R_STATUS" "the violation run"
-assert_eq "$before" "$(tree_digest "$d")" "not one byte of the tree changed"
+#
+# Both trees are built HERE and digested before the script has ever been pointed
+# at them (SFT-0070). The digest used to be taken off the tree the case above
+# left behind, after that case had already run the check against it, so a cache,
+# an index or a stray .tmp written on FIRST contact was inside the baseline and
+# invisible: what it pinned was second-run idempotence. The first run is the only
+# one that has ever had a reason to write.
+#
+# One case covers every command line the file drives, rather than a digest per
+# case: the refusals are in the bracket beside the answers, because a command
+# line that stops early is exactly where a half-written temp file survives.
+v="$(newdir)"; make_tree "$v"
+ticket "$v" open backlog/bug SFT-0001 one 'Unlisted' > /dev/null
+archived "$v" SFT-0002 two 'Two'
+roadmap_row "$v" 1 SFT-0002 'Two' '-'
+roadmap_row "$v" 2 SFT-0003 'Ghost' '-'
+violating_before="$(tree_digest "$v")"
+
+c="$(newdir)"; make_tree "$c"
+ticket "$c" open backlog/bug SFT-0001 one 'One' > /dev/null
+roadmap_row "$c" 1 SFT-0001 'One' '-'
+consistent_before="$(tree_digest "$c")"
+
+check "$v"
+assert_eq 1 "$R_STATUS" "the violation run reports rather than repairs"
+check "$c"
+assert_eq 0 "$R_STATUS" "and the consistent run agrees before anything is bracketed"
+check "$c" --
+assert_eq 0 "$R_STATUS" "the marker alone"
+check "$c" -- open
+assert_eq 2 "$R_STATUS" "a positional behind the marker, refused"
+check "$c" --bogus
+assert_eq 2 "$R_STATUS" "an unknown option, refused"
+check "$c" open
+assert_eq 2 "$R_STATUS" "a bare positional, refused"
+
+assert_eq "$violating_before" "$(tree_digest "$v")" \
+  "not one byte of the violating tree changed on the run that found three faults"
+assert_eq "$consistent_before" "$(tree_digest "$c")" \
+  "nor of the consistent one, across all five command lines including the three refused"
 
 # --- The command line --------------------------------------------------------
 

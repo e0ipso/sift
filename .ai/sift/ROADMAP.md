@@ -66,7 +66,7 @@ change, in the same commit as the implementation (README.md, rule 9).
 | 25 | ~~SFT-0062~~ | ~~Make the wave gate's e2e step serve a project with no browser~~ — done |  |
 | 26 | ~~SFT-0063~~ | ~~Re-aim the two cases whose fixtures never reach the code they name~~ — done |  |
 | 27 | ~~SFT-0064~~ | ~~Delete the two cases with no code of ours in the loop~~ — done |  |
-| 28 | SFT-0065 | Move the fixture-only assertions out of the cookbook files |  |
+| 28 | ~~SFT-0065~~ | ~~Move the fixture-only assertions out of the cookbook files~~ — done |  |
 | 29 | ~~SFT-0066~~ | ~~Give tree_digest a positive control~~ — done |  |
 | 30 | ~~SFT-0067~~ | ~~Drive the milestone validator under a UTF-8 locale~~ — done |  |
 | 31 | ~~SFT-0068~~ | ~~Assert exactly one racing writer claims the tree~~ — done |  |
@@ -81,6 +81,8 @@ change, in the same commit as the implementation (README.md, rule 9).
 | 40 | SFT-0078 | Stop the portability matrices re-running the base case as their bash x C leg |  |
 | 41 | SFT-0079 | Hoist the duplicated fixture helpers into tests/lib |  |
 | 42 | SFT-0080 | Drive the prefix validator through a collated matcher | SFT-0067 |
+| 43 | SFT-0081 | Fail a cookbook case when its recipe extracts to nothing |  |
+| 44 | SFT-0082 | Decide whether .ai/sift is tracked, and make the tree agree |  |
 
 ## Wave 3
 

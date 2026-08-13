@@ -26,6 +26,7 @@ set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
 . "$DIR/../lib/harness.sh"
 . "$DIR/../lib/recipes.sh"
+. "$DIR/../lib/fixtures.sh"
 
 SUITE="$REPO_ROOT/tests"
 
@@ -229,6 +230,56 @@ done
 assert_contains "$R_OUT" '# SUMMARY tests=1 assertions=14 failures=7 skipped=0' \
   "and each helper bumped T_ASSERTS once, T_FAILS once per false claim"
 assert_no_dir "$CHILD_ROOT" "the state the filesystem helpers needed went with it"
+
+# --- The fixture library's own contract (SFT-0065) ---------------------------
+#
+# `tests/lib/fixtures.sh` is suite machinery in exactly the sense
+# `tests/lib/harness.sh` is, so it belongs here beside the section above rather
+# than in a `cookbook/` file. An assertion in `cookbook/` may only go red when a
+# documented recipe is wrong — the group runs the fenced text extracted from
+# README.md, it does not paraphrase it — and the three properties below were
+# each asserted there against a fixture the recipe never touched, where they
+# would have stayed green with the recipe deleted.
+#
+# Each one is load-bearing for a cookbook case that does run a recipe, which is
+# why they are stated rather than dropped: the case that depends on it would
+# quietly degenerate into a duplicate of its neighbour if a fixture change
+# hollowed it out, with nothing going red.
+
+test_case "the fixture's body shape is chosen explicitly, never derived from type: (SFT-0065)"
+# The constraint the bug-backfill recipe's positive case depends on: it needs a
+# ticket that IS `type: bug` and has NO `## Expected behaviour`, which a fixture
+# deriving the body from the type could not build at all. Independence is
+# asserted in both directions, because a coupling in either one breaks it.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open caching/bug SFT-0001 bare 'Bare bug')"
+assert_eq 'bug' "$(fm "$f" type)" "the default fixture is a bug"
+assert_eq "" "$(grep '^## Expected behaviour' "$f")" "…carrying no expected-behaviour section"
+f="$(ticket "$d" open caching/docs SFT-0002 docsbug 'Docs with a bug body' \
+      'type: docs' body=bug)"
+assert_eq 'docs' "$(fm "$f" type)" "and the two are independent in the other direction too"
+assert_ne "" "$(grep '^## Expected behaviour' "$f")" "…a docs ticket can carry a bug body"
+
+test_case "the default fixture ticket carries no resolution: key (SFT-0065)"
+# What makes the archive recipe's insert-arm case an insert-arm case rather than
+# a second copy of its replace-arm neighbour. Neither arm's post-assertions can
+# tell the two apart: a fixture that arrived carrying `resolution:` would still
+# leave exactly one line reading `resolution: "Landed"` inside the fence,
+# because the replace arm produces the same bytes.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open backlog/bug SFT-0042 nores 'No resolution key')"
+assert_eq 0 "$(grep -c '^resolution:' "$f")" "no resolution key anywhere in the default ticket"
+
+test_case "an unrecognised key: value argument is written verbatim inside the fence (SFT-0065)"
+# The pass-through rule tests/README.md documents, and the reason an optional
+# key like `source:` can be set at all. `fm` stops at the closing marker, so a
+# value it reads back is a value that landed inside the front-matter block
+# rather than in the body.
+d="$(newdir)"; make_tree "$d"
+url='"https://example.invalid/owner/repo/issues/7"'
+f="$(ticket "$d" open backlog/bug SFT-0042 sourced 'Sourced from a tracker' "source: $url")"
+assert_eq "$url" "$(fm "$f" source)" "the unrecognised key reads back from inside the fence"
+assert_eq 1 "$(grep -c '^source: ' "$f")" "written once, not appended beside a default"
 
 # --- run.sh's own flags -------------------------------------------------------
 

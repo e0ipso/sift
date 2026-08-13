@@ -552,19 +552,6 @@ f="$(ticket "$d" open caching/feature SFT-0012 featshape 'Feature body' body=fea
 assert_eq "$FEATURE_HEADS" "$(grep '^## ' "$f")" \
   "body=feature is the feature template, in order"
 
-test_case "the body shape is chosen explicitly and never derived from type:"
-# The constraint the backfill recipe above depends on: its positive case needs a
-# ticket that IS `type: bug` and has NO `## Expected behaviour`, which a fixture
-# deriving the body from the type could not build at all.
-d="$(newdir)"; make_tree "$d"
-f="$(ticket "$d" open caching/bug SFT-0001 bare 'Bare bug')"
-assert_eq 'bug' "$(fm "$f" type)" "the default fixture is a bug"
-assert_eq "" "$(grep '^## Expected behaviour' "$f")" "…carrying no expected-behaviour section"
-f="$(ticket "$d" open caching/docs SFT-0002 docsbug 'Docs with a bug body' \
-      'type: docs' body=bug)"
-assert_eq 'docs' "$(fm "$f" type)" "and the two are independent in the other direction too"
-assert_ne "" "$(grep '^## Expected behaviour' "$f")" "…a docs ticket can carry a bug body"
-
 test_case "a bug ticket without ## Expected behaviour is listed"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open caching/bug SFT-0001 bare 'Bare bug' > /dev/null

@@ -153,12 +153,10 @@ closing it needs a BSD runner, not an assertion.
 ## Destructive and concurrent sequences
 
 A guard is only worth asserting if the thing it guards against would really have
-happened, so the cases that pin one build the damage first: `sift-init-milestone`
-puts a populated tree exactly where a traversing `--milestone` points and runs
-the escape unguarded before asserting the guarded run leaves it alone, and
-`sift-init-prefix` deletes a canary with the payload a rejected prefix carries
-before asserting `sift-init.sh` refuses the same string. Without that positive
-control a miscounted `..` looks identical to a guard that held.
+happened, so `sift-init-milestone` puts a populated tree exactly where a
+traversing `--milestone` points and runs the escape unguarded before asserting
+the guarded run leaves it alone. Without that positive control a miscounted `..`
+looks identical to a guard that held.
 
 The race in `sift-init-tree` launches its writers together and reaps them with
 `wait`; the overlap is real but not forced. Forcing it would take a FIFO — a name

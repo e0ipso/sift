@@ -42,10 +42,35 @@ SCHEMAS="$REPO_ROOT/schemas"
 COMMON="$SCHEMAS/sift-common.xsd"
 
 test_case "the ticket-ID pattern is open-ended"
+# What the pattern ACCEPTS, driven over a fixture list rather than compared
+# against a literal copy of it. The claim the case is named for is that the
+# numeric suffix is an unbounded digit run — `%04d` is a minimum width — so a
+# four-digit cap has to fail here in EVERY spelling of it, while an equivalent
+# respelling of the run (`[0-9][0-9]*` for `[0-9]+`) has to keep passing.
+#
+# One translation, written down because it is the case's only assumption: an XSD
+# `xs:pattern` is implicitly anchored at both ends and XML Schema regex is not
+# ERE, so the extracted value is wrapped in ^…$ before grep -E sees it, and the
+# fixture stays inside the subset where the two agree — bracket expressions over
+# ASCII, `*` and `+`, and nothing else. Everything it uses is baseline userland,
+# so it runs on a host with no xmllint, which is the host that matters.
 pattern="$(grep -A2 '<xs:simpleType name="ticketId">' "$COMMON" | grep 'xs:pattern')"
-assert_contains "$pattern" '[A-Z][A-Z0-9]*-[0-9]+' "the numeric suffix is a digit run"
-assert_not_contains "$pattern" '{4}' "no four-digit cap"
-assert_not_contains "$pattern" '[0-9][0-9][0-9][0-9]' "…in either spelling"
+assert_ne "" "$pattern" "the ticketId pattern extracts from sift-common.xsd"
+ticket_id_re="$(printf '%s\n' "$pattern" | sed -e 's/.*value="//' -e 's/".*//')"
+assert_ne "" "$ticket_id_re" "…and its value reads out of the attribute"
+
+# id_verdict <candidate> — what the extracted pattern says about one spelling.
+id_verdict() {
+  if printf '%s\n' "$1" | grep -qE "^$ticket_id_re\$"; then echo accepted; else echo refused; fi
+}
+for id in SFT-0042 SFT-10000; do
+  assert_eq accepted "$(id_verdict "$id")" "$id is a ticket ID"
+done
+# Case, an empty suffix, a non-digit suffix, and trailing junk: the four ways a
+# candidate falls outside the pattern without touching the width of the run.
+for id in sft-0042 SFT- SFT-x SFT-0042x; do
+  assert_eq refused "$(id_verdict "$id")" "$id is not a ticket ID"
+done
 
 test_case "the closed type set is written out three times and says the same thing each time"
 # The set is the category folder set as well as the front-matter value set, so

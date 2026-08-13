@@ -55,6 +55,12 @@ The headings STEP 3 lists, each a section of README's body templates:
 @PIN: README.md ## Acceptance criteria
 ```
 
+**The template's numbered rule citations are ordinal claims.** Each citation is followed
+inside the template fence by an `@RULE: <repo-root-relative file> <N> <verbatim rule
+substring>` marker. The substring comes from the cited rule itself, not from the
+template's paraphrase. `tests/static/readme-rule-citations.test.sh` extracts those markers
+and resolves them by position against README's bounded `## Rules for agents` list.
+
 ---
 
 ## Template
@@ -85,6 +91,7 @@ this whole block in one pass, and an agent that allocates its own creates a coll
 `find`/`sed` migration can unpick. If a given value looks wrong to you, write the ticket
 exactly as given and say so in your report — the orchestrator can fix a field, but it
 cannot recover a duplicated ID.
+@RULE: README.md 2 Never renumber, reuse, or delete a ticket ID
 
 STEP 1 — ORIENT
 Read {{PROJECT_ROOT}}/.ai/sift/README.md in full. It is the convention, and four of its
@@ -93,6 +100,10 @@ of truth, folders are an index), rule 5 (claims about code cite file:line), rule
 roadmap — see STEP 4 for why it is not yours) and rule 10 (use the body template for the
 ticket's type). Then read {{PROJECT_ROOT}}/.ai/sift/MILESTONES.md and confirm
 {{MILESTONE}} is listed there.
+@RULE: README.md 3 Front-matter is the source of truth
+@RULE: README.md 5 Claims about code cite
+@RULE: README.md 9 in sync — in the same change
+@RULE: README.md 10 Use the body template for the ticket's
 
 `.ai/sift` is usually gitignored, so ignore-aware search silently skips it: use `find`
 plus `command grep` when you look inside the tree.
@@ -147,6 +158,7 @@ by hand:
   - `milestone` must name a milestone from MILESTONES.md AND match the folder you wrote
     into. If {{MILESTONE}} is not in that file, do not add it — write the ticket and report
     it; the orchestrator owns MILESTONES.md (rule 8).
+@RULE: README.md 8 document new milestones in
 
 Body — the canonical sections for {{TYPE}}, in schema order, under `# {{TITLE}}`. Heading
 text is copied exactly as the convention writes it, because agents parse these headings; a
@@ -192,6 +204,7 @@ STEP 4 — STAY IN YOUR LANE
     agents return. Rule 9 stays satisfiable only because one writer owns that file —
     parallel agents appending to it is the shared-mutable-file shape this convention
     exists to avoid.
+@RULE: README.md 9 in sync — in the same change
   - Do not create or edit MILESTONES.md, config, or any other ticket.
   - IMPLEMENT NOTHING. You are describing work, not doing it: no product code, no test, no
     branch, no commit, and never `git push`.

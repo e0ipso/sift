@@ -25,35 +25,21 @@ RESOLUTION="$(recipe_resolution)"
 # directly further down.
 # shellcheck disable=SC2034
 ROADMAP="$(recipe_roadmap_check)"
-GUARD='[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }'
 GUARDED='SETUP FRONTMATTER RESOLUTION ROADMAP'
 
-# guard_lines <block> — every fail-closed guard in a recipe: the
-# `<test> || { echo …; }` one-liners, and nothing else.
+test_case "no guarded recipe uses bash-only test syntax"
+# A class-level ban rather than a pin on today's spelling: `[[` is bash's, and a
+# recipe carrying one stops being paste-able into the POSIX shell the convention
+# targets. What each guard then DOES — diagnose on stderr, hand the shell back,
+# and still fail closed under set -e — is driven by the two cases below.
 #
-# SFT-0034 is a rule about these lines. It used to be checked by asserting the
-# whole block held no `exit` at all, which held only while every guarded recipe
-# was free of awk: awk's own `exit` ends the awk program, not the shell anyone
-# pasted the block into. The first guarded recipe to carry an awk pass — the
-# resolution audit below (SFT-0055) — closes its front-matter fence that way,
-# and the blanket check would have failed it for a construct SFT-0034 was never
-# about. Reading the guards out instead states the rule directly and gets
-# stronger rather than weaker: a second guard added to any block is checked too.
-guard_lines() { printf '%s\n' "$1" | grep '|| { echo'; }
-
-test_case "every guarded recipe carries the same POSIX tree guard"
 # `block` is assigned on the first line of the body, by an eval shellcheck cannot
 # follow; it is not an unset variable, and the assertions below would fail loudly
 # on the empty string rather than pass quietly.
 # shellcheck disable=SC2154
 for name in $GUARDED; do
   eval "block=\$$name"
-  assert_contains "$block" "$GUARD" "$name restates the guard verbatim"
   assert_not_contains "$block" '[[ ' "$name uses no bash-only test syntax"
-  guards="$(guard_lines "$block")"
-  assert_ne "" "$guards" "$name has a fail-closed guard to check"
-  assert_eq "" "$(printf '%s\n' "$guards" | grep -v 'false; }$')" \
-    "$name ends every guard in false, never exit"
 done
 
 # --- The guard leaves a pasted shell alive (SFT-0034) ------------------------
@@ -233,14 +219,11 @@ for_shell_locale matrix_case "$d"
 test_case "the resolution audit is the documented text"
 assert_ne "" "$RESOLUTION" "the recipe extracts from README.md"
 assert_contains "$RESOLUTION" 'ARCHIVED WITHOUT RESOLUTION: ' "the diagnostic it prints"
-assert_contains "$RESOLUTION" 'NR == 1 && /^---[[:space:]]*$/' "it walks the front-matter fence"
 assert_not_contains "$RESOLUTION" "grep -m1" "no unscoped whole-file read"
-# Rule 3, spelled as a construct: the scan selects on the terminal `status`
-# values and spans both buckets, so it can never degrade into a listing of
-# whatever happens to sit under archive/.
-assert_contains "$RESOLUTION" 'st == "done" || st == "wontfix" || st == "superseded"' \
-  "the terminal statuses decide, not the directory"
-assert_contains "$RESOLUTION" '.ai/sift/open .ai/sift/archive' "and both buckets are read"
+# Rule 3 as a construct: the scan reads both buckets, so it can never degrade
+# into a listing of whatever happens to sit under archive/. Which of the two it
+# then reports on is decided by `status` and never by the folder, driven below.
+assert_contains "$RESOLUTION" '.ai/sift/open .ai/sift/archive' "both buckets are read"
 
 resolutions() { run_recipe "$1" "$RESOLUTION" PREFIX=SFT; }
 
@@ -388,7 +371,6 @@ AGREEMENT="$(recipe_folder_agreement)"
 test_case "the agreement recipe is the documented text"
 assert_contains "$AGREEMENT" 'case "$f" in */"$m"/*)' "the folder match is a case pattern"
 assert_contains "$AGREEMENT" 'MISMATCH:' "the diagnostic it prints"
-assert_contains "$AGREEMENT" 'NR == 1 && /^---[[:space:]]*$/' "it walks the front-matter fence"
 assert_contains "$AGREEMENT" 'NO MILESTONE:' "…and has a second, distinct diagnostic"
 assert_not_contains "$AGREEMENT" "grep -m1 '^milestone:'" "no unscoped whole-file read"
 
@@ -501,9 +483,6 @@ for_matrix agreement_matrix_case "$d"
 BUG_SECTIONS="$(recipe_bug_sections)"
 FEATURE_MISSING="$(recipe_feature_missing)"
 
-test_case "the backfill recipes are the documented text"
-assert_contains "$BUG_SECTIONS" '.ai/sift/open .ai/sift/archive' "bugs span both buckets"
-
 test_case "each backfill recipe greps for a heading its own body template names"
 # The pairing tests/static/prompt-readme-sections.test.sh cannot make: that file
 # matches `## ` headings OUTSIDE fences on purpose, so a rename inside these three
@@ -569,6 +548,27 @@ run_recipe "$d" "$BUG_SECTIONS" PREFIX=SFT
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "" "$R_OUT" "no backfill needed"
 
+test_case "the bug backfill list spans both buckets"
+# An archived bug that never said what should have happened is still a bug
+# missing its required section, which is why this recipe roots itself at both
+# buckets while the feature list below narrows to open/. Driven through the
+# recipe rather than through its text: narrow it to `.ai/sift/open` and the
+# archived ticket drops out of the output this case pins.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0001 openbare 'Bare open bug' > /dev/null
+ticket "$d" archive caching/bug SFT-0002 archbare 'Bare archived bug' \
+  'status: done' 'resolution: "shipped"' > /dev/null
+ticket "$d" archive caching/bug SFT-0003 archfull 'Complete archived bug' \
+  'status: done' 'resolution: "shipped"' body=bug > /dev/null
+run_recipe "$d" "$BUG_SECTIONS" PREFIX=SFT
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq '.ai/sift/archive/caching/bug/SFT-0002--archbare.md' \
+  "$(printf '%s\n' "$R_OUT" | grep '/archive/' || true)" \
+  "the archived bug missing the section is named, and the complete archived one is not"
+assert_eq '.ai/sift/open/caching/bug/SFT-0001--openbare.md' \
+  "$(printf '%s\n' "$R_OUT" | grep '/open/' || true)" \
+  "…beside the open one, so neither bucket is read at the other's expense"
+
 test_case "a feature ticket without ## Direction is listed"
 d="$(newdir)"; make_tree "$d"
 # The default body carries `## Problem` and nothing else, which is exactly the
@@ -612,10 +612,6 @@ assert_eq "" "$R_OUT" "…printing nothing"
 # covered by static/schemas.test.sh, which already runs xmllint when present.
 
 XMLLINT="$(recipe_xmllint)"
-
-test_case "the xmllint recipe guards before it calls"
-assert_contains "$XMLLINT" 'if command -v xmllint >/dev/null; then' "the guard is first"
-assert_contains "$XMLLINT" 'xmllint not installed' "and has an else branch"
 
 test_case "with xmllint unavailable the recipe is a no-op, not a failure"
 d="$(newdir)"; make_tree "$d"

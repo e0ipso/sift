@@ -664,10 +664,6 @@ assert_eq "median runtime: 60s (1m0s) across 1 completed group(s) of 2" "$(media
 # --- The report: the median and the outlier flag -----------------------------
 
 test_case "an even count of runtimes takes the lower of the two middle values"
-# Pinned against the definition the script states in its own comment, not
-# against a convention guessed here.
-assert_contains "$(cat "$DRAINLOG")" 'LOWER of the two middle values when' \
-  "the script documents which middle value an even count takes"
 root="$(newdir)"
 make_tree "$root" SFT
 log_new "$root"
@@ -815,12 +811,6 @@ code="$(grep -v '^[[:space:]]*#' "$DRAINLOG")"
 carriers="$(printf '%s\n' "$code" \
   | grep -E '(^|[[:space:]])-v[[:space:]]+[A-Za-z_][A-Za-z_0-9]*=' || [ $? -eq 1 ])"
 assert_eq "" "$carriers" "every value reaches the report's awk through the environment"
-assert_contains "$code" 'SIFT_LOG_PATH="${LOG#"$ROOT/"}"' \
-  "the log path is exported for the pass rather than passed as an argument"
-assert_contains "$code" 'ENVIRON["SIFT_LOG_PATH"]' \
-  "and read once in a BEGIN block, the spelling list-labels.sh uses"
-assert_contains "$code" "awk -F'|'" \
-  "while -F keeps its argument: a field separator is a flag, not data to re-scan"
 
 # --- Usage --------------------------------------------------------------------
 

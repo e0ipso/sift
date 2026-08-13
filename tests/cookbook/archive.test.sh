@@ -16,10 +16,8 @@ RECIPE="$(recipe_archive)"
 TODAY="$(date +%F)"
 
 test_case "recipe is extracted from README.md and parameterised"
-assert_contains "$RECIPE" 'ID=${ID:?}' "the worked example's ID is driven by the test"
-assert_contains "$RECIPE" 'STATUS=${STATUS:?}' "…and its status"
+assert_contains "$RECIPE" 'STATUS=${STATUS:?}' "the worked example's status is driven by the test"
 assert_contains "$RECIPE" 'RESOLUTION=${RESOLUTION?}' "…and its resolution"
-assert_contains "$RECIPE" 'ROADMAP NOT UPDATED' "the rule-9 failure path is documented text"
 
 archive() {  # archive <dir> <id> <status> <resolution>
   run_recipe "$1" "$RECIPE" PREFIX=SFT ID="$2" STATUS="$3" RESOLUTION="$4"

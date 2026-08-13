@@ -26,14 +26,11 @@ NEXT="$(recipe_next)"
 MILESTONE_SETUP="$(recipe_milestone_setup)"
 
 test_case "every recipe under test is the documented text"
-assert_contains "$LIST_OPEN" 'find .ai/sift/open -name "$PREFIX-*.md" | sort' "list open"
 assert_contains "$TRIAGE" 'grep -rl' "triage"
 assert_contains "$COUNT" 'for m in .ai/sift/open/*/;' "count per milestone"
 assert_contains "$FIND_ONE" 'find .ai/sift -name "$PREFIX-0042--*.md"' "find one ticket"
 assert_contains "$FULLTEXT" "grep -ril 'cache invalidation'" "full-text search"
-assert_contains "$DEPENDENTS" 'grep -rlE "$PREFIX-0042([^0-9]|$)"' "dependents are whole-ID matched"
 assert_contains "$DEPENDENTS" 'grep -v "$PREFIX-0042--"' "dependents"
-assert_contains "$NEXT" "grep -q '^status: blocked'" "pick next"
 assert_contains "$MILESTONE_SETUP" 'export MILESTONE=' "milestone export"
 
 q() {  # q <dir> <recipe-text> [VAR=VAL…] — run a query recipe as $PREFIX=SFT

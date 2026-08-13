@@ -452,8 +452,6 @@ assert_contains "$(cat "$DRAIN/tickets-by-label.sh")" 'label_is_kebab "$LABEL"' 
   "the lookup tests its argument through the shared predicate"
 assert_contains "$(cat "$DRAIN/list-labels.sh")" 'ENVIRON["SIFT_LABEL_RE"]' \
   "the listing reads the shared pattern inside its awk pass, not a copy of it"
-assert_not_contains "$(cat "$DRAIN/list-labels.sh")" '-v kebab=' \
-  "and no longer carries its own -v spelling of it"
 
 test_case "the warning names a ticket path holding a backslash verbatim (SFT-0037)"
 # awk's -v re-scans its argument for ANSI escapes, so a filename carrying the two

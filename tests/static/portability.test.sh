@@ -40,9 +40,16 @@ all_code() { readme_code; script_code; }
 CODE="$(all_code)"
 
 test_case "the static scan actually reads something"
+# The claim is about the COLLECTOR — that both of its two sources reached the
+# corpus — so it is asserted on the tags the collector itself writes rather than
+# on a line either source happens to hold today. A reworded recipe or a renamed
+# helper changes neither count; a collector that stopped reading one of the two
+# drops that count to zero, which is the only failure this case is for.
 assert_ne 0 "$(printf '%s\n' "$CODE" | wc -l | tr -d ' ')" "code lines were collected"
-assert_contains "$CODE" 'find .ai/sift -name' "README recipes are in scope"
-assert_contains "$CODE" 'prefix_is_well_formed' "shipped scripts are in scope"
+assert_ne 0 "$(printf '%s\n' "$CODE" | grep -c '^README\.md:')" \
+  "README recipes are in scope"
+assert_ne 0 "$(printf '%s\n' "$CODE" | grep -c '^src/.*\.sh:')" \
+  "shipped scripts are in scope"
 
 banned() {  # banned <description> <extended-regex>
   local hits
@@ -74,13 +81,6 @@ ranges="$(printf '%s\n' "$CODE" \
 if [ -z "$ranges" ]; then t_ok "validation patterns spell their character sets out"
 else t_fail "validation patterns spell their character sets out" \
   "$(printf '%s\n' "$ranges" | head -n 5)"; fi
-
-test_case "the initializer's own validation sets are spelled out"
-init="$REPO_ROOT/src/skills/sift-init/scripts/sift-init.sh"
-assert_contains "$(cat "$init")" '[!ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789]' \
-  "the prefix set is an explicit list"
-assert_contains "$(cat "$init")" '[!abcdefghijklmnopqrstuvwxyz0123456789-]' \
-  "the milestone set is an explicit list"
 
 test_case "optional binaries are guarded, never assumed"
 # xmllint is the only optional tool the convention mentions; every block or

@@ -71,7 +71,7 @@ change, in the same commit as the implementation (README.md, rule 9).
 | 30 | ~~SFT-0067~~ | ~~Drive the milestone validator under a UTF-8 locale~~ — done |  |
 | 31 | ~~SFT-0068~~ | ~~Assert exactly one racing writer claims the tree~~ — done |  |
 | 32 | ~~SFT-0069~~ | ~~Make shell-lint's loops report their own verdict and require a non-empty floor~~ — done |  |
-| 33 | SFT-0070 | Snapshot the no-writes digest before the first run, and cover what each file drives |  |
+| 33 | ~~SFT-0070~~ | ~~Snapshot the no-writes digest before the first run, and cover what each file drives~~ — done |  |
 | 34 | SFT-0071 | Compare the filter recipe's parser copy too |  |
 | 35 | ~~SFT-0072~~ | ~~Pin make_tree against the tree sift-init.sh actually writes~~ — done |  |
 | 36 | SFT-0073 | Delete the assertions that pin source spelling instead of behaviour |  |

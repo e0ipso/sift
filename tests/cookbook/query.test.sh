@@ -298,12 +298,35 @@ assert_eq "" "$R_OUT" "prints nothing"
 # --- The tree is only ever read ----------------------------------------------
 
 test_case "not one query recipe writes to the tree"
+# Every block this file drives is inside the bracket (SFT-0070), not the five
+# that were easiest to loop over: the triage view, the full-text search — the
+# widest reach of the lot, a `grep -ril` over the whole tree — and the
+# `$MILESTONE` export were all outside it, so the recipes an agent runs on every
+# pass were the ones never checked for writes.
+run_all() {  # run_all <dir> — every documented block, once, in README order
+  local r
+  for r in "$MILESTONE_SETUP" "$LIST_OPEN" "$TRIAGE" "$COUNT" "$FIND_ONE" \
+           "$FULLTEXT" "$DEPENDENTS" "$NEXT"; do
+    q "$1" "$r" MILESTONE=caching
+  done
+}
 d="$(populated)"
 digest_before="$(tree_digest "$d/.ai/sift")"
-for r in "$LIST_OPEN" "$COUNT" "$FIND_ONE" "$DEPENDENTS" "$NEXT"; do
-  q "$d" "$r" MILESTONE=caching
-done
-assert_eq "$digest_before" "$(tree_digest "$d/.ai/sift")" "the tree is byte-identical"
+run_all "$d"
+assert_eq "$digest_before" "$(tree_digest "$d/.ai/sift")" \
+  "the tree is byte-identical, with the full-text search on its no-match path"
+
+# The same sweep again with a body line the full-text recipe matches: grep's
+# matching path walks further than its no-match one, and a recipe that wrote
+# would do it where it found something.
+printf '\nThis one turns on cache invalidation ordering.\n' \
+  >> "$d/.ai/sift/open/caching/bug/SFT-0042--tenant.md"
+matched_before="$(tree_digest "$d/.ai/sift")"
+q "$d" "$FULLTEXT"
+assert_eq 0 "$R_STATUS" "the fixture now matches, so the bracketed run is a matching one"
+run_all "$d"
+assert_eq "$matched_before" "$(tree_digest "$d/.ai/sift")" \
+  "and every block leaves the matching tree byte-identical too"
 
 # --- Portability matrix ------------------------------------------------------
 # The listing recipes are grep/find/sed only, so the awk axis has nothing to

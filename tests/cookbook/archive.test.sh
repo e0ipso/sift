@@ -154,9 +154,12 @@ done
 # --- resolution: insert-or-replace (SFT-0011) --------------------------------
 
 test_case "a ticket with no resolution key gets exactly one"
+# What makes this the insert arm rather than a second copy of the replace arm
+# below is that the default fixture carries no `resolution:` key. That is a
+# property of tests/lib/fixtures.sh, not of this recipe, so it is pinned in
+# static/suite-contract.test.sh (SFT-0065) and rested on here.
 d="$(newdir)"; make_tree "$d"
-f="$(ticket "$d" open backlog/bug SFT-0042 nores 'No resolution key')"
-assert_eq 0 "$(grep -c '^resolution:' "$f")" "the fixture starts without the key"
+ticket "$d" open backlog/bug SFT-0042 nores 'No resolution key' > /dev/null
 roadmap_row "$d" 1 SFT-0042 'No resolution key' '-'
 archive "$d" SFT-0042 'done' 'Landed'
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--nores.md"
@@ -294,9 +297,8 @@ test_case "an optional source: key survives the archive rewrite untouched"
 # come through byte for byte, wherever it sits in the block.
 d="$(newdir)"; make_tree "$d"
 SOURCE_URL='"https://example.invalid/owner/repo/issues/7"'
-f="$(ticket "$d" open backlog/bug SFT-0042 sourced 'Sourced from a tracker' \
-      "source: $SOURCE_URL")"
-assert_eq "$SOURCE_URL" "$(fm "$f" source)" "the fixture really carries the key"
+ticket "$d" open backlog/bug SFT-0042 sourced 'Sourced from a tracker' \
+  "source: $SOURCE_URL" > /dev/null
 roadmap_row "$d" 1 SFT-0042 'Sourced from a tracker' '-'
 archive "$d" SFT-0042 'done' 'Landed'
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--sourced.md"
@@ -323,7 +325,6 @@ test_case "a ticket whose fence markers carry a trailing space still archives"
 d="$(newdir)"; make_tree "$d"
 f="$(ticket "$d" open backlog/bug SFT-0042 spaced 'Spaced fence')"
 space_the_fence "$f"
-assert_eq 2 "$(grep -c '^--- $' "$f")" "the fixture really carries the trailing spaces"
 roadmap_row "$d" 1 SFT-0042 'Spaced fence' '-'
 archive "$d" SFT-0042 'done' 'Landed despite the stray space'
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--spaced.md"

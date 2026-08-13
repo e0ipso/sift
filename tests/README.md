@@ -21,7 +21,7 @@ on exit, including on failure; nothing in the suite writes inside the repository
 |---|---|
 | `cookbook/` | the recipes in `README.md`, run as written against throwaway trees |
 | `scripts/` | the shipped card scripts through their real command lines |
-| `static/` | the portability bans, shell lint, the XSD drafting schemas, the claims one repository document makes about another file, and the suite's own no-dependency / determinism / cleanup contract |
+| `static/` | the portability bans, shell lint, the XSD drafting schemas, the claims one repository document makes about another file, the test libraries' own behaviour — `lib/harness.sh`'s assertion arms and the ticket shapes `lib/fixtures.sh` produces — and the suite's own no-dependency / determinism / cleanup contract |
 | `e2e/` | one full gate → init → allocate → archive → roadmap-check lifecycle |
 
 `cookbook/` does not paraphrase the recipes: `lib/recipes.sh` extracts the fenced

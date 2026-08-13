@@ -211,6 +211,24 @@ for quoted in '"ACME"' "'ACME'"; do
   else t_fail "prefix: $quoted" "status=$R_STATUS" "stdout=$R_OUT"; fi
 done
 
+test_case "the two config shapes that really reach disk read back the same prefix"
+# SFT-0053: the gate is one of the four readers of config/config.yaml, and until
+# now every fixture handed it a bare `prefix:` line — never the `#` comment header
+# sift-init.sh installs above the key, nor README's trailing comment on the key's
+# own line. The sed at sift-gate.sh:143 tolerates both by construction (it
+# captures [A-Za-z0-9_] and discards the rest of the line, and `^prefix:` cannot
+# match a comment), so this is coverage of an untested claim rather than a bug
+# fix — but a change to that expression had nothing telling it otherwise.
+for shape in commented inline bare; do
+  root="$(newdir)"
+  make_tree "$root" ACME
+  config_yaml "$root" "$shape" ACME
+  gate_at "$root" SIFT_ROOT="$root"
+  if [ "$R_STATUS" -eq 0 ] && [ "$(out_line prefix)" = "ACME" ]
+  then t_ok "the $shape config shape reads back as ACME"
+  else t_fail "the $shape config shape" "status=$R_STATUS" "stdout=$R_OUT"; fi
+done
+
 test_case "corroborating markers at the chosen root are reported"
 root="$(newdir)"
 make_tree "$root" ACME

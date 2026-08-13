@@ -89,6 +89,28 @@ printf 'prefix: "ACME"\n' > "$d/.ai/sift/config/config.yaml"
 read_prefix "$d"
 assert_eq "ACME" "$R_OUT" "quotes are stripped"
 
+# SFT-0053: the two config shapes that really reach a reader. The fixtures wrote
+# a bare `prefix:` line and nothing else, so this recipe — one of the four readers
+# that claim to parse that file — had never been handed either the shape
+# sift-init.sh installs or the shape README publishes. Neither looks broken by
+# inspection (`awk '{print $2}'` discards a trailing comment, and `^prefix:`
+# skips a comment header), which is the point: nothing would have told us if one
+# became so.
+
+test_case "the prefix reads out of the shape sift-init.sh installs"
+d="$(newdir)"; make_tree "$d" ACME
+config_yaml "$d" commented ACME
+read_prefix "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "ACME" "$R_OUT" "a comment header above the key does not become the prefix"
+
+test_case "the prefix reads out of README's documented example shape"
+d="$(newdir)"; make_tree "$d" ACME
+config_yaml "$d" inline ACME
+read_prefix "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "ACME" "$R_OUT" "a trailing comment on the key's own line is discarded"
+
 test_case "no .ai/sift: the guard diagnoses and fails"
 d="$(newdir)"
 read_prefix "$d"
@@ -97,6 +119,28 @@ assert_eq "" "$R_OUT" "no prefix is printed"
 assert_contains "$R_ERR" 'missing .ai/sift — run from the repository root' "says where to run it"
 
 # --- Front-matter validation -------------------------------------------------
+
+test_case "the recipe checks exactly the keys the front-matter schema marks required"
+# Two statements of one API. README's front-matter example defines "required" by
+# marking a key ✱; the recipe's `for k in …` list is the second statement, and it
+# is the one that actually decides what a tree is audited for. Both are extracted
+# (SFT-0052) rather than restated here, and both directions are asserted: a `for`
+# list means a key withdrawn from the example surfaces as an extra here as well
+# as as a missing one there.
+STARRED_KEYS="$(readme_required_keys)"
+RECIPE_KEYS="$(recipe_required_keys)"
+assert_ne "" "$STARRED_KEYS" "the front-matter example extracts from README.md"
+assert_ne "" "$RECIPE_KEYS" "the validation recipe's key list extracts from README.md"
+assert_eq "" "$(set_diff "$STARRED_KEYS" "$RECIPE_KEYS")" \
+  "no ✱-marked key the recipe fails to audit for"
+assert_eq "" "$(set_diff "$RECIPE_KEYS" "$STARRED_KEYS")" \
+  "…and no key the recipe audits for that the schema does not mark required"
+assert_eq 'resolution' "$(set_diff 'resolution' "$STARRED_KEYS")" \
+  "resolution: is not among them — it is required only once a ticket is archived"
+
+# How many headers the recipe prints, taken from the list it loops over rather
+# than counted by hand: adding a required key is supposed to change this number.
+REQUIRED_COUNT="$(printf '%s\n' "$RECIPE_KEYS" | grep -c .)"
 
 validate() { run_recipe "$1" "$FRONTMATTER" PREFIX=SFT; }
 
@@ -112,7 +156,8 @@ ticket "$d" open backlog/bug SFT-0042 complete 'Complete' > /dev/null
 ticket "$d" archive backlog/bug SFT-0041 older 'Older' 'resolution: "done"' > /dev/null
 validate "$d"
 assert_eq 0 "$R_STATUS" "exits 0"
-assert_eq 9 "$(printf '%s\n' "$R_OUT" | grep -c '^== missing ')" "one header per required key"
+assert_eq "$REQUIRED_COUNT" "$(printf '%s\n' "$R_OUT" | grep -c '^== missing ')" \
+  "one header per required key"
 assert_eq "" "$(headers_only "$R_OUT")" "no file is listed"
 
 test_case "a ticket missing priority: is listed under that key"
@@ -140,8 +185,8 @@ test_case "a ticket-less tree is not a validation failure"
 d="$(newdir)"; make_tree "$d"
 validate "$d"
 assert_eq 0 "$R_STATUS" "exits 0"
-assert_eq 9 "$(printf '%s\n' "$R_OUT" | grep -c '^== missing ')" \
-  "all nine headers print — under set -e the run is not truncated at the first"
+assert_eq "$REQUIRED_COUNT" "$(printf '%s\n' "$R_OUT" | grep -c '^== missing ')" \
+  "every header prints — under set -e the run is not truncated at the first"
 assert_eq "" "$(headers_only "$R_OUT")" "no file is listed"
 assert_eq "" "$R_ERR" "and nothing is written to stderr"
 
@@ -213,6 +258,10 @@ assert_eq "" "$R_OUT" "prints nothing"
 
 test_case "a ticket whose front matter omits milestone: is reported, whatever its body says"
 d="$(newdir)"; make_tree "$d"
+# Hand-rolled on purpose: the shape is a ticket whose `milestone:` key is ABSENT,
+# and the fixture's replace-not-append convention can only produce an EMPTY value
+# (`ticket … 'milestone:'`, which the case below this one uses). Inventing an omit
+# form for one caller is not worth it; a second caller needing it is the signal.
 mkdir -p "$d/.ai/sift/open/caching/bug"
 { echo '---'; echo 'id: SFT-0001'; echo 'title: No milestone'; echo 'status: open'
   echo 'type: bug'; echo 'priority: p2'; echo 'effort: m'
@@ -284,15 +333,73 @@ BUG_SECTIONS="$(recipe_bug_sections)"
 FEATURE_MISSING="$(recipe_feature_missing)"
 
 test_case "the backfill recipes are the documented text"
-assert_contains "$BUG_SECTIONS" "grep -q '^## Expected behaviour'" "bugs check the section"
-assert_contains "$FEATURE_MISSING" "grep -q '^## Direction'" "features check theirs"
 assert_contains "$BUG_SECTIONS" '.ai/sift/open .ai/sift/archive' "bugs span both buckets"
+
+test_case "each backfill recipe greps for a heading its own body template names"
+# The pairing tests/static/prompt-readme-sections.test.sh cannot make: that file
+# matches `## ` headings OUTSIDE fences on purpose, so a rename inside these three
+# templates is invisible to it. Both sides are extracted (SFT-0052) — the heading
+# out of the recipe, the templates out of README — so renaming one without the
+# other fails here whichever side moves.
+CANON_HEADS="$(readme_body_canonical | block_headings)"
+BUG_HEADS="$(readme_body_bug | block_headings)"
+FEATURE_HEADS="$(readme_body_feature | block_headings)"
+assert_ne "" "$CANON_HEADS" "the canonical body block extracts from README.md"
+assert_ne "" "$BUG_HEADS" "the type: bug body block extracts from README.md"
+assert_ne "" "$FEATURE_HEADS" "the type: feature body block extracts from README.md"
+
+# What the bug backfill is for: the one section the bug template ADDS to the
+# canonical four and marks required. Derived rather than named, so a template
+# that stopped adding it, stopped requiring it, or spelled it differently fails.
+BUG_HEADING="$(recipe_grepped_heading "$BUG_SECTIONS")"
+bug_only="$(set_diff "$BUG_HEADS" "$CANON_HEADS")"
+bug_added_required="$(set_diff "$bug_only" "$(readme_body_bug | block_headings optional)")"
+assert_eq "$bug_added_required" "$BUG_HEADING" \
+  "the bug list greps for the one required section the bug template adds"
+
+# The feature backfill is the mirror case: it greps for a section every template
+# already carries, which is what lets it read a missing one as a drafting gap.
+FEATURE_HEADING="$(recipe_grepped_heading "$FEATURE_MISSING")"
+assert_ne "" "$FEATURE_HEADING" "the feature list greps for a section"
+assert_eq "" "$(set_diff "$FEATURE_HEADING" "$CANON_HEADS")" \
+  "…one of the four canonical sections"
+assert_eq "" "$(set_diff "$FEATURE_HEADING" "$FEATURE_HEADS")" \
+  "…which the feature template still names"
+
+test_case "the fixture's body shapes name the headings README's templates name"
+# SFT-0053 gave `ticket` the documented bodies; a heading is parsed API, so a
+# fixture that spelled one differently would be a fixture agreeing with nothing —
+# and every suite downstream would be asserting against that spelling. The
+# fixture is compared here against the templates themselves, in template order,
+# rather than trusted to have been copied correctly.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open caching/test SFT-0010 canon 'Canonical body' body=canonical)"
+assert_eq "$CANON_HEADS" "$(grep '^## ' "$f")" \
+  "body=canonical is the four canonical sections, in order"
+f="$(ticket "$d" open caching/bug SFT-0011 bugshape 'Bug body' body=bug)"
+assert_eq "$BUG_HEADS" "$(grep '^## ' "$f")" \
+  "body=bug is the bug template, in order"
+f="$(ticket "$d" open caching/feature SFT-0012 featshape 'Feature body' body=feature)"
+assert_eq "$FEATURE_HEADS" "$(grep '^## ' "$f")" \
+  "body=feature is the feature template, in order"
+
+test_case "the body shape is chosen explicitly and never derived from type:"
+# The constraint the backfill recipe above depends on: its positive case needs a
+# ticket that IS `type: bug` and has NO `## Expected behaviour`, which a fixture
+# deriving the body from the type could not build at all.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open caching/bug SFT-0001 bare 'Bare bug')"
+assert_eq 'bug' "$(fm "$f" type)" "the default fixture is a bug"
+assert_eq "" "$(grep '^## Expected behaviour' "$f")" "…carrying no expected-behaviour section"
+f="$(ticket "$d" open caching/docs SFT-0002 docsbug 'Docs with a bug body' \
+      'type: docs' body=bug)"
+assert_eq 'docs' "$(fm "$f" type)" "and the two are independent in the other direction too"
+assert_ne "" "$(grep '^## Expected behaviour' "$f")" "…a docs ticket can carry a bug body"
 
 test_case "a bug ticket without ## Expected behaviour is listed"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open caching/bug SFT-0001 bare 'Bare bug' > /dev/null
-g="$(ticket "$d" open caching/bug SFT-0002 full 'Full bug')"
-printf '\n## Expected behaviour\nIt should work.\n' >> "$g"
+ticket "$d" open caching/bug SFT-0002 full 'Full bug' body=bug > /dev/null
 ticket "$d" open caching/feature SFT-0003 feat 'A feature' 'type: feature' > /dev/null
 run_recipe "$d" "$BUG_SECTIONS" PREFIX=SFT
 assert_eq 0 "$R_STATUS" "exits 0"
@@ -301,22 +408,18 @@ assert_eq '.ai/sift/open/caching/bug/SFT-0001--bare.md' "$R_OUT" \
 
 test_case "a tree of complete bugs prints nothing"
 d="$(newdir)"; make_tree "$d"
-g="$(ticket "$d" open caching/bug SFT-0001 full 'Full bug')"
-printf '\n## Expected behaviour\nIt should work.\n' >> "$g"
+ticket "$d" open caching/bug SFT-0001 full 'Full bug' body=bug > /dev/null
 run_recipe "$d" "$BUG_SECTIONS" PREFIX=SFT
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "" "$R_OUT" "no backfill needed"
 
 test_case "a feature ticket without ## Direction is listed"
 d="$(newdir)"; make_tree "$d"
-mkdir -p "$d/.ai/sift/open/caching/feature"
-{ echo '---'; echo 'id: SFT-0001'; echo 'title: No direction'; echo 'status: open'
-  echo 'type: feature'; echo 'milestone: caching'; echo 'priority: p2'
-  echo 'effort: m'; echo 'created: 2026-08-01'; echo 'updated: 2026-08-01'
-  echo '---'; echo; echo '## Problem'; echo 'Why we want it.'; } \
-  > "$d/.ai/sift/open/caching/feature/SFT-0001--nodir.md"
-g="$(ticket "$d" open caching/feature SFT-0002 full 'Complete feature' 'type: feature')"
-printf '\n## Direction\nBuild it this way.\n' >> "$g"
+# The default body carries `## Problem` and nothing else, which is exactly the
+# drafting gap this recipe lists.
+ticket "$d" open caching/feature SFT-0001 nodir 'No direction' 'type: feature' > /dev/null
+ticket "$d" open caching/feature SFT-0002 full 'Complete feature' 'type: feature' \
+  body=feature > /dev/null
 run_recipe "$d" "$FEATURE_MISSING" PREFIX=SFT
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq '.ai/sift/open/caching/feature/SFT-0001--nodir.md' "$R_OUT" \
@@ -327,12 +430,8 @@ test_case "the feature backfill list reads open/ only"
 # recipe deliberately does not root itself at .ai/sift the way the bug one does.
 assert_not_contains "$FEATURE_MISSING" '.ai/sift/archive' "archive is out of scope"
 d="$(newdir)"; make_tree "$d"
-mkdir -p "$d/.ai/sift/archive/caching/feature"
-{ echo '---'; echo 'id: SFT-0001'; echo 'title: Archived'; echo 'status: done'
-  echo 'type: feature'; echo 'milestone: caching'; echo 'priority: p2'
-  echo 'effort: m'; echo 'created: 2026-08-01'; echo 'updated: 2026-08-01'
-  echo 'resolution: "shipped"'; echo '---'; echo; echo '## Problem'; echo 'x'; } \
-  > "$d/.ai/sift/archive/caching/feature/SFT-0001--arch.md"
+ticket "$d" archive caching/feature SFT-0001 arch 'Archived' 'type: feature' \
+  'status: done' 'resolution: "shipped"' > /dev/null
 run_recipe "$d" "$FEATURE_MISSING" PREFIX=SFT
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "" "$R_OUT" "an archived feature is never asked for a Direction"

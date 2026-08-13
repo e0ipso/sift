@@ -29,6 +29,24 @@ block out of `README.md` by its anchor line and runs that text. A recipe that
 drifts from its documentation is the failure these tests exist to catch, so a
 reworded anchor is *supposed* to break them.
 
+The normative blocks that are *not* ` ```sh ` recipes are held to the same terms.
+The front-matter example, the directory layout, the three body templates, the
+run-log row schema and the refresh recipe each have a named extractor in
+`lib/recipes.sh`, and the tests compare against those rather than against a
+hand-copied constant: the required key list against the validation recipe's own
+`for k in …`, the closed `type` set across its three copies (layout tree,
+front-matter example, XSD enumeration), each backfill recipe's heading against
+the template that names it, `drain-log`'s log header and column order against the
+run-log block, `convention-assets`' two `cp` lines against the refresh block, and
+`sift-init-tree`'s entry set against the layout block. An extractor whose output
+nothing compares against is decoration, so each one lands with its comparison,
+folded into the file that already owns the subject. Two rules go with them: every
+caller asserts the extraction is non-empty before comparing, so a reworded anchor
+fails on the extraction instead of passing a comparison of two empty sets; and a
+comparison that can only run one way — `sift-init-tree`'s, because the layout
+block draws shape as well as paths — carries an explicit excused list with a
+reason per entry, and asserts the excused entries are still documented.
+
 Coverage there is per subject, not per file: `allocate-id`, `archive` and
 `move-milestone` own the recipes that write, `query` and `labels` own the ones
 that only read, and `validation` owns everything that audits a tree. The read-only
@@ -142,7 +160,32 @@ file of zero tests.
 `ticket` takes extra front-matter lines after the title. A line naming one of the
 required keys *replaces* that key's default rather than appending a second copy,
 so `ticket … 'type: feature'` yields a feature ticket instead of a file claiming
-both types — which matters the moment a recipe greps for one of them.
+both types — which matters the moment a recipe greps for one of them. Any other
+`key: value` line is written verbatim inside the fence, which is how an optional
+key like `source:` gets set.
+
+The body follows the same replace-not-append rule through a selector rather than
+a line: `ticket … body=canonical` yields the four canonical sections,
+`body=bug` and `body=feature` the type-specific templates, and
+`body=adversarial` the shared body the two front-matter rewrites are pinned
+against — prose quoting `status:`, `updated:`, `resolution:` and `milestone:` at
+column 0, under a plain and a spaced `---` rule. The selector carries an equals
+sign rather than a colon precisely so it cannot be mistaken for a front-matter
+key, and it is excluded from the pass-through, so it never appears in the
+produced file. Three things about it are deliberate. The default body is
+unchanged and stays that way, because this library is sourced by every group and
+a changed default rewrites the input of every existing assertion. The shape is
+never derived from `type:` — the bug-backfill recipe's positive case is a
+`type: bug` ticket with *no* `## Expected behaviour`, which a derived body could
+not build. And the headings are README's, verbatim: a heading is parsed API, so
+`cookbook/validation.test.sh` asserts each shape against the template extracted
+from `README.md` rather than trusting the copy.
+
+`config_yaml <dir> <shape>` is the same idea for the tree's config file:
+`make_tree` keeps writing a bare `prefix:` line, and a case that means to pin a
+shape asks for `commented` (the `#` header `sift-init.sh` installs) or `inline`
+(README's trailing comment) explicitly, so the assertion is somewhere a reader
+can see it.
 
 Fold a new behaviour into the file that already owns its subject; add a file only
 for a subject none of them covers. When a test fails because the product is

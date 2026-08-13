@@ -91,9 +91,16 @@ test_case "the report carries the remedy, not just the finding"
 # cookbook lives in the very file that is out of date. An operator holding the
 # stale copy would be pointed at an instruction their copy does not contain, so
 # the two commands are printed from the card, fully resolved.
-assert_contains "$R_OUT" "cp $CARD/assets/README.md $root/.ai/sift/README.md" \
+# Both commands are built from the cookbook's own refresh block (SFT-0052) with
+# `$CARD` and the tree root substituted, rather than restated here: the claim is
+# that the initializer prints THE DOCUMENTED RECIPE with its paths resolved, and
+# a copy of the recipe cannot make that claim.
+REFRESH="$(readme_refresh_resolved "$CARD" "$root")"
+assert_ne "" "$REFRESH" "the refresh recipe extracts from README.md"
+assert_eq 2 "$(printf '%s\n' "$REFRESH" | grep -c .)" "and it is the two documented commands"
+assert_contains "$R_OUT" "$(printf '%s\n' "$REFRESH" | sed -n '1p')" \
   "the README refresh is printed with both paths resolved"
-assert_contains "$R_OUT" "cp $CARD/assets/schemas/*.xsd $root/.ai/sift/schemas/" \
+assert_contains "$R_OUT" "$(printf '%s\n' "$REFRESH" | sed -n '2p')" \
   "and so is the schema refresh"
 assert_contains "$R_OUT" 'not repository state' \
   "with the reason exactly these two paths are safe to overwrite"
@@ -112,10 +119,12 @@ assert_eq '# an older convention' "$(cat "$root/.ai/sift/README.md")" \
   "the stale README is still the stale one, verbatim"
 
 test_case "the documented refresh makes the report go quiet"
-# The cookbook's remedy, run exactly as the report prints it: a plain cp over
-# those two paths and nothing else in the tree.
-cp "$CARD/assets/README.md" "$root/.ai/sift/README.md"
-cp "$CARD"/assets/schemas/*.xsd "$root/.ai/sift/schemas/"
+# The cookbook's remedy, run exactly as documented: the block is extracted from
+# README.md and executed with $CARD supplied, rather than hand-copied here
+# (SFT-0052). The recipe's own paths are relative to the tree, so it runs with
+# $root as its working directory the way an operator runs it from theirs.
+run_recipe "$root" "$(readme_refresh)" CARD="$CARD"
+assert_eq 0 "$R_STATUS" "the documented refresh runs clean"
 run_cmd "$root" "$INIT" --root "$root" --prefix SFT
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_not_contains "$R_OUT" '  stale ' "nothing drifts once the copy is current"

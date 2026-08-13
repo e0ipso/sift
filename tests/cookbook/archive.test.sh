@@ -262,15 +262,10 @@ test_case "body lines beginning with status: or updated: are left alone"
 # rule is in the fixture because it is legal markdown and must not re-open the
 # region; a ticket documenting this convention is the likeliest place for both.
 d="$(newdir)"; make_tree "$d"
-f="$(ticket "$d" open backlog/bug SFT-0042 prose 'Prose ticket')"
-{
-  printf '\n## Direction\n'
-  printf 'status: open is what the body claims.\n'
-  printf 'updated: never, says the body.\n'
-  printf 'resolution: also quoted here.\n'
-  printf '\n---\n\n'
-  printf 'status: and again, after a horizontal rule.\n'
-} >> "$f"
+# One shared adversarial body (SFT-0053), quoting every key either front-matter
+# rewrite touches. `move-milestone` builds the same one; neither recipe rewrites a
+# key the other does, so every line has to survive both.
+f="$(ticket "$d" open backlog/bug SFT-0042 prose 'Prose ticket' body=adversarial)"
 # Everything after the closing fence. The fence pattern matches the recipe's own
 # (SFT-0026), so this still finds the fence when the marker carries a trailing
 # space; `!p` keeps it on the *first* one, never a horizontal rule below it.
@@ -288,6 +283,28 @@ assert_eq '"Landed"' "$(fm "$dest" resolution)" "…and resolution was inserted"
 assert_eq 1 "$(grep -c "^status: done$" "$dest")" "exactly one status line was written"
 assert_eq 1 "$(grep -c "^updated: $TODAY\$" "$dest")" "exactly one updated line was written"
 assert_eq 1 "$(grep -c '^resolution: "Landed"$' "$dest")" "exactly one resolution line"
+
+# --- An optional key nothing under test writes (SFT-0053) --------------------
+
+test_case "an optional source: key survives the archive rewrite untouched"
+# `source:` has three spec sites — the front-matter schema, the remote-tracker
+# mapping that tells an agent to record an issue URL there, and the XSD element —
+# and until now no fixture set it and no assertion read it. The recipe rewrites
+# three keys by name and inserts a fourth; an optional key it never names has to
+# come through byte for byte, wherever it sits in the block.
+d="$(newdir)"; make_tree "$d"
+SOURCE_URL='"https://example.invalid/owner/repo/issues/7"'
+f="$(ticket "$d" open backlog/bug SFT-0042 sourced 'Sourced from a tracker' \
+      "source: $SOURCE_URL")"
+assert_eq "$SOURCE_URL" "$(fm "$f" source)" "the fixture really carries the key"
+roadmap_row "$d" 1 SFT-0042 'Sourced from a tracker' '-'
+archive "$d" SFT-0042 'done' 'Landed'
+dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--sourced.md"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "$SOURCE_URL" "$(fm "$dest" source)" "and reads back unchanged after the rewrite"
+assert_eq 1 "$(grep -c '^source: ' "$dest")" "exactly one source line, not a second copy"
+assert_eq "done" "$(fm "$dest" status)" "the keys the recipe does name were still rewritten"
+assert_eq '"Landed"' "$(fm "$dest" resolution)" "…including the one it inserts"
 
 # --- A fence marker with a trailing space (SFT-0026) -------------------------
 
@@ -327,16 +344,8 @@ test_case "the widened fence pattern still cannot be re-opened by a body rule"
 # horizontal rule in the body — plain or spaced — is a fresh candidate for
 # re-opening it. It cannot, because `in_fm` is only ever set at NR == 1.
 d="$(newdir)"; make_tree "$d"
-f="$(ticket "$d" open backlog/bug SFT-0042 rules 'Rules in the body')"
+f="$(ticket "$d" open backlog/bug SFT-0042 rules 'Rules in the body' body=adversarial)"
 space_the_fence "$f"
-{
-  printf '\n## Direction\n'
-  printf 'status: open is what the body claims.\n'
-  printf '\n---\n\n'
-  printf 'updated: never, says the body after a plain rule.\n'
-  printf '\n--- \n\n'
-  printf 'resolution: also quoted, after a spaced rule.\n'
-} >> "$f"
 before="$d/body.before"; body "$f" > "$before"
 roadmap_row "$d" 1 SFT-0042 'Rules in the body' '-'
 archive "$d" SFT-0042 'done' 'Landed'

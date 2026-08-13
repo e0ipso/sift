@@ -30,16 +30,79 @@ init() {  # init <root> [extra args…]
   run_cmd "$root" "$INIT" --root "$root" --prefix ACME "$@"
 }
 
+# --- What the layout block draws, against what init writes (SFT-0052) ---------
+#
+# README.md's directory-layout block is as normative as the cookbook's recipes —
+# it is the published shape of the tree — and until SFT-0052 nothing compared it
+# against anything. The entry list this file used to iterate was hand-copied and
+# shorter than the block in both directions.
+#
+# The comparison is deliberately asymmetric, because the block is not only an
+# inventory. `<milestone>` is a placeholder the *Configuration* section tells a
+# reader to substitute, so it is substituted here; `<category>` and
+# `<PREFIX>-0001--short-slug.md` are shape rather than a path any initialised
+# tree carries. So the strong direction is materialised ⊆ documented, and the
+# reverse is asserted against an explicit excused list rather than dropped — a
+# one-way comparison never sees a withdrawal.
+MS=v1-2
+
+# <documented entry>|<why a freshly initialised tree does not carry it>
+LAYOUT_EXCUSED="RUNLOG.md|the spec says so itself: the first dispatch of a drain creates it, so a freshly initialized tree has none
+open/$MS/<category>/|shape, not a path: <category> is the closed type set, and a category folder appears with the first ticket filed under it
+open/$MS/<category>/<PREFIX>-0001--short-slug.md|shape, not a path: an initialised tree holds no tickets
+archive/$MS/<category>/<PREFIX>-0001--short-slug.md|shape, not a path: the archive mirrors open/ and starts empty"
+
+# <materialised entry>|<why the layout block does not draw it>
+LAYOUT_UNDOCUMENTED='config/|the prefix file is documented under *Configuration* and required by sift-gate.sh, but the tree diagram omits it entirely (SFT-0061)
+config/config.yaml|the same omission: "The prefix lives in `.ai/sift/config/config.yaml`" is prose the diagram never draws'
+
+# The entry column of one of the two lists above.
+excused_entries() { printf '%s\n' "$1" | sed 's/|.*//'; }
+
+# documented — the layout block's entries with `<milestone>` resolved the way the
+# spec instructs a reader to resolve it.
+documented_entries() { layout_entries | sed "s|<milestone>|$MS|"; }
+
+# materialised <root> — every path a tree really carries, relative to .ai/sift
+# and with a trailing `/` on each directory, so the two sets are spelled alike.
+materialised() {
+  find "$1/.ai/sift" -mindepth 1 | LC_ALL=C sort | while read -r p; do
+    rel="${p#"$1/.ai/sift/"}"
+    if [ -d "$p" ]; then printf '%s/\n' "$rel"; else printf '%s\n' "$rel"; fi
+  done
+}
+
 # --- A fresh tree ------------------------------------------------------------
 
-test_case "a fresh init materialises everything the gate requires"
+test_case "a fresh init materialises every entry the layout block draws"
 root="$(newdir)"
-init "$root" --milestone v1-2
+init "$root" --milestone "$MS"
 assert_eq 0 "$R_STATUS" "exits 0"
-for entry in README.md MILESTONES.md ROADMAP.md config/config.yaml schemas open archive open/v1-2; do
-  if [ -e "$root/.ai/sift/$entry" ]; then t_ok "$entry exists"
-  else t_fail "$entry exists" "tree: $(find "$root/.ai" | head -n 20)"; fi
+DOCUMENTED="$(documented_entries)"
+assert_ne "" "$DOCUMENTED" "the directory-layout block extracts from README.md"
+for entry in $(set_diff "$DOCUMENTED" "$(excused_entries "$LAYOUT_EXCUSED")"); do
+  case "$entry" in
+    */) if [ -d "$root/.ai/sift/${entry%/}" ]; then t_ok "$entry is a directory"
+        else t_fail "$entry is a directory" "tree: $(materialised "$root")"; fi ;;
+    *)  if [ -f "$root/.ai/sift/$entry" ]; then t_ok "$entry is a file"
+        else t_fail "$entry is a file" "tree: $(materialised "$root")"; fi ;;
+  esac
 done
+
+test_case "and materialises nothing the layout block does not draw"
+# The direction the old hand-copied list could not have: a file init writes that
+# the published shape never mentions is invisible to a subset check. Exactly one
+# such entry exists today and it is a README omission, not an init bug, so it is
+# carried by name with its reason rather than silently tolerated.
+assert_eq "$(excused_entries "$LAYOUT_UNDOCUMENTED")" \
+  "$(set_diff "$(materialised "$root")" "$DOCUMENTED")" \
+  "every extra path is one the undocumented list names, and every named one is still there"
+
+test_case "every excused entry is still an entry the layout block draws"
+# Without this the excused list is a place for a withdrawn path to hide: an entry
+# deleted from README would leave the subset check green and the excuse standing.
+assert_eq "" "$(set_diff "$(excused_entries "$LAYOUT_EXCUSED")" "$DOCUMENTED")" \
+  "nothing is excused that the spec no longer documents"
 
 test_case "the fresh tree is reported as created, and verified by the gate"
 assert_contains "$R_OUT" "sift tree at $root/.ai/sift" "the report names the absolute location"

@@ -39,15 +39,34 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 DRAINLOG="$REPO_ROOT/src/skills/sift-drain/scripts/drain-log.sh"
 
-# The header the writer lays down once. A case below asserts the shipped writer
-# produces exactly these bytes, so the fixtures built from it cannot drift away
-# from the format the reader is really given.
-LOG_HEADER='# Run log
+# The header the writer lays down once, and the columns of the row schema —
+# extracted from README.md's *Run log* section rather than restated (SFT-0052).
+# A case below asserts the shipped writer produces exactly these bytes, so with
+# the constant derived, the fixture AND the writer are both compared against the
+# documented schema instead of against a copy of it. A reworded anchor returns
+# nothing, which the next case fails on rather than passing vacuously.
+LOG_HEADER="$(readme_runlog_header)"
+LOG_COLUMNS="$(readme_runlog_columns)"
+LOG_TITLE="$(printf '%s\n' "$LOG_HEADER" | head -n 1)"
+LOG_TABLE_HEAD="$(printf '%s\n' "$LOG_HEADER" | grep '^| ' | head -n 1)"
+# A pipe row splits into (columns + 2) awk fields: the empty strings either side
+# of the leading and trailing separators are fields too.
+LOG_NFIELDS=$(( $(printf '%s\n' "$LOG_COLUMNS" | grep -c .) + 2 ))
+LOG_HEADER_LINES="$(printf '%s\n' "$LOG_HEADER" | grep -c '')"
 
-Append-only. One row per drain event; rows are never rewritten.
+test_case "the documented row schema extracts from README.md"
+assert_ne "" "$LOG_HEADER" "the run-log block is there to read"
+assert_ne "" "$LOG_TABLE_HEAD" "…and carries a table head"
+assert_eq "" "$(readme_runlog_schema | awk -F'|' -v n="$LOG_NFIELDS" '
+    substr($0, 1, 2) != "| " { next }
+    NF != n { print }')" \
+  "every worked row in the block carries the same columns as its own table head"
 
-| event | ticket | phase | utc | epoch | status |
-|---|---|---|---|---|---|'
+# log_col <name> — the awk field number one documented column lands in, so a case
+# names the column it is reading rather than counting pipes to it.
+log_col() {
+  printf '%s\n' "$LOG_COLUMNS" | awk -v want="$1" '$0 == want { print NR + 1; exit }'
+}
 
 # --- Fixture and extraction helpers -----------------------------------------
 
@@ -139,49 +158,58 @@ assert_no_file "$root/.ai/sift/RUNLOG.md" "a freshly built tree carries no run l
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch SFT-0001
 assert_eq 0 "$R_STATUS" "dispatch exits 0"
 assert_file "$root/.ai/sift/RUNLOG.md" "the first dispatch created the log"
-assert_eq "$LOG_HEADER" "$(head -n 6 "$root/.ai/sift/RUNLOG.md")" \
-  "the header is the documented six lines, byte for byte"
+assert_eq "$LOG_HEADER" "$(head -n "$LOG_HEADER_LINES" "$root/.ai/sift/RUNLOG.md")" \
+  "the header is the documented block, byte for byte"
 assert_eq 1 "$(grep -c '^| dispatch |' "$root/.ai/sift/RUNLOG.md")" "and exactly one row under it"
 
 test_case "the header is written once and later writes only append"
-before="$(head -n 6 "$root/.ai/sift/RUNLOG.md")"
+before="$(head -n "$LOG_HEADER_LINES" "$root/.ai/sift/RUNLOG.md")"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase orient
 assert_eq 0 "$R_STATUS" "phase exits 0"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return SFT-0001 'done'
 assert_eq 0 "$R_STATUS" "return exits 0"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch SFT-0002
 assert_eq 0 "$R_STATUS" "the second dispatch exits 0"
-assert_eq "$before" "$(head -n 6 "$root/.ai/sift/RUNLOG.md")" "the header block is untouched"
-assert_eq 1 "$(grep -c '^# Run log$' "$root/.ai/sift/RUNLOG.md")" "the header is not repeated"
-assert_eq 1 "$(grep -c '^| event | ticket | phase |' "$root/.ai/sift/RUNLOG.md")" \
+assert_eq "$before" "$(head -n "$LOG_HEADER_LINES" "$root/.ai/sift/RUNLOG.md")" \
+  "the header block is untouched"
+assert_eq 1 "$(grep -c "^$LOG_TITLE\$" "$root/.ai/sift/RUNLOG.md")" "the header is not repeated"
+assert_eq 1 "$(grep -c "^$LOG_TABLE_HEAD\$" "$root/.ai/sift/RUNLOG.md")" \
   "nor is the table head"
 assert_eq 4 "$(log_rows "$root/.ai/sift/RUNLOG.md")" "all four events are on disk"
 
 test_case "each row carries six columns, and the cells its event has no use for hold a dash"
-assert_eq 8 "$(log_nf "$root/.ai/sift/RUNLOG.md" 1)" \
-  "a six-column pipe row splits into eight awk fields"
-assert_eq "dispatch" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 2)" "row 1 is the dispatch"
-assert_eq "SFT-0001" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 3)" "carrying the ticket"
-assert_eq "-" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 4)" \
+# Every column below is located by NAME through log_col, which reads the order out
+# of the documented schema: a column that moved or was renamed fails here rather
+# than shifting every literal field number in this case by one (SFT-0052).
+assert_eq "$LOG_NFIELDS" "$(log_nf "$root/.ai/sift/RUNLOG.md" 1)" \
+  "the documented columns are all there: a pipe row splits into columns + 2 awk fields"
+assert_eq "dispatch" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 "$(log_col event)")" \
+  "row 1 is the dispatch"
+assert_eq "SFT-0001" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 "$(log_col ticket)")" \
+  "carrying the ticket"
+assert_eq "-" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 "$(log_col phase)")" \
   "a dispatch names no phase, so the column holds a dash"
-assert_eq "-" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 7)" \
+assert_eq "-" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 "$(log_col status)")" \
   "and it has no status to report yet either"
-assert_eq "phase" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 2)" "row 2 is the phase mark"
-assert_eq "-" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 3)" \
+assert_eq "phase" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 "$(log_col event)")" \
+  "row 2 is the phase mark"
+assert_eq "-" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 "$(log_col ticket)")" \
   "which belongs to the whole dispatch and so names no ticket"
-assert_eq "orient" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 4)" "and carries the phase name"
-assert_eq "return" "$(log_field "$root/.ai/sift/RUNLOG.md" 3 2)" "row 3 is the return"
-assert_eq "done" "$(log_field "$root/.ai/sift/RUNLOG.md" 3 7)" \
+assert_eq "orient" "$(log_field "$root/.ai/sift/RUNLOG.md" 2 "$(log_col phase)")" \
+  "and carries the phase name"
+assert_eq "return" "$(log_field "$root/.ai/sift/RUNLOG.md" 3 "$(log_col event)")" \
+  "row 3 is the return"
+assert_eq "done" "$(log_field "$root/.ai/sift/RUNLOG.md" 3 "$(log_col status)")" \
   "and it carries the status the sub-agent reported"
-if printf '%s\n' "$(log_field "$root/.ai/sift/RUNLOG.md" 1 5)" |
+if printf '%s\n' "$(log_field "$root/.ai/sift/RUNLOG.md" 1 "$(log_col utc)")" |
      grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
 then t_ok "the utc column is an ISO-8601 UTC instant"
 else t_fail "the utc column is an ISO-8601 UTC instant" \
-  "got: [$(log_field "$root/.ai/sift/RUNLOG.md" 1 5)]"; fi
-if printf '%s\n' "$(log_field "$root/.ai/sift/RUNLOG.md" 1 6)" | grep -Eq '^[0-9]+$'
+  "got: [$(log_field "$root/.ai/sift/RUNLOG.md" 1 "$(log_col utc)")]"; fi
+if printf '%s\n' "$(log_field "$root/.ai/sift/RUNLOG.md" 1 "$(log_col epoch)")" | grep -Eq '^[0-9]+$'
 then t_ok "the epoch column is a bare integer, so the reader never parses a date"
 else t_fail "the epoch column is a bare integer" \
-  "got: [$(log_field "$root/.ai/sift/RUNLOG.md" 1 6)]"; fi
+  "got: [$(log_field "$root/.ai/sift/RUNLOG.md" 1 "$(log_col epoch)")]"; fi
 
 test_case "a multi-ticket dispatch writes one row per ticket under one epoch"
 # The batch that the whole schema exists for. The rows must share an epoch: the

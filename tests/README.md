@@ -142,12 +142,13 @@ the ones the machine lacks, because a leg labelled `en_US.utf8` on a host that
 falls back to `C` asserts nothing about collation. `bash` and `C` are the two
 members that are always there, so the sweep can never narrow to nothing.
 
-No BSD host is available in CI or the dev container, so the BSD half of the
-promise is covered statically instead: `static/portability.test.sh` fails the
-build on `sed -i`, on `xargs -r`, on a `[ \t]` bracket expression in `awk`, and
-on a collated `[a-z]`-style range in a shell glob or `case` pattern. That file
-also carries a `skip` naming the gap, so the blind spot is reported by the suite
-rather than only described here; closing it needs a BSD runner, not an assertion.
+The GitHub Actions job and the dev container both use Linux, so no BSD host is
+available there and the BSD half of the promise is covered statically instead:
+`static/portability.test.sh` fails the build on `sed -i`, on `xargs -r`, on a
+`[ \t]` bracket expression in `awk`, and on a collated `[a-z]`-style range in a
+shell glob or `case` pattern. That file also carries a `skip` naming the gap, so
+the blind spot is reported by the suite rather than only described here;
+closing it needs a BSD runner, not an assertion.
 
 ## Destructive and concurrent sequences
 

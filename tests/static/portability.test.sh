@@ -97,12 +97,13 @@ done
 test_case "the BSD half of the promise, and why nothing here can execute it"
 # The standing blind spot, recorded where it is measured rather than only in
 # tests/README.md. Half the portability promise is about a userland no machine
-# in CI or the dev container runs, so no case in this suite can execute a BSD
-# sed, awk or xargs; the bans above are the whole of that coverage, and they are
-# a textual proxy for it. Faking a BSD run — aliasing a name, asserting against
-# a transcript — would convert an honest gap into a false green, so the gap is
-# declared instead. Closing it needs a BSD runner in CI, not another assertion.
+# in the Linux GitHub Actions job or the dev container runs, so no case in this
+# suite can execute a BSD sed, awk or xargs; the bans above are the whole of that
+# coverage, and they are a textual proxy for it. Faking a BSD run — aliasing a
+# name, asserting against a transcript — would convert an honest gap into a
+# false green, so the gap is declared instead. Closing it needs a BSD runner in
+# CI, not another assertion.
 skip "recipe execution on a real BSD userland" \
-  "no BSD host in CI or the dev container; the bans above are the static proxy"
+  "no BSD host in Linux GitHub Actions CI or the dev container; the bans above are the static proxy"
 
 summary

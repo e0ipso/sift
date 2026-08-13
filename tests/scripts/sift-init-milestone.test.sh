@@ -44,6 +44,44 @@ for m in '../evil' 'a/../../../evil' 'foo/bar' '.' '..' 'Foo' '-lead' 'trail-' \
       "tree: $(find "$root" -maxdepth 3 | head -n 5)"; fi
 done
 
+test_case "an uppercase milestone is rejected under a UTF-8 locale with collated ranges"
+# A locale switch alone proves nothing on bash 5.0+, where globasciiranges is
+# enabled by default. Clear it explicitly to reproduce the matcher stock macOS
+# bash uses. Foo is deliberate: under aAbBcC…zZ collation, A..Y fall inside
+# [a-z], but Z sorts after z and would not discriminate the range from the
+# explicit character list.
+#
+# Only Foo is repeated from the rejection matrix. The empty and hyphen-shape
+# rows ('', -lead, trail-, a--b) are rejected before the character class; the
+# remaining rows contain /, ., space, newline, ~ or *, all outside a collated
+# a-z in every locale the suite drives.
+for loc in $matrix_locales; do
+  locale_available "$loc" || continue
+
+  root="$(newdir)"
+  R_LOCALE="$loc" run_cmd "$root" bash +O globasciiranges "$INIT" \
+    --root "$root" --prefix SFT --milestone Foo
+  if [ "$R_STATUS" -eq 2 ] &&
+     case "$R_ERR" in *'milestone must be lowercase kebab-case'*) true ;; *) false ;; esac &&
+     [ ! -e "$root/.ai" ]
+  then t_ok "'Foo' rejected under LC_ALL=$loc with globasciiranges disabled"
+  else t_fail "'Foo' was accepted under LC_ALL=$loc with globasciiranges disabled" \
+    "status=$R_STATUS" "stderr=$R_ERR"; fi
+
+  root="$(newdir)"
+  R_LOCALE="$loc" run_cmd "$root" bash +O globasciiranges "$INIT" \
+    --root "$root" --prefix SFT --milestone backlog
+  if [ "$R_STATUS" -eq 0 ] && [ -d "$root/.ai/sift/open/backlog" ]
+  then t_ok "'backlog' accepted under LC_ALL=$loc with globasciiranges disabled"
+  else t_fail "'backlog' accepted under LC_ALL=$loc with globasciiranges disabled" \
+    "status=$R_STATUS" "stderr=$R_ERR"; fi
+done
+# R_LOCALE is an input global read by run_cmd in tests/lib/harness.sh, so no
+# reader for it exists in this file. The reset is load-bearing: without it every
+# case below this loop would keep running under the last available UTF-8 locale.
+# shellcheck disable=SC2034
+R_LOCALE=C
+
 test_case "a traversing name writes nothing outside the root either"
 root="$(newdir)"
 init_milestone "$root" 'a/../../../evil'

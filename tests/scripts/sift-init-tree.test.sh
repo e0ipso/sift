@@ -20,10 +20,14 @@ set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
 . "$DIR/../lib/harness.sh"
 . "$DIR/../lib/recipes.sh"
+. "$DIR/../lib/fixtures.sh"
 
 CARD="$REPO_ROOT/src/skills/sift-init/scripts"
 INIT="$CARD/sift-init.sh"
+GATE="$CARD/sift-gate.sh"
 CHECK="$REPO_ROOT/src/skills/sift-drain/scripts/roadmap-check.sh"
+DRAIN_LIB="$REPO_ROOT/src/skills/sift-drain/scripts/lib.sh"
+PRIME_LIB="$REPO_ROOT/src/skills/sift-prime/scripts/lib.sh"
 
 init() {  # init <root> [extra args…]
   local root="$1"; shift
@@ -75,6 +79,173 @@ materialised() {
     if [ -d "$p" ]; then printf '%s/\n' "$rel"; else printf '%s\n' "$rel"; fi
   done
 }
+
+# --- What make_tree stands in for, against a tree init really writes --------
+#
+# make_tree stays hand-built: 277 setups use it to isolate the one script or
+# recipe they mean to drive. This one comparison makes that safe by deriving the
+# other side from a real initializer run. It compares entries and the parsed
+# shapes below rather than bytes, because README content, ROADMAP/MILESTONES
+# preambles and config comments deliberately differ between a minimal fixture
+# and a shipped tree.
+FIXTURE_MS=backlog
+
+# <initializer-only entry>|<why make_tree deliberately does not carry it>
+INIT_ONLY_EXCUSED=".gitignore|repository tracking policy does not belong in a throwaway fixture tree
+open/$FIXTURE_MS/|init creates the first milestone folder; fixtures create it with the first ticket
+schemas/bug-ticket.xsd|fixture cases never read XSD payloads from their throwaway trees
+schemas/feature-ticket.xsd|fixture cases never read XSD payloads from their throwaway trees
+schemas/sift-common.xsd|fixture cases never read XSD payloads from their throwaway trees
+schemas/task-ticket.xsd|fixture cases never read XSD payloads from their throwaway trees"
+
+# <fixture-only entry>|<why sift-init deliberately does not carry it>
+#
+# Empty today, and kept explicit: a fixture-only entry must be justified here,
+# while a stale excuse must fail as loudly as a newly unexcused difference.
+FIXTURE_ONLY_EXCUSED=''
+
+# list_mismatches <label> <actual> <expected> — report both an unexcused entry
+# and an excuse that no longer describes a real difference. Assertions stay at
+# the call site so damaged-copy negative controls can inspect this result.
+list_mismatches() {
+  local label="$1" actual="$2" expected="$3" entry
+  while IFS= read -r entry; do
+    [ -n "$entry" ] && printf '%s unexpected: %s\n' "$label" "$entry"
+  done <<< "$(set_diff "$actual" "$expected")"
+  while IFS= read -r entry; do
+    [ -n "$entry" ] && printf '%s excuse no longer needed: %s\n' "$label" "$entry"
+  done <<< "$(set_diff "$expected" "$actual")"
+}
+
+# tree_pair_differences <init-root> <fixture-root> — every disagreement not
+# accounted for by the exact bidirectional excused lists above.
+tree_pair_differences() {
+  local init_entries fixture_entries init_only fixture_only
+  init_entries="$(materialised "$1")"
+  fixture_entries="$(materialised "$2")"
+  init_only="$(set_diff "$init_entries" "$fixture_entries")"
+  fixture_only="$(set_diff "$fixture_entries" "$init_entries")"
+  list_mismatches "initializer-only" "$init_only" \
+    "$(excused_entries "$INIT_ONLY_EXCUSED")"
+  list_mismatches "fixture-only" "$fixture_only" \
+    "$(excused_entries "$FIXTURE_ONLY_EXCUSED")"
+}
+
+# card_prefix <lib> <root> — ask a card's real shared-library parser for the
+# prefix; do not restate its sed expression in the test.
+card_prefix() {
+  (
+    SIFT_ROOT="$2"
+    # shellcheck disable=SC1090 -- both paths are repository constants above.
+    . "$1"
+    printf '%s\n' "$PREFIX"
+  )
+}
+
+# drain_rows <root> — the real reader's parsed roadmap rows.
+drain_rows() {
+  (
+    SIFT_ROOT="$1"
+    # shellcheck disable=SC1090 -- DRAIN_LIB is a repository constant above.
+    . "$DRAIN_LIB"
+    roadmap_rows
+  )
+}
+
+# roadmap_verdict <root> — status and stdout together, so a caller compares a
+# result without relying on run_cmd's mutable return channel.
+roadmap_verdict() {
+  local out status
+  out="$(cd "$1" && SIFT_ROOT="$1" "$CHECK" 2>&1)"
+  status=$?
+  printf '%s\n%s\n' "$status" "$out"
+}
+
+# Extract the gate's own required-entry list. A copied list here would let the
+# test and the prose agree with each other after the product changed underneath.
+gate_required_entries() {
+  sed -n 's/^for entry in \(.*\); do$/\1/p' "$GATE" | tr ' ' '\n'
+}
+
+test_case "make_tree agrees with the tree sift-init actually writes (SFT-0072)"
+repo_paths_before="$(find "$REPO_ROOT/.ai/sift" | LC_ALL=C sort)"
+repo_bytes_before="$(tree_digest "$REPO_ROOT/.ai/sift")"
+scripts_paths_before="$(find "$REPO_ROOT/src/skills" | LC_ALL=C sort)"
+scripts_bytes_before="$(tree_digest "$REPO_ROOT/src/skills")"
+
+initialized="$(newdir)"
+fixture="$(newdir)"
+init "$initialized" --milestone "$FIXTURE_MS"
+assert_eq 0 "$R_STATUS" "the real initializer exits 0 inside TMPROOT"
+make_tree "$fixture" ACME
+
+assert_eq "" "$(tree_pair_differences "$initialized" "$fixture")" \
+  "the exact initializer-only and fixture-only excuse lists account for every entry difference"
+
+run_cmd "$fixture" env SIFT_ROOT="$fixture" "$GATE"
+assert_eq 0 "$R_STATUS" "the real gate accepts the hand-built fixture"
+assert_contains "$R_OUT" 'state=READY' "reporting READY rather than merely exiting 0"
+required="$(gate_required_entries)"
+assert_ne "" "$required" "the gate's required-entry list extracts from the real script"
+for entry in $required; do
+  if [ -e "$fixture/.ai/sift/$entry" ]; then
+    t_ok "gate-required $entry exists in the fixture"
+  else
+    t_fail "gate-required $entry exists in the fixture"
+  fi
+done
+
+for lib in "$DRAIN_LIB" "$PRIME_LIB"; do
+  card="$(basename "$(dirname "$(dirname "$lib")")")"
+  assert_eq ACME "$(card_prefix "$lib" "$initialized")" \
+    "$card parses the initialized prefix"
+  assert_eq ACME "$(card_prefix "$lib" "$fixture")" \
+    "$card parses the fixture prefix"
+done
+
+for tree in "$initialized" "$fixture"; do
+  kind=fixture
+  [ "$tree" = "$initialized" ] && kind=initialized
+  roadmap="$(cat "$tree/.ai/sift/ROADMAP.md")"
+  assert_contains "$roadmap" '## Wave 1' "$kind roadmap opens Wave 1"
+  assert_contains "$roadmap" '| # | Ticket | Title | Needs |' \
+    "$kind roadmap has the reader's header"
+  assert_contains "$roadmap" '|---|---|---|---|' \
+    "$kind roadmap has the header separator"
+  assert_eq "" "$(drain_rows "$tree")" "$kind roadmap parses as zero rows"
+  assert_contains "$(cat "$tree/.ai/sift/MILESTONES.md")" "## $FIXTURE_MS" \
+    "$kind milestone file names the shared milestone"
+done
+
+expected_verdict='0
+OK: 0 roadmap rows / 0 ticket files are rule-9 consistent'
+assert_eq "$expected_verdict" "$(roadmap_verdict "$initialized")" \
+  "roadmap-check reports the initialized tree as 0/0"
+assert_eq "$expected_verdict" "$(roadmap_verdict "$fixture")" \
+  "roadmap-check reports the fixture tree with the same 0/0 verdict"
+
+fixture_copy="$(newdir)"
+cp -R "$fixture/.ai" "$fixture_copy/"
+rm "$fixture_copy/.ai/sift/ROADMAP.md"
+fixture_damage="$(tree_pair_differences "$initialized" "$fixture_copy")"
+assert_contains "$fixture_damage" 'initializer-only unexpected: ROADMAP.md' \
+  "fixture-side negative control reports the required entry it removed"
+
+initialized_copy="$(newdir)"
+cp -R "$initialized/.ai" "$initialized_copy/"
+mkdir "$initialized_copy/.ai/sift/unexcused"
+initializer_damage="$(tree_pair_differences "$initialized_copy" "$fixture")"
+assert_contains "$initializer_damage" 'initializer-only unexpected: unexcused/' \
+  "initializer-side negative control reports the unexcused path it added"
+
+assert_eq "$repo_paths_before" "$(find "$REPO_ROOT/.ai/sift" | LC_ALL=C sort)" \
+  "the repository's sift tree has exactly the same entries after the case"
+assert_eq "$repo_bytes_before" "$(tree_digest "$REPO_ROOT/.ai/sift")" \
+  "the repository's sift tree is byte-identical after the case"
+assert_eq "$scripts_paths_before" "$(find "$REPO_ROOT/src/skills" | LC_ALL=C sort)" \
+  "the shipped skill tree has exactly the same entries after the case"
+assert_eq "$scripts_bytes_before" "$(tree_digest "$REPO_ROOT/src/skills")" \
+  "the shipped skill tree is byte-identical after the case"
 
 # --- A fresh tree ------------------------------------------------------------
 

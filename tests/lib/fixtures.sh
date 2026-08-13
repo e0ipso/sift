@@ -3,7 +3,9 @@
 #
 # Trees are built by hand rather than by sift-init so a cookbook test can pin
 # one recipe without dragging the initializer into its failure modes; the
-# scripts/ and e2e/ suites drive sift-init through its real interface.
+# scripts/ and e2e/ suites drive sift-init through its real interface. The
+# agreement between this hand-built tree and a real init is pinned in
+# tests/scripts/sift-init-tree.test.sh.
 
 # make_tree <dir> [prefix] — a minimal but gate-complete tree at <dir>/.ai/sift.
 make_tree() {

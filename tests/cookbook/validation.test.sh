@@ -98,6 +98,28 @@ assert_contains "$R_ERR" 'missing .ai/sift — run from the repository root' "sa
 
 # --- Front-matter validation -------------------------------------------------
 
+test_case "the recipe checks exactly the keys the front-matter schema marks required"
+# Two statements of one API. README's front-matter example defines "required" by
+# marking a key ✱; the recipe's `for k in …` list is the second statement, and it
+# is the one that actually decides what a tree is audited for. Both are extracted
+# (SFT-0052) rather than restated here, and both directions are asserted: a `for`
+# list means a key withdrawn from the example surfaces as an extra here as well
+# as as a missing one there.
+STARRED_KEYS="$(readme_required_keys)"
+RECIPE_KEYS="$(recipe_required_keys)"
+assert_ne "" "$STARRED_KEYS" "the front-matter example extracts from README.md"
+assert_ne "" "$RECIPE_KEYS" "the validation recipe's key list extracts from README.md"
+assert_eq "" "$(set_diff "$STARRED_KEYS" "$RECIPE_KEYS")" \
+  "no ✱-marked key the recipe fails to audit for"
+assert_eq "" "$(set_diff "$RECIPE_KEYS" "$STARRED_KEYS")" \
+  "…and no key the recipe audits for that the schema does not mark required"
+assert_eq 'resolution' "$(set_diff 'resolution' "$STARRED_KEYS")" \
+  "resolution: is not among them — it is required only once a ticket is archived"
+
+# How many headers the recipe prints, taken from the list it loops over rather
+# than counted by hand: adding a required key is supposed to change this number.
+REQUIRED_COUNT="$(printf '%s\n' "$RECIPE_KEYS" | grep -c .)"
+
 validate() { run_recipe "$1" "$FRONTMATTER" PREFIX=SFT; }
 
 # The recipe prints one "== missing <key>:" header per required key and, under
@@ -112,7 +134,8 @@ ticket "$d" open backlog/bug SFT-0042 complete 'Complete' > /dev/null
 ticket "$d" archive backlog/bug SFT-0041 older 'Older' 'resolution: "done"' > /dev/null
 validate "$d"
 assert_eq 0 "$R_STATUS" "exits 0"
-assert_eq 9 "$(printf '%s\n' "$R_OUT" | grep -c '^== missing ')" "one header per required key"
+assert_eq "$REQUIRED_COUNT" "$(printf '%s\n' "$R_OUT" | grep -c '^== missing ')" \
+  "one header per required key"
 assert_eq "" "$(headers_only "$R_OUT")" "no file is listed"
 
 test_case "a ticket missing priority: is listed under that key"
@@ -140,8 +163,8 @@ test_case "a ticket-less tree is not a validation failure"
 d="$(newdir)"; make_tree "$d"
 validate "$d"
 assert_eq 0 "$R_STATUS" "exits 0"
-assert_eq 9 "$(printf '%s\n' "$R_OUT" | grep -c '^== missing ')" \
-  "all nine headers print — under set -e the run is not truncated at the first"
+assert_eq "$REQUIRED_COUNT" "$(printf '%s\n' "$R_OUT" | grep -c '^== missing ')" \
+  "every header prints — under set -e the run is not truncated at the first"
 assert_eq "" "$(headers_only "$R_OUT")" "no file is listed"
 assert_eq "" "$R_ERR" "and nothing is written to stderr"
 
@@ -284,9 +307,38 @@ BUG_SECTIONS="$(recipe_bug_sections)"
 FEATURE_MISSING="$(recipe_feature_missing)"
 
 test_case "the backfill recipes are the documented text"
-assert_contains "$BUG_SECTIONS" "grep -q '^## Expected behaviour'" "bugs check the section"
-assert_contains "$FEATURE_MISSING" "grep -q '^## Direction'" "features check theirs"
 assert_contains "$BUG_SECTIONS" '.ai/sift/open .ai/sift/archive' "bugs span both buckets"
+
+test_case "each backfill recipe greps for a heading its own body template names"
+# The pairing tests/static/prompt-readme-sections.test.sh cannot make: that file
+# matches `## ` headings OUTSIDE fences on purpose, so a rename inside these three
+# templates is invisible to it. Both sides are extracted (SFT-0052) — the heading
+# out of the recipe, the templates out of README — so renaming one without the
+# other fails here whichever side moves.
+CANON_HEADS="$(readme_body_canonical | block_headings)"
+BUG_HEADS="$(readme_body_bug | block_headings)"
+FEATURE_HEADS="$(readme_body_feature | block_headings)"
+assert_ne "" "$CANON_HEADS" "the canonical body block extracts from README.md"
+assert_ne "" "$BUG_HEADS" "the type: bug body block extracts from README.md"
+assert_ne "" "$FEATURE_HEADS" "the type: feature body block extracts from README.md"
+
+# What the bug backfill is for: the one section the bug template ADDS to the
+# canonical four and marks required. Derived rather than named, so a template
+# that stopped adding it, stopped requiring it, or spelled it differently fails.
+BUG_HEADING="$(recipe_grepped_heading "$BUG_SECTIONS")"
+bug_only="$(set_diff "$BUG_HEADS" "$CANON_HEADS")"
+bug_added_required="$(set_diff "$bug_only" "$(readme_body_bug | block_headings optional)")"
+assert_eq "$bug_added_required" "$BUG_HEADING" \
+  "the bug list greps for the one required section the bug template adds"
+
+# The feature backfill is the mirror case: it greps for a section every template
+# already carries, which is what lets it read a missing one as a drafting gap.
+FEATURE_HEADING="$(recipe_grepped_heading "$FEATURE_MISSING")"
+assert_ne "" "$FEATURE_HEADING" "the feature list greps for a section"
+assert_eq "" "$(set_diff "$FEATURE_HEADING" "$CANON_HEADS")" \
+  "…one of the four canonical sections"
+assert_eq "" "$(set_diff "$FEATURE_HEADING" "$FEATURE_HEADS")" \
+  "…which the feature template still names"
 
 test_case "a bug ticket without ## Expected behaviour is listed"
 d="$(newdir)"; make_tree "$d"

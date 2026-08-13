@@ -82,6 +82,226 @@ recipe_archive() {
     -e "s|^RESOLUTION='Fixed in commit abc1234'.*$|RESOLUTION=\${RESOLUTION?}|"
 }
 
+# --- The normative blocks that are not `sh` recipes (SFT-0052) ---------------
+#
+# The cookbook's recipes are executed by extraction, so they cannot drift from
+# the prose documenting them. Every other normative fenced block in README.md is
+# just as normative — the ✱-marked keys ARE the front-matter API and the `type`
+# alternation IS the category folder set — and each one was hand-copied into a
+# test or checked by nothing at all. One extractor per block below, on the same
+# terms as the recipes: a reworded anchor returns nothing, and every caller
+# asserts non-empty output before it compares, so an anchor that stopped matching
+# fails on the extraction rather than passing a comparison of two empty sets.
+#
+# Extraction is from the repository-root README.md only. The shipped mirror
+# src/skills/sift-init/assets/README.md is held byte-identical to it by
+# tests/scripts/sync-assets.test.sh, so extracting there as well would pin a copy
+# of a copy.
+readme_layout()              { readme_block '## Directory layout'; }
+readme_frontmatter_example() { readme_block 'Every ticket starts with YAML front-matter.'; }
+readme_body_canonical()      { readme_block 'Every body is built from four canonical sections'; }
+readme_body_bug()            { readme_block '— a bug ticket that does not say what'; }
+readme_body_feature()        { readme_block '`Problem` carries the motivation'; }
+readme_runlog_schema()       { readme_block 'Six columns, and a literal'; }
+readme_refresh()             { readme_block 'followed by the two commands below with the paths already resolved'; }
+
+# --- Turning an extracted block into the set it states ------------------------
+
+# set_diff <listA> <listB> — the non-empty lines of A that are absent from B.
+#
+# Line-based, not word-based: a body heading is several words. Set equality is
+# asserted by calling this twice rather than by comparing two sorted blobs, so a
+# failure names the member that moved *and* the direction it moved in — a one-way
+# comparison never sees a withdrawal.
+set_diff() {
+  printf '%s\n' "$1" | awk -v b="$2" '
+    BEGIN { n = split(b, w, "\n"); for (i = 1; i <= n; i++) if (w[i] != "") have[w[i]] = 1 }
+    $0 != "" && !($0 in have) { print }
+  '
+}
+
+# alternation_after <marker> — read lines on stdin and print the `a | b | c`
+# alternation that follows <marker> on each, one member per line.
+#
+# The marker is located with index() and consumed with substr/length, never as a
+# bracket expression or a range: both markers this is used with (`←`, `✱`) are
+# multi-byte, and a byte-oriented awk reads a bracket expression holding one as
+# the set of its individual bytes. index()/substr()/length() all count in the
+# same units as each other on any one awk, so the pair agrees across the C,
+# C.utf8 and en_US.utf8 legs the suite replays.
+alternation_after() {
+  awk -v marker="$1" '
+    { p = index($0, marker) }
+    p == 0 { next }
+    {
+      n = split(substr($0, p + length(marker)), part, "|")
+      for (i = 1; i <= n; i++) {
+        v = part[i]
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+        if (v != "") print v
+      }
+    }
+  '
+}
+
+# The closed `type` set, from each of the three places it is written out: the
+# <category> comment in the layout tree, the `type:` comment in the front-matter
+# example, and the enumeration in the XSD.
+readme_layout_types()      { readme_layout | grep '<category>' | alternation_after '←'; }
+readme_frontmatter_types() { readme_frontmatter_example | grep '^type:' | alternation_after '✱'; }
+
+# xsd_enum <simpleType-name> — the enumeration members of one XSD simple type.
+# The schemas are drafting scaffolding rather than storage, but this particular
+# enumeration is a third copy of a README set, so it is read out rather than
+# restated.
+xsd_enum() {
+  awk -v want="$1" '
+    index($0, "<xs:simpleType name=\"" want "\">") { inside = 1; next }
+    inside && index($0, "</xs:simpleType>") { exit }
+    inside && match($0, /value="[^"]*"/) { print substr($0, RSTART + 7, RLENGTH - 8) }
+  ' "$REPO_ROOT/schemas/sift-common.xsd"
+}
+
+# readme_required_keys — the ✱-marked keys of the front-matter example, which is
+# where "required" is defined. `resolution:` carries no ✱: it is required only
+# once a ticket is archived, which is a rule the example cannot express.
+readme_required_keys() {
+  readme_frontmatter_example | awk '
+    index($0, "✱") == 0 { next }
+    { key = $1; sub(/:$/, "", key); print key }
+  '
+}
+
+# recipe_required_keys — the keys the front-matter validation recipe loops over.
+# A `for` list rather than a grep, so a key withdrawn from the example shows up
+# here as an extra as well as showing up there as a missing one.
+recipe_required_keys() {
+  recipe_frontmatter | awk '
+    index($0, "for k in ") != 1 { next }
+    { for (i = 4; i <= NF; i++) {
+        if ($i == "do") break
+        key = $i; sub(/;$/, "", key)
+        if (key != "") print key
+      }
+      exit }
+  '
+}
+
+# block_headings [annotation] — the `## ` headings one body-template block names,
+# in template order, with the `←` annotation stripped off. Given an argument,
+# only the headings whose annotation opens with that word (`required`,
+# `optional`), which is how the templates mark the ones a type really needs.
+block_headings() {
+  awk -v want="${1:-}" '
+    substr($0, 1, 3) != "## " { next }
+    {
+      p = index($0, "←")
+      head = (p ? substr($0, 1, p - 1) : $0)
+      note = (p ? substr($0, p + length("←")) : "")
+      gsub(/[[:space:]]+$/, "", head)
+      gsub(/^[[:space:]]+/, "", note)
+      if (want == "" || index(note, want) == 1) print head
+    }
+  '
+}
+
+# recipe_grepped_heading <recipe-text> — the `## ` heading a section-backfill
+# recipe tests each ticket for, unquoted and unanchored.
+recipe_grepped_heading() {
+  printf '%s\n' "$1" | awk '
+    { p = index($0, "grep -q ") }
+    p == 0 { next }
+    {
+      rest = substr($0, p + length("grep -q "))
+      q = substr(rest, 1, 1)
+      rest = substr(rest, 2)
+      e = index(rest, q)
+      if (e) rest = substr(rest, 1, e - 1)
+      sub(/^\^/, "", rest)
+      print rest
+      exit
+    }
+  '
+}
+
+# readme_runlog_header — the run log's header block, down to and including the
+# table separator: everything the writer lays down once, before the first row.
+readme_runlog_header() {
+  readme_runlog_schema | awk '{ print } substr($0, 1, 2) == "|-" { exit }'
+}
+
+# readme_runlog_columns — the documented column names, in order.
+readme_runlog_columns() {
+  readme_runlog_schema | awk -F'|' '
+    substr($0, 1, 1) != "|" { next }
+    substr($0, 1, 2) == "|-" { next }
+    { for (i = 2; i < NF; i++) {
+        c = $i; gsub(/^[[:space:]]+|[[:space:]]+$/, "", c); print c
+      }
+      exit }
+  '
+}
+
+# readme_refresh_resolved <card-dir> <tree-root> — the refresh recipe's `cp`
+# lines with `$CARD` and the tree root substituted and the shell quoting removed,
+# which is the form the initializer prints them in.
+#
+# Substitution is a concatenation, never a sed or gsub replacement text: both
+# values are absolute paths and a replacement is re-scanned for `&` and
+# backreferences. `.ai/sift` is rooted first, so a card directory that happened
+# to contain that string could not be rewritten a second time.
+readme_refresh_resolved() {
+  readme_refresh | awk -v card="$1" -v root="$2" '
+    function subst(s, from, to,   p, out) {
+      out = ""
+      while ((p = index(s, from)) > 0) {
+        out = out substr(s, 1, p - 1) to
+        s = substr(s, p + length(from))
+      }
+      return out s
+    }
+    {
+      line = $0
+      gsub(/"/, "", line)
+      line = subst(line, ".ai/sift", root "/.ai/sift")
+      line = subst(line, "$CARD", card)
+      print line
+    }
+  '
+}
+
+# layout_entries — the paths the directory-layout block draws, one per line,
+# relative to `.ai/sift/` and with a trailing `/` on every directory.
+#
+# Depth is counted by stripping one indent unit at a time and comparing each
+# candidate against the same literal, rather than by counting characters: `│` and
+# the `──` connectors are multi-byte, so length() answers in bytes on one awk and
+# in characters on another. substr() against a literal is right under both.
+layout_entries() {
+  readme_layout | awk '
+    {
+      line = $0
+      if (line ~ /^[[:space:]]*$/) next
+      depth = 0
+      while (1) {
+        if (substr(line, 1, length("│   ")) == "│   ") {
+          line = substr(line, length("│   ") + 1); depth++; continue
+        }
+        if (substr(line, 1, 4) == "    ") { line = substr(line, 5); depth++; continue }
+        break
+      }
+      c = substr(line, 1, length("├── "))
+      if (c != "├── " && c != "└── ") next          # the `.ai/sift/` root line
+      line = substr(line, length("├── ") + 1)
+      split(line, f, /[[:space:]]+/)
+      stack[depth] = f[1]
+      path = ""
+      for (i = 0; i <= depth; i++) path = path stack[i]
+      print path
+    }
+  '
+}
+
 # --- Running an extracted recipe --------------------------------------------
 #
 # run_recipe <workdir> <script-text> [VAR=VAL ...]

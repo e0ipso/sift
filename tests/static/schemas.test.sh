@@ -21,6 +21,29 @@ assert_contains "$pattern" '[A-Z][A-Z0-9]*-[0-9]+' "the numeric suffix is a digi
 assert_not_contains "$pattern" '{4}' "no four-digit cap"
 assert_not_contains "$pattern" '[0-9][0-9][0-9][0-9]' "…in either spelling"
 
+test_case "the closed type set is written out three times and says the same thing each time"
+# The set is the category folder set as well as the front-matter value set, so
+# the three copies below are one API written three ways: the `<category>` comment
+# in README's layout tree, the `type:` comment in its front-matter example, and
+# this enumeration. Nothing compared them until SFT-0052, and a copy edited alone
+# is invisible to a reader who happens to open one of the other two.
+LAYOUT_TYPES="$(readme_layout_types)"
+FM_TYPES="$(readme_frontmatter_types)"
+XSD_TYPES="$(xsd_enum type)"
+assert_ne "" "$LAYOUT_TYPES" "the layout block's <category> alternation extracts"
+assert_ne "" "$FM_TYPES" "the front-matter example's type: alternation extracts"
+assert_ne "" "$XSD_TYPES" "the XSD's type enumeration extracts"
+# Both directions on each pair: a withdrawal is a member the other copy still has,
+# which a one-way comparison never sees.
+assert_eq "" "$(set_diff "$LAYOUT_TYPES" "$FM_TYPES")" \
+  "no category the layout draws that the front-matter example does not allow"
+assert_eq "" "$(set_diff "$FM_TYPES" "$LAYOUT_TYPES")" \
+  "…and none the example allows that the layout does not draw"
+assert_eq "" "$(set_diff "$FM_TYPES" "$XSD_TYPES")" \
+  "no documented type the schema would reject"
+assert_eq "" "$(set_diff "$XSD_TYPES" "$FM_TYPES")" \
+  "…and none the schema accepts that the spec does not document"
+
 test_case "README's worked draft validates, past four digits included"
 if command -v xmllint > /dev/null 2>&1; then
   d="$(newdir)"

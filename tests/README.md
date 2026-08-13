@@ -29,6 +29,24 @@ block out of `README.md` by its anchor line and runs that text. A recipe that
 drifts from its documentation is the failure these tests exist to catch, so a
 reworded anchor is *supposed* to break them.
 
+The normative blocks that are *not* ` ```sh ` recipes are held to the same terms.
+The front-matter example, the directory layout, the three body templates, the
+run-log row schema and the refresh recipe each have a named extractor in
+`lib/recipes.sh`, and the tests compare against those rather than against a
+hand-copied constant: the required key list against the validation recipe's own
+`for k in …`, the closed `type` set across its three copies (layout tree,
+front-matter example, XSD enumeration), each backfill recipe's heading against
+the template that names it, `drain-log`'s log header and column order against the
+run-log block, `convention-assets`' two `cp` lines against the refresh block, and
+`sift-init-tree`'s entry set against the layout block. An extractor whose output
+nothing compares against is decoration, so each one lands with its comparison,
+folded into the file that already owns the subject. Two rules go with them: every
+caller asserts the extraction is non-empty before comparing, so a reworded anchor
+fails on the extraction instead of passing a comparison of two empty sets; and a
+comparison that can only run one way — `sift-init-tree`'s, because the layout
+block draws shape as well as paths — carries an explicit excused list with a
+reason per entry, and asserts the excused entries are still documented.
+
 Coverage there is per subject, not per file: `allocate-id`, `archive` and
 `move-milestone` own the recipes that write, `query` and `labels` own the ones
 that only read, and `validation` owns everything that audits a tree. The read-only

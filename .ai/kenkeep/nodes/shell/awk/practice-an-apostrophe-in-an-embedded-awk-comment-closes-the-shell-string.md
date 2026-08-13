@@ -32,6 +32,16 @@ library every function in it disappears — callers fail with `roadmap_rows:
 command not found` and go on to produce plausible-looking partial output rather
 than stopping. Nothing in the message suggests quoting.
 
+Rephrasing only works while the quote is prose. When the program needs a literal
+single quote in its *data* — README's archived-resolution audit strips the
+quoting off a front-matter value with `gsub("[\047\"[:space:]]", "", res)`,
+because `resolution: ''` is one of the four empty forms it has to catch — spell
+it `\047` and let awk resolve the octal escape itself. It is a string escape, so
+it works in a dynamic regex as well as in any other string, and it was verified
+identical on gawk, mawk and nawk; the whole matrix runs that recipe for that
+reason. A shell-level `'\''` would work too and is unreadable inside a
+twenty-line program.
+
 Rephrase instead of escaping: `reserve-ids.sh in sift-prime`, `the reader
 invents`, never `it's` or `sift-prime's`. Every awk comment already in the tree
 obeys this, so matching them is the convention, not a workaround. `bash -n

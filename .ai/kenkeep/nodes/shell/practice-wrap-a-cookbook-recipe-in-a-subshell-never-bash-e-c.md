@@ -36,6 +36,21 @@ subshell, `( set -e` … `)`, so the option dies with the subshell, or save the
 block and run `bash -e block.sh`. Both were verified against a real tree; the
 `-c` form was verified to break.
 
+`eval "$RECIPE"` is not a wrapper either, and it is the one an agent checking a
+fail-closed guard by hand reaches for. `eval` runs the block in the *current*
+shell under the *current* options, so in an ordinary interactive or script shell
+the guard prints its line, the rest of the block runs on, and the check reports
+exit 0 for a guard that did exactly what it was supposed to. Wave 1 recorded
+this as "`set -e` does not propagate out of `eval`", which is not what happens —
+`set -e; eval "$R"` does stop, and takes the calling shell with it, which is its
+own way of being useless as a check. Both readings have one remedy:
+`( set -e; eval "$RECIPE" )`, where the option and the death are confined to the
+subshell and the recipe's own single quotes are safe because the text arrives
+through a variable rather than through `-c`. `recipe_runner` in
+`tests/lib/recipes.sh` does the file-based equivalent, writing `set -e` above
+the block and running it as a script; `run_recipe_plain` is the deliberate
+opposite, and exists to pin what an operator's un-`-e` shell survives.
+
 The `[ -d .ai/sift ]` tree guard used to be the one exception, ending in `exit 1`
 and so closing an interactive shell it was pasted into. SFT-0034 gave all three
 copies the `false` spelling and deleted the preamble's carve-out, so the rule is

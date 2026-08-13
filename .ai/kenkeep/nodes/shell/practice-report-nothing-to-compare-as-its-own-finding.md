@@ -43,6 +43,17 @@ else
 fi
 ```
 
+The same three outcomes reappear wherever a default is applied to a value that was read.
+`tests/run.sh` parses each test file's `# SUMMARY` line and then wrote
+`: "${t:=0}"; : "${a:=0}"; : "${fl:=0}"; : "${sk:=0}"`, which is the right default for an
+*empty* summary and launders the one case the aggregator exists to catch: a file that
+printed no summary at all — truncated, returned early, dead on the way there — aggregated
+as a passing file of zero cases and the run stayed green (SFT-0045). A missing state and a
+zeroed state have to be distinguishable *before* the defaults are applied, so the absent
+line is now its own branch that fails the run and names the file. It is the failure mode a
+harness cannot report on its own behalf, because the file that would report it is the file
+that said nothing.
+
 Keep the two diagnostics distinct rather than folding the empty read into the mismatch,
 because they name different repairs. `MISMATCH:` means the front matter is authoritative
 and the file sits in the wrong directory — a `mv`. `NO MILESTONE:` means the key is absent

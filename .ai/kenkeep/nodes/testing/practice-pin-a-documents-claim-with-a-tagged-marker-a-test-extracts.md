@@ -55,6 +55,37 @@ reader wants one.
 Both tests also assert that the document names the test file that reads it, so deleting
 the documentation of the coupling breaks the build rather than quietly orphaning it.
 
+The shape has since been reused twice more, and copying either precedent verbatim breaks
+the new check in the opposite direction each time. `@PIN:` (SFT-0047,
+`tests/static/card-prose-pins.test.sh`) pins every claim a skill card's prose makes about
+a file that lives elsewhere — a `references/*.md` prompt, the gate's state names, an XSD
+root element, README's body headings. Its haystack is the **raw** file, because
+`agents-card-copies`' comment filter is right for shell and fatal here: a markdown ATX
+heading is a line starting with `#`, so a filtered haystack would look for `## Problem` in
+a file it had just stripped every heading from. Its fenced blocks are **not** excluded,
+because `prompt-readme-sections` skips them to avoid sample headings while the targets
+here sit inside README's fenced layout and body blocks. Know which of the two filters is
+wrong for your target before reaching for either. `@BASELINE-CASE` is the fourth
+mechanism, and the smallest: `tests/static/schemas.test.sh` tags the cases that must
+survive the baseline-utility farm, and `suite-contract` extracts the names and asserts an
+`ok` line for each in the restricted run.
+
+`@PIN:` is also the first with two kinds of target, and the second kind exists only to
+stop a marker satisfying itself. A target ending in `/` is a card *directory*, and its
+construct is resolved against that directory's `SKILL.md` **front matter only** — the
+claim being pinned is that the card's `name:` key equals the directory holding it, and a
+whole-file match would be satisfied by the marker line, which spells the name too. Its
+negative case moves the `name:` line out of the front matter and into the body of a
+throwaway copy and asserts the pin still fails with the string still in the file.
+
+Two smaller rules travel with the family. A marker whose *form* is being documented goes
+in an inline code span, never on a line of its own, or the documentation parses as a
+marker and the extractor pins whatever the template says. And the standing ceiling of
+every one of these mechanisms is that deleting a tag and moving the thing it guarded in
+the same edit withdraws both claims and passes. That was weighed and left: it is a
+deliberate edit to a line whose comment says what it is for, and the alternative is a more
+brittle mechanism that fails on things nobody changed.
+
 <!-- kk:related:start -->
 # Related
 

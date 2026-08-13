@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:34a8c1581373af56437063823af026cf5939a72a3e91e4306d8f332d2bd2f426'
-node_count: 70
+nodes_hash: 'sha256:69688eed9992bae1029a4fdc587a27d7afb65100448ca64045a667291e36fd4b'
+node_count: 76
 ---
 # kenkeep Graph
 
-Total nodes: 70
+Total nodes: 76
 
 ## map-runlog-md-the-drain-s-append-only-run-log
 
@@ -132,13 +132,21 @@ Total nodes: 70
 - **tags:** sift, convention, sift-drain, sift-prime, testing
 - **relates_to:** practice-a-roadmap-row-is-its-first-ticket-cell, practice-match-a-sift-ticket-id-as-a-whole-token
 
+## practice-a-narrowing-list-is-a-claim-that-needs-its-own-case
+
+- **kind:** practice
+- **title:** A list that narrows a check is a claim, and needs a case of its own
+- **path:** testing/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md
+- **tags:** testing, convention, sift, gotcha
+- **relates_to:** practice-a-one-way-set-comparison-never-sees-a-withdrawal, practice-never-edit-the-tree-while-the-suite-is-running, practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test
+
 ## practice-a-one-way-set-comparison-never-sees-a-withdrawal
 
 - **kind:** practice
 - **title:** A one-way set comparison never sees a withdrawal
 - **path:** testing/practice-a-one-way-set-comparison-never-sees-a-withdrawal.md
 - **tags:** sift-init, convention, tickets
-- **relates_to:** practice-check-then-act-cp-is-not-a-create-if-absent, practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version
+- **relates_to:** practice-check-then-act-cp-is-not-a-create-if-absent, practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version, practice-a-narrowing-list-is-a-claim-that-needs-its-own-case
 
 ## practice-a-roadmap-row-is-its-first-ticket-cell
 
@@ -164,6 +172,14 @@ Total nodes: 70
 - **tags:** shell, cli, sift-drain, convention
 - **relates_to:** practice-honour-with-a-second-loop-never-a-bare-break
 
+## practice-a-sweep-claim-in-test-prose-is-an-assertion-with-no-test
+
+- **kind:** practice
+- **title:** A sweep claim in a test's own prose is an assertion with no test
+- **path:** testing/practice-a-sweep-claim-in-test-prose-is-an-assertion-with-no-test.md
+- **tags:** testing, docs, convention, sift
+- **relates_to:** practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts, practice-prove-the-damage-before-asserting-the-guard
+
 ## practice-account-for-ai-sift-being-gitignored
 
 - **kind:** practice
@@ -179,6 +195,14 @@ Total nodes: 70
 - **path:** shell/awk/practice-an-apostrophe-in-an-embedded-awk-comment-closes-the-shell-string.md
 - **tags:** awk, shell, portability, gotcha, sift-drain
 - **relates_to:** practice-keep-recipes-portable-gnu-and-bsd
+
+## practice-an-unset-awk-variable-subscripts-an-array-as-the-empty-string
+
+- **kind:** practice
+- **title:** An unset awk variable subscripts an array as "", never as 0
+- **path:** shell/awk/practice-an-unset-awk-variable-subscripts-an-array-as-the-empty-string.md
+- **tags:** awk, shell, gotcha, testing, sift
+- **relates_to:** practice-hand-awk-a-value-through-environ-never-through-v
 
 ## practice-assert-only-interleaving-invariant-properties-in-a-race-test
 
@@ -343,6 +367,14 @@ Total nodes: 70
 - **tags:** portability, shell, gotcha, sift, convention
 - **relates_to:** practice-keep-recipes-portable-gnu-and-bsd
 
+## practice-never-edit-the-tree-while-the-suite-is-running
+
+- **kind:** practice
+- **title:** Never edit the tree while tests/run.sh runs, and budget its two minutes
+- **path:** testing/practice-never-edit-the-tree-while-the-suite-is-running.md
+- **tags:** testing, gotcha, convention, sift
+- **relates_to:** practice-tree-digest-cannot-see-an-empty-directory, practice-probe-in-a-copied-tree-never-restore-with-git-checkout
+
 ## practice-never-push-or-file-upstream-during-a-drain
 
 - **kind:** practice
@@ -398,6 +430,22 @@ Total nodes: 70
 - **path:** testing/practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts.md
 - **tags:** testing, docs, convention, sift, shell
 - **relates_to:** practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test, practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version, practice-prove-the-damage-before-asserting-the-guard
+
+## practice-probe-a-locale-by-running-it-under-a-known-strict-shell
+
+- **kind:** practice
+- **title:** Probe a locale by running it, under a known-strict shell
+- **path:** portability/practice-probe-a-locale-by-running-it-under-a-known-strict-shell.md
+- **tags:** portability, testing, shell, gotcha, sift
+- **relates_to:** practice-keep-recipes-portable-gnu-and-bsd, practice-never-require-an-installable-binary
+
+## practice-probe-in-a-copied-tree-never-restore-with-git-checkout
+
+- **kind:** practice
+- **title:** Probe in a copied tree, and never restore a probe with git checkout
+- **path:** convention/practice-probe-in-a-copied-tree-never-restore-with-git-checkout.md
+- **tags:** convention, testing, gotcha, git, sift
+- **relates_to:** map-sift-skill-cards-are-sourced-from-src-skills-and-symlinked-into-claude-skills
 
 ## practice-prove-a-rewrite-left-the-rest-of-the-file-alone-with-diff
 

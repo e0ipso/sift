@@ -47,6 +47,13 @@ it: a path that does not exist, handed to an operator as the file to go fix. A d
 that misdirects is worse than none, and SFT-0029 and SFT-0037 moved both values in that
 call onto `ENVIRON`.
 
+The neighbouring mistake is to reach for the operand form instead. `awk 'prog' VAR=val file`
+is an *operand* assignment: it sets an awk variable at that point in the operand stream —
+after any file named before it has been read, and never before `BEGIN` — and it does not
+touch the environment, so `ENVIRON["VAR"]` in that program is empty. It also carries the
+same escape processing `-v` does. Neither form is the hand-off; the environment prefix on
+the invocation is.
+
 The counterpart trap is that `-v` is not banned outright — a bare `-v` flag on some other
 tool is fine, and `grep -v` is not this at all. What is banned is `-v name=value` carrying
 data, which is the form worth asserting mechanically:

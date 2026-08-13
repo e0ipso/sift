@@ -14,6 +14,7 @@ kk_derived_from: []
 kk_relates_to:
   - practice-check-then-act-cp-is-not-a-create-if-absent
   - practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version
+  - practice-a-narrowing-list-is-a-claim-that-needs-its-own-case
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -33,6 +34,14 @@ copy at all cannot be fixed by that command, so reporting it as `stale` prints a
 does nothing. `sift-init.sh` calls it `orphan`, in the same column width as `created`, `kept`
 and `stale`.
 
+Where the reverse direction genuinely cannot be an equality — `tests/scripts/sift-init-tree.test.sh`
+compares README's layout block against a materialised tree, and the block draws shape as
+well as paths — the escape is an explicit excused list with a reason per entry, plus a case
+asserting every excused entry is *still* documented. Without that second case the list is
+the hiding place the one-way comparison was already: an entry withdrawn from the spec
+leaves the subset check green and the excuse standing. See
+[[practice-a-narrowing-list-is-a-claim-that-needs-its-own-case]] for what such a list owes.
+
 The remedy for a withdrawal is a deletion, which is where the report stops. Nothing on disk
 distinguishes a schema the convention withdrew from one the repository added for itself, and
 deleting a file it did not create is the one repair an initializer must never make on its
@@ -43,4 +52,5 @@ own — so it prints an `rm` with the path resolved and lets the operator run it
 
 - Related: [practice-check-then-act-cp-is-not-a-create-if-absent](/practice-check-then-act-cp-is-not-a-create-if-absent.md)
 - Related: [practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version](/practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version.md)
+- Related: [practice-a-narrowing-list-is-a-claim-that-needs-its-own-case](/testing/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md)
 <!-- kk:related:end -->

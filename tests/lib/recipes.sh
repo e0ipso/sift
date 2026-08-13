@@ -30,6 +30,9 @@ recipe_prefix_setup()  { readme_block '**Set the prefix once per shell.**'; }
 recipe_allocate()      { readme_block '**Allocate the next ID**'; }
 recipe_roadmap_check() { readme_block '**Roadmap consistency check**'; }
 recipe_frontmatter()   { readme_block '**Validate front-matter across the tree**'; }
+# The conditional half of the same rule: `resolution` is required only once a
+# status is terminal, which the nine-key loop above has no way to express.
+recipe_resolution()    { readme_block '**Find tickets archived without a'; }
 
 # Query recipes. All read-only, all driven by $PREFIX (and $MILESTONE where the
 # recipe names one), so they run verbatim — no parameter swap is needed.

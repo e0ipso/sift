@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Cookbook: the prefix/tree guard and every recipe that audits a tree —
-# front-matter keys, folder/front-matter agreement, and the two section-backfill
-# lists (README.md).
+# front-matter keys, the archived-`resolution` rule, folder/front-matter
+# agreement, and the two section-backfill lists (README.md).
 #
 # Pins the rest of SFT-0010: a validation recipe run from the wrong directory
 # must diagnose and fail, never print a clean report for a tree it never read.
@@ -19,26 +19,41 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 SETUP="$(recipe_prefix_setup)"
 FRONTMATTER="$(recipe_frontmatter)"
+RESOLUTION="$(recipe_resolution)"
 # Read only by name, through the `eval "block=\$$name"` in the loops below, which
 # is why shellcheck calls this one unused while it sees SETUP and FRONTMATTER used
 # directly further down.
 # shellcheck disable=SC2034
 ROADMAP="$(recipe_roadmap_check)"
 GUARD='[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }'
+GUARDED='SETUP FRONTMATTER RESOLUTION ROADMAP'
+
+# guard_lines <block> — every fail-closed guard in a recipe: the
+# `<test> || { echo …; }` one-liners, and nothing else.
+#
+# SFT-0034 is a rule about these lines. It used to be checked by asserting the
+# whole block held no `exit` at all, which held only while every guarded recipe
+# was free of awk: awk's own `exit` ends the awk program, not the shell anyone
+# pasted the block into. The first guarded recipe to carry an awk pass — the
+# resolution audit below (SFT-0055) — closes its front-matter fence that way,
+# and the blanket check would have failed it for a construct SFT-0034 was never
+# about. Reading the guards out instead states the rule directly and gets
+# stronger rather than weaker: a second guard added to any block is checked too.
+guard_lines() { printf '%s\n' "$1" | grep '|| { echo'; }
 
 test_case "every guarded recipe carries the same POSIX tree guard"
 # `block` is assigned on the first line of the body, by an eval shellcheck cannot
 # follow; it is not an unset variable, and the assertions below would fail loudly
 # on the empty string rather than pass quietly.
 # shellcheck disable=SC2154
-for name in SETUP FRONTMATTER ROADMAP; do
+for name in $GUARDED; do
   eval "block=\$$name"
   assert_contains "$block" "$GUARD" "$name restates the guard verbatim"
   assert_not_contains "$block" '[[ ' "$name uses no bash-only test syntax"
-  # SFT-0034: the tree guard used to end `exit 1`, which closes the interactive
-  # shell the block was pasted into — the one mistake the guard exists to catch
-  # took the diagnosis with it. Every guard in the cookbook now ends in `false`.
-  assert_not_contains "$block" 'exit' "$name never spells its guard with exit"
+  guards="$(guard_lines "$block")"
+  assert_ne "" "$guards" "$name has a fail-closed guard to check"
+  assert_eq "" "$(printf '%s\n' "$guards" | grep -v 'false; }$')" \
+    "$name ends every guard in false, never exit"
 done
 
 # --- The guard leaves a pasted shell alive (SFT-0034) ------------------------
@@ -54,7 +69,7 @@ MARKER=GUARD_LEFT_THE_SHELL_ALIVE
 marked() { printf '%s\n' "$1" "printf '%s\\n' $MARKER"; }
 
 test_case "a failing tree guard reports without ending the shell it was pasted into"
-for name in SETUP FRONTMATTER ROADMAP; do
+for name in $GUARDED; do
   eval "block=\$$name"
   d="$(newdir)"                       # no .ai/sift anywhere in it
   run_recipe_plain "$d" "$(marked "$block")" PREFIX=SFT
@@ -65,7 +80,7 @@ for name in SETUP FRONTMATTER ROADMAP; do
 done
 
 test_case "the same guard still fails closed under set -e"
-for name in SETUP FRONTMATTER ROADMAP; do
+for name in $GUARDED; do
   eval "block=\$$name"
   d="$(newdir)"
   run_recipe "$d" "$(marked "$block")" PREFIX=SFT
@@ -207,6 +222,160 @@ test_case "a clean tree validates on every shell × locale"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open backlog/bug SFT-0042 complete 'Complete' > /dev/null
 for_shell_locale matrix_case "$d"
+
+# --- The archived-`resolution` rule (SFT-0055) -------------------------------
+#
+# The conditional half of the front-matter schema, and the half the nine-key loop
+# above cannot express: `resolution` is optional while a ticket is open and
+# required the moment its status turns terminal. Silence means "clean" here too,
+# so every case below pins the positive detection beside the quiet pass.
+
+test_case "the resolution audit is the documented text"
+assert_ne "" "$RESOLUTION" "the recipe extracts from README.md"
+assert_contains "$RESOLUTION" 'ARCHIVED WITHOUT RESOLUTION: ' "the diagnostic it prints"
+assert_contains "$RESOLUTION" 'NR == 1 && /^---[[:space:]]*$/' "it walks the front-matter fence"
+assert_not_contains "$RESOLUTION" "grep -m1" "no unscoped whole-file read"
+# Rule 3, spelled as a construct: the scan selects on the terminal `status`
+# values and spans both buckets, so it can never degrade into a listing of
+# whatever happens to sit under archive/.
+assert_contains "$RESOLUTION" 'st == "done" || st == "wontfix" || st == "superseded"' \
+  "the terminal statuses decide, not the directory"
+assert_contains "$RESOLUTION" '.ai/sift/open .ai/sift/archive' "and both buckets are read"
+
+resolutions() { run_recipe "$1" "$RESOLUTION" PREFIX=SFT; }
+
+test_case "each of the four empty forms is a finding"
+# The four shapes an unfilled `resolution` really takes on disk. The empty
+# string is the one that matters most: it is what sift-init's own front-matter
+# template ships, so it is what an archived-but-unexplained ticket looks like in
+# practice — and it is the one a bare `grep -L '^resolution:'` would miss.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" archive backlog/bug SFT-0001 absent 'Key absent' 'status: done' > /dev/null
+ticket "$d" archive backlog/bug SFT-0002 bare 'No value' 'status: wontfix' \
+  'resolution:' > /dev/null
+ticket "$d" archive backlog/bug SFT-0003 dquoted 'Empty string' 'status: superseded' \
+  'resolution: ""' > /dev/null
+ticket "$d" archive backlog/bug SFT-0004 squoted 'Empty string, single quotes' \
+  'status: done' "resolution: ''" > /dev/null
+resolutions "$d"
+assert_eq 0 "$R_STATUS" "exits 0 — it reports rather than fails"
+assert_eq 4 "$(printf '%s\n' "$R_OUT" | grep -c '^ARCHIVED WITHOUT RESOLUTION: ')" \
+  "all four are named"
+for slug in absent bare dquoted squoted; do
+  assert_contains "$R_OUT" "--$slug.md" "the $slug form is one of them"
+done
+
+test_case "a recorded resolution is not a finding, and a clean tree is silent"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" archive backlog/bug SFT-0001 done 'Done' 'status: done' \
+  'resolution: "Fixed in commit abc1234"' > /dev/null
+ticket "$d" archive backlog/bug SFT-0002 wont 'Wontfix' 'status: wontfix' \
+  "resolution: 'Not a bug'" > /dev/null
+ticket "$d" open backlog/bug SFT-0003 open 'Still open' > /dev/null
+resolutions "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "" "$R_OUT" "nothing to report"
+assert_eq "" "$R_ERR" "and nothing on stderr"
+
+test_case "the rule follows status, never the folder"
+# Rule 3 from both sides. A terminal ticket not yet moved still owes a
+# resolution, and an open ticket owes none however long it has been open — so a
+# scan keyed off `archive/` would miss the first and a scan keyed off the key
+# alone would list the second.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 notmoved 'Terminal, still in open/' \
+  'status: done' > /dev/null
+ticket "$d" open backlog/bug SFT-0002 stillopen 'Open, no resolution' > /dev/null
+resolutions "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq 'ARCHIVED WITHOUT RESOLUTION: .ai/sift/open/backlog/bug/SFT-0001--notmoved.md' \
+  "$R_OUT" "the terminal ticket under open/ is the only finding"
+
+test_case "a ticket with no status: at all is not this recipe's finding"
+# The separation the cookbook keeps everywhere else: an absent required key is
+# the front-matter validation's finding, and reporting it here as well would
+# name one repair as the other. There is no terminal status to owe a resolution
+# against, so the file passes here and fails there.
+d="$(newdir)"; make_tree "$d"
+mkdir -p "$d/.ai/sift/archive/backlog/bug"
+{ echo '---'; echo 'id: SFT-0001'; echo 'title: No status'; echo 'type: bug'
+  echo 'milestone: backlog'; echo 'priority: p2'; echo 'effort: m'
+  echo 'created: 2026-08-01'; echo 'updated: 2026-08-01'; echo '---'; } \
+  > "$d/.ai/sift/archive/backlog/bug/SFT-0001--nostatus.md"
+resolutions "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "" "$R_OUT" "the resolution audit says nothing"
+validate "$d"
+assert_contains "$R_OUT" 'SFT-0001--nostatus.md' "the front-matter validation is the one that reports it"
+
+test_case "a body line quoting either key at column 0 never decides the result"
+d="$(newdir)"; make_tree "$d"
+# Terminal, resolution recorded — a body that claims otherwise must not list it.
+g="$(ticket "$d" archive backlog/bug SFT-0001 recorded 'Recorded' 'status: done' \
+      'resolution: "Fixed in commit abc1234"')"
+printf '\nresolution:\nstatus: open is only prose here.\n' >> "$g"
+# Terminal, resolution empty — a body quoting a filled one must not clear it.
+g="$(ticket "$d" archive backlog/bug SFT-0002 unfilled 'Unfilled' 'status: done' \
+      'resolution: ""')"
+printf '\nresolution: "Fixed in commit abc1234" is only prose here.\n' >> "$g"
+# Open, but the body quotes a terminal status at column 0.
+g="$(ticket "$d" open backlog/bug SFT-0003 prose 'Prose only')"
+printf '\nstatus: done is only prose here.\n' >> "$g"
+resolutions "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq 'ARCHIVED WITHOUT RESOLUTION: .ai/sift/archive/backlog/bug/SFT-0002--unfilled.md' \
+  "$R_OUT" "exactly one finding, decided by the front matter alone"
+
+test_case "an empty archive and a ticket-less tree are both quiet"
+# Silence has to be a deliberate answer rather than an accident, on both the tree
+# every repository has right after sift-init and the one whose archive is empty.
+d="$(newdir)"; make_tree "$d"
+resolutions "$d"
+assert_eq 0 "$R_STATUS" "a ticket-less tree exits 0"
+assert_eq "" "$R_OUT" "…printing nothing"
+assert_eq "" "$R_ERR" "…and writing nothing to stderr"
+ticket "$d" open backlog/bug SFT-0001 open 'Still open' > /dev/null
+resolutions "$d"
+assert_eq 0 "$R_STATUS" "an empty archive exits 0"
+assert_eq "" "$R_OUT" "…printing nothing"
+assert_eq "" "$R_ERR" "…and writing nothing to stderr"
+
+test_case "no .ai/sift: the resolution audit diagnoses and fails"
+d="$(newdir)"
+resolutions "$d"
+assert_ne 0 "$R_STATUS" "exits non-zero"
+assert_eq "" "$R_OUT" "prints nothing, so silence is never read as a clean archive"
+assert_contains "$R_ERR" 'missing .ai/sift — run from the repository root' "says where to run it"
+
+test_case "the audit only reads"
+# An audit is the one kind of recipe that must never write, and this one is run
+# against real trees by whoever is about to trust the archive.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" archive backlog/bug SFT-0001 absent 'Key absent' 'status: done' > /dev/null
+ticket "$d" archive backlog/bug SFT-0002 done 'Done' 'status: done' \
+  'resolution: "Fixed"' > /dev/null
+before="$(tree_digest "$d")"
+resolutions "$d"
+assert_contains "$R_OUT" 'SFT-0001--absent.md' "the finding is made"
+assert_eq "$before" "$(tree_digest "$d")" "and the tree is byte-identical afterwards"
+
+resolution_matrix_case() {
+  local d="$1"
+  resolutions "$d"
+  if [ "$R_STATUS" -eq 0 ] &&
+     [ "$R_OUT" = 'ARCHIVED WITHOUT RESOLUTION: .ai/sift/archive/backlog/bug/SFT-0001--absent.md' ]
+  then t_ok "$R_LABEL"
+  else t_fail "$R_LABEL" "status=$R_STATUS" "stdout=$R_OUT"; fi
+}
+test_case "the resolution audit holds on every shell × awk × locale"
+# The full matrix rather than the grep/sed/find sweep: the recipe is an awk pass,
+# and the `\047` it spells the single quote with is an octal string escape each
+# awk resolves for itself.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" archive backlog/bug SFT-0001 absent 'Key absent' 'status: done' > /dev/null
+ticket "$d" archive backlog/bug SFT-0002 squoted 'Recorded, single quotes' 'status: done' \
+  "resolution: 'Fixed in commit abc1234'" > /dev/null
+for_matrix resolution_matrix_case "$d"
 
 # --- Folder / front-matter agreement -----------------------------------------
 #

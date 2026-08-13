@@ -867,6 +867,52 @@ the block can never print nine clean headers for a tree it only half read. A bla
 `|| true` would absorb that too, and the tree guard above exists precisely to stop this
 recipe reporting clean on a tree it did not read.
 
+**Find tickets archived without a `resolution`** — the one rule the validation above cannot
+carry. `resolution` is the only required key that becomes required *later*: optional while a
+ticket is open, mandatory the moment its status turns terminal. Adding it to the `for k in …`
+list would list every open ticket as a violation, so the conditional rule gets its own scan.
+It is keyed off `status`, never off the `archive/` directory: front matter is the source of
+truth and folders are an index (rule 3), so a `done` ticket owes a resolution wherever it
+currently sits, one not yet moved included. Same tree guard as above; a tree whose terminal
+tickets all record how they ended prints nothing and exits 0:
+```sh
+[ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }
+find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r f; do
+  awk '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
+    infm && /^---[[:space:]]*$/ { exit }
+    infm && /^status:/ { st = $2; next }
+    infm && /^resolution:/ {
+      res = $0
+      sub(/^resolution:[[:space:]]*/, "", res)
+      gsub("[\047\"[:space:]]", "", res)
+      next
+    }
+    END {
+      if (st == "done" || st == "wontfix" || st == "superseded")
+        if (res == "") print "ARCHIVED WITHOUT RESOLUTION: " FILENAME
+    }
+  ' "$f"
+done
+```
+All four empty forms are one finding, because all four are the same ticket: the key absent,
+`resolution:` with nothing after it, `resolution: ""`, and `resolution: ''`. The last two are
+why the value is stripped of quotes and spaces rather than compared against the empty string —
+the front-matter template ships `resolution: ""`, so the empty *string* is what an unfilled
+ticket actually looks like on disk. The single quote is written `\047` because the `awk`
+program is itself inside a single-quoted shell string, where a literal one would end the
+program early.
+
+`status` and `resolution` are read in one pass over the leading `---` fence, the same walk
+the label and agreement recipes use, so a body line quoting either key at column 0 cannot
+decide the result. A ticket whose front matter carries no `status:` at all is deliberately
+not this recipe's finding: there is no terminal status to owe a resolution against, and the
+absent key is already listed by the validation above — reporting it here as well would name
+one repair as the other. Piping `find` into `while read` is what makes the quiet answers
+honest: on a tree with no tickets the loop body never runs, so there is no `grep` "nothing
+selected" status to neutralise, and the only way to print nothing is to have read the tree
+and found nothing wrong — or to have failed the guard, which prints its diagnosis and stops.
+
 **Find bug tickets missing the `## Expected behaviour` section** (the backfill list after
 adopting the type-specific templates — add the section to each, or accept it as debt):
 ```sh

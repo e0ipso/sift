@@ -644,4 +644,31 @@ assert_eq 0 "$R_STATUS" "exits 0 — a missing optional tool costs nothing"
 assert_contains "$R_OUT" 'xmllint not installed — skipping (optional)' "it says so"
 assert_contains "$R_OUT" 'check the schema by eye' "and names the fallback"
 
+# --- The negative controls for the blocks this file reads (SFT-0052) ---------
+
+test_case "a reworded anchor extracts nothing rather than the wrong block"
+# Four of the seven normative blocks are read here — the front-matter example and
+# the three body templates — and each is guarded by a non-empty assertion above,
+# on the rule that a reworded anchor must fail on the extraction instead of
+# passing a comparison of two empty sets. Nothing had ever run that rule against
+# an anchor that stopped matching, so this does: one copy of README.md per block,
+# the block's own anchor constant reworded in it, and the extractor asked again.
+#
+# Every iteration restores $README before the next, and the last assertion of
+# each is the pristine extraction, so a case that leaked a damaged README into
+# the rest of the file would say so here rather than three files away.
+for pair in "ANCHOR_FRONTMATTER readme_frontmatter_example" \
+            "ANCHOR_BODY_CANONICAL readme_body_canonical" \
+            "ANCHOR_BODY_BUG readme_body_bug" \
+            "ANCHOR_BODY_FEATURE readme_body_feature"; do
+  anchor_var="${pair%% *}"; extractor="${pair#* }"
+  work="$(newdir)"
+  damaged="$(readme_reworded "$work" "${!anchor_var}")" || damaged=''
+  assert_ne "" "$damaged" "$extractor: its anchor line is in README.md to be reworded"
+  README="${damaged:-$README}"
+  assert_eq "" "$("$extractor")" "$extractor: a reworded anchor yields no block at all"
+  README="$REPO_ROOT/README.md"
+  assert_ne "" "$("$extractor")" "$extractor: and the real README still extracts"
+done
+
 summary

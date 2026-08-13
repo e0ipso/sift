@@ -229,6 +229,44 @@ assert_eq 2 "$R_STATUS" "an unreadable --root exits 2"
 assert_contains "$R_ERR" '--root is not a readable directory' "rather than creating it"
 assert_no_dir "$root/nowhere" "the path is genuinely not created"
 
+test_case "a valued option with nothing after it exits 2 instead of spinning (SFT-0044)"
+# The loop consumed a valued option with `shift 2`, and against a one-element
+# "$@" that shift fails — with `set -e` off the failure was discarded, `$1` was
+# still the same option on the next pass, and the script spun forever printing
+# nothing. The guard is per option, because this script mixes valued options with
+# valueless ones, so all three valued options are driven.
+#
+# No `timeout` here, deliberately. It is not on the baseline list in
+# static/suite-contract.test.sh — the suite's dependency contract — and its GNU
+# and BSD spellings differ. It is also not needed: the guard exits before the
+# loop can re-read `$1`, so a correct implementation returns immediately and a
+# regressed one hangs the runner, which is a diagnosis rather than a missing
+# assertion. What a passing run pins is the status and the diagnostic.
+root="$(newdir)"
+run_cmd "$root" "$INIT" --prefix ACME --root
+assert_eq 2 "$R_STATUS" "--root with no value exits 2"
+assert_contains "$R_ERR" 'error: --root requires a value' "naming the option that is short"
+assert_no_dir "$root/.ai" "and writing nothing"
+
+run_cmd "$root" "$INIT" --root "$root" --prefix
+assert_eq 2 "$R_STATUS" "--prefix with no value exits 2"
+assert_contains "$R_ERR" 'error: --prefix requires a value' "naming the option that is short"
+assert_no_dir "$root/.ai" "and writing nothing"
+
+run_cmd "$root" "$INIT" --root "$root" --prefix ACME --milestone
+assert_eq 2 "$R_STATUS" "--milestone with no value exits 2"
+assert_contains "$R_ERR" 'error: --milestone requires a value' "naming the option that is short"
+assert_no_dir "$root/.ai" "and writing nothing"
+
+# A missing word is not an empty one, and the two carry different diagnostics on
+# purpose: `--prefix ''` has its value, and the value is what is wrong with it.
+# Without this the arity guard could swallow the empty case and an operator would
+# be told to supply an argument they did supply.
+run_cmd "$root" "$INIT" --root "$root" --prefix ''
+assert_eq 2 "$R_STATUS" "an empty value exits 2 as well"
+assert_not_contains "$R_ERR" 'requires a value' "but not as a missing one"
+assert_contains "$R_ERR" '--prefix is required' "it is the value that is refused"
+
 test_case "--help prints the usage and writes nothing"
 root="$(newdir)"
 run_cmd "$root" "$INIT" --help
@@ -282,6 +320,13 @@ refused "an over-long prefix"    --root "$root" --prefix ABCDEFGHI
 refused "an empty prefix"        --root "$root" --prefix ''
 refused "a traversing milestone" --root "$root" --prefix ACME --milestone '../../../evil'
 refused "an uppercase milestone" --root "$root" --prefix ACME --milestone 'V2'
+# The three arity refusals against the same live tree (SFT-0044). Exit 2 alone
+# would not have caught the bug they guard — the regression never exited at all —
+# but a guard that exits before consuming its argument is also a guard that could
+# exit after a partial write, and this is where that is measured.
+refused "a --root with no value"      --prefix ACME --root
+refused "a --prefix with no value"    --root "$root" --prefix
+refused "a --milestone with no value" --root "$root" --prefix ACME --milestone
 
 test_case "a repeat init that IS well-formed still changes nothing but says so"
 # The control for the six above: the same live tree, the same command line, one
@@ -379,5 +424,22 @@ rel_digest() {  # rel_digest <root> — tree_digest, root-relative
 }
 assert_eq "$(rel_digest "$reference")" "$(rel_digest "$raced")" \
   "every file an uncontended init writes is present, and byte-identical"
+
+# --- The layout extraction's negative control (SFT-0052, criterion 9) ---------
+
+test_case "a reworded layout anchor extracts nothing rather than the wrong block"
+# The first case in this file asserts the extraction is non-empty before it
+# compares, which is only worth what a run against a REWORDED anchor proves. Here
+# is that run: the anchor is the extractor's own constant, so the two cannot
+# drift apart, and the damage is done to a copy because README.md is repository
+# content the no-writes digest watches.
+work="$(newdir)"
+damaged="$(readme_reworded "$work" "$ANCHOR_LAYOUT")" || damaged=''
+assert_ne "" "$damaged" "the anchor line is in README.md to be reworded"
+README="${damaged:-$README}"
+assert_eq "" "$(layout_entries)" \
+  "an anchor that no longer matches yields no entries at all, which the non-empty assertion above fails on"
+README="$REPO_ROOT/README.md"
+assert_ne "" "$(layout_entries)" "and the real README still extracts, so the case put it back"
 
 summary

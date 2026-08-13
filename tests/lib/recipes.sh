@@ -100,13 +100,54 @@ recipe_archive() {
 # src/skills/sift-init/assets/README.md is held byte-identical to it by
 # tests/scripts/sync-assets.test.sh, so extracting there as well would pin a copy
 # of a copy.
-readme_layout()              { readme_block '## Directory layout'; }
-readme_frontmatter_example() { readme_block 'Every ticket starts with YAML front-matter.'; }
-readme_body_canonical()      { readme_block 'Every body is built from four canonical sections'; }
-readme_body_bug()            { readme_block '— a bug ticket that does not say what'; }
-readme_body_feature()        { readme_block '`Problem` carries the motivation'; }
-readme_runlog_schema()       { readme_block 'Six columns, and a literal'; }
-readme_refresh()             { readme_block 'followed by the two commands below with the paths already resolved'; }
+#
+# Each anchor is a named constant rather than a literal inside the call, because
+# the negative control below has to reword THE anchor its extractor reads. A
+# control holding a second copy of the string would keep passing after the two
+# spellings drifted apart — it would reword a line the extractor no longer looks
+# for, watch it return nothing, and call that the coupling working.
+ANCHOR_LAYOUT='## Directory layout'
+ANCHOR_FRONTMATTER='Every ticket starts with YAML front-matter.'
+ANCHOR_BODY_CANONICAL='Every body is built from four canonical sections'
+ANCHOR_BODY_BUG='— a bug ticket that does not say what'
+ANCHOR_BODY_FEATURE='`Problem` carries the motivation'
+ANCHOR_RUNLOG='Six columns, and a literal'
+ANCHOR_REFRESH='followed by the two commands below with the paths already resolved'
+
+readme_layout()              { readme_block "$ANCHOR_LAYOUT"; }
+readme_frontmatter_example() { readme_block "$ANCHOR_FRONTMATTER"; }
+readme_body_canonical()      { readme_block "$ANCHOR_BODY_CANONICAL"; }
+readme_body_bug()            { readme_block "$ANCHOR_BODY_BUG"; }
+readme_body_feature()        { readme_block "$ANCHOR_BODY_FEATURE"; }
+readme_runlog_schema()       { readme_block "$ANCHOR_RUNLOG"; }
+readme_refresh()             { readme_block "$ANCHOR_REFRESH"; }
+
+# readme_reworded <dir> <anchor> — a copy of README.md at <dir>/README.md with
+# the first line carrying <anchor> replaced by prose that no longer carries it.
+# Prints the path to the copy.
+#
+# The negative control every extractor above was documented to have and none of
+# them ran (SFT-0052, criterion 9). "A reworded anchor makes the extractor return
+# nothing and the test fail loudly" is a claim about a path no case had taken:
+# each caller asserts its extraction is non-empty, but all of them assert it
+# against a README whose anchors all match. Rewording one in place is out of the
+# question — README.md is the file the no-writes digest in
+# static/suite-contract.test.sh watches most closely — so the control runs against
+# a copy, with $README repointed at it for the length of one case and restored
+# after. The restoration is asserted rather than assumed: every caller re-runs the
+# extractor against the real README as its last assertion.
+#
+# Returns 1 and prints nothing when no line carried the anchor, so a caller can
+# never read "the anchor was already gone" as "the extractor coped without it".
+readme_reworded() {
+  local dest="$1/README.md"
+  awk -v anchor="$2" '
+    !hit && index($0, anchor) { print "**An anchor line reworded by a negative control.**"; hit = 1; next }
+    { print }
+    END { exit(hit ? 0 : 1) }
+  ' "$README" > "$dest" || return 1
+  printf '%s\n' "$dest"
+}
 
 # --- Turning an extracted block into the set it states ------------------------
 

@@ -9,9 +9,10 @@
 # bracket expression was spelled the non-POSIX way — and every one of them is
 # silent, since a label that fails to parse simply never appears in the output.
 #
-# The three recipes embed the same awk program, so `shared program` below pins
-# them against each other: a fix applied to one copy and not the others is a
-# drift this suite is meant to catch.
+# The three recipes embed the same parser body — bar one loop-body action line
+# the filter writes for itself — so the `share one parser body` case below pins
+# all three against each other: a fix applied to one copy and not the others is
+# a drift this suite is meant to catch.
 
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
@@ -30,14 +31,26 @@ assert_contains "$COUNT" 'sub(/^[[:space:]]*[0-9]+[[:space:]]+/' \
 assert_contains "$FILTER" 'LABEL=${LABEL?}' "the worked example's label is driven by the test"
 assert_contains "$FILTER" 'if (a[i] == want)' "the filter compares whole labels, not substrings"
 
-test_case "the three recipes share one parser, character for character"
-# The awk body from `sub(/^labels:` through the closing `exit` is duplicated in
-# all three blocks. Comparing them keeps a fix from landing in one copy only.
+test_case "the three recipes share one parser body, bar the loop-body action"
+# The awk body from `sub(/^labels:` through the `}` closing the `for` loop is
+# duplicated in all three blocks, and comparing them keeps a fix from landing in
+# one copy only. List and count carry it character for character. The filter
+# differs on exactly one line — the loop-body action, which answers a different
+# question about the parsed label and is pinned on its own above — so the
+# three-way comparison drops that one line and compares everything else
+# unmodified: the `sub()` normalisation triple, the `split`, the `for` header
+# and the `gsub` trim.
 parser() {
   printf '%s\n' "$1" | awk '/sub\(\/\^labels:/ { p = 1 } p && /^[[:space:]]*\}$/ { print; p = 0 } p'
 }
+shared() {  # the parser body without the loop-body action each recipe writes itself
+  parser "$1" | awk '$0 !~ /^[[:space:]]*if \(a\[i\]/'
+}
 assert_ne "" "$(parser "$LIST")" "the parser body was located in the list recipe"
+assert_ne "" "$(shared "$FILTER")" "the shared body was located in the filter recipe"
 assert_eq "$(parser "$LIST")" "$(parser "$COUNT")" "list and count share it"
+assert_eq "$(shared "$LIST")" "$(shared "$FILTER")" \
+  "the filter shares it too, bar its own action line"
 
 test_case "POSIX character classes, not the banned bracket form"
 for r in "$LIST" "$COUNT" "$FILTER"; do

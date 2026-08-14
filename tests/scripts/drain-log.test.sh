@@ -303,38 +303,40 @@ done
 assert_eq 5 "$(log_rows "$root/.ai/sift/RUNLOG.md")" "one row each, on top of the dispatch"
 assert_eq "bookkeep" "$(log_field "$root/.ai/sift/RUNLOG.md" 5 4)" "the last one named itself"
 
-test_case "a phase name outside the set is refused and the log is left byte-identical"
-# The log is append-only, so a rejected phase name must not reach it: there is no
-# second command that could take the row back out.
-cksum_before="$(cksum < "$root/.ai/sift/RUNLOG.md")"
-for bad in bogus ORIENT implementing '' 'orient implement'; do
-  run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase "$bad"
-  assert_eq 2 "$R_STATUS" "phase [$bad] exits 2"
-  assert_contains "$R_ERR" "usage: drain-log.sh" "with a usage message on stderr"
-done
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase orient verify
-assert_eq 2 "$R_STATUS" "two phase names at once exit 2 as well"
-assert_eq "$cksum_before" "$(cksum < "$root/.ai/sift/RUNLOG.md")" \
-  "and none of those refusals appended a byte"
-
 test_case "a refused phase name is quoted back, which an arity error never does (SFT-0048)"
-# Exit 2 and a usage block are what an arity error prints too, so the case above
-# cannot tell a rejected NAME from a rejected COUNT: both assertions in it would
-# survive the loss of the line that says which string was refused, leaving an
-# operator with four lines of grammar and no mention of the argument.
+# One case, not two (SFT-0076). This list used to be driven twice through the
+# same command line: once for "exit 2 plus a usage block", and again here for the
+# quoted-back name. The first was strictly subsumed — exit 2 and the usage block
+# are both re-asserted below, the second time as a byte-for-byte equality against
+# the arity error rather than as a substring — so the pair was one behaviour
+# spelled twice. The cksum guard the first case carried is folded in here.
+#
+# Exit 2 and a usage block are what an arity error prints too, so a case that
+# asserted only those cannot tell a rejected NAME from a rejected COUNT: both
+# assertions would survive the loss of the line that says which string was
+# refused, leaving an operator with four lines of grammar and no mention of the
+# argument.
 #
 # So the ambiguity is built first — both arity errors are run and their stderr
 # captured — and every bad name is then required to print that same block plus a
 # line naming the value, with the diagnosis line proved to be the whole of the
 # difference by stripping it and comparing what is left.
+#
+# The log is append-only, so none of these refusals may reach it: there is no
+# second command that could take a row back out.
+cksum_before="$(cksum < "$root/.ai/sift/RUNLOG.md")"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase
 arity_err="$R_ERR"
 assert_eq 2 "$R_STATUS" "phase with no name at all exits 2"
-assert_contains "$arity_err" "usage: drain-log.sh" "printing the usage block"
+assert_contains "$arity_err" 'usage: drain-log.sh dispatch <TICKET>' "printing the usage block"
+assert_contains "$arity_err" 'drain-log.sh phase orient|implement|verify|bookkeep' \
+  "which lists the phase grammar it was measured against"
+assert_contains "$arity_err" 'drain-log.sh return <TICKET> <STATUS>' "and the other modes too"
 assert_not_contains "$arity_err" "error: not a drain phase" \
   "and nothing more: an arity error has no offending name to quote"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase orient verify
-assert_eq "$arity_err" "$R_ERR" "two names at once print that same block, byte for byte"
+assert_eq 2 "$R_STATUS" "two phase names at once exit 2 as well"
+assert_eq "$arity_err" "$R_ERR" "and print that same block, byte for byte"
 for bad in bogus ORIENT implementing '' 'orient implement'; do
   run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase "$bad"
   assert_eq 2 "$R_STATUS" "phase [$bad] exits 2"
@@ -346,7 +348,7 @@ for bad in bogus ORIENT implementing '' 'orient implement'; do
     "that one line being the whole of the difference between the two refusals"
 done
 assert_eq "$cksum_before" "$(cksum < "$root/.ai/sift/RUNLOG.md")" \
-  "and diagnosing a name appended nothing either"
+  "and not one of those refusals — arity or name — appended a byte"
 
 test_case "the writer stamps a real clock"
 # The only case in this file that sleeps, and it asserts a lower bound rather
@@ -828,11 +830,22 @@ check_usage() {  # check_usage <label>
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG";                  check_usage "no mode at all"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" frobnicate;       check_usage "an unknown mode"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch;         check_usage "dispatch with no ticket"
+# `return` with nothing at all reaches `[ $# -ge 2 ] || usage`, and that line had
+# no covering case until SFT-0076's branch probe went looking for one: `return
+# SFT-0001` below is an ODD count, so the `$# % 2` check one line down refuses it
+# whether the arity check is there or not. With the arity check removed and this
+# row absent, a bare `return` exits 0, says nothing, and creates an empty run log
+# — a silent success where a usage error is the contract. The assert_no_file at
+# the end of this case is the second half of that claim.
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return;           check_usage "return with no arguments at all"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return SFT-0001;  check_usage "return with no status"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" return SFT-0001 'done' SFT-0002
 check_usage "return with an odd argument count, whose last ticket has no status"
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" phase;            check_usage "phase with no name"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report now;       check_usage "report, which takes no argument"
+# `phase` with no name is deliberately absent from this list (SFT-0076): it is
+# run once, for the arity-error property, by "a refused phase name is quoted
+# back" above, which asserts each of the four mode lines this helper checks and
+# then goes on to use that block as the control the named refusals differ from.
 assert_no_file "$root/.ai/sift/RUNLOG.md" "no rejected command line created a log"
 
 test_case "an empty status is refused before it can become a permanent blank cell (SFT-0048)"
@@ -927,11 +940,18 @@ assert_eq "dispatch" "$(log_field "$marked/.ai/sift/RUNLOG.md" 1 2)" \
 
 # `report` is the read-only mode, so the marker in front of it is asserted on
 # the output rather than on a file.
+#
+# assert_marker_is_inert is deliberately NOT used here (SFT-0076). That helper
+# APPENDS the marker, which is the right shape for a script whose whole command
+# line is options; this one's first positional is a subcommand, so the claim is
+# about `-- report` and not about `report --` — the latter is an argument to a
+# mode that takes none, and is refused two cases down.
 run_cmd "$marked" env SIFT_ROOT="$marked" "$DRAINLOG" report
-bare_out="$R_OUT"; bare_status="$R_STATUS"
+bare_out="$R_OUT"; bare_status="$R_STATUS"; bare_err="$R_ERR"
 run_cmd "$marked" env SIFT_ROOT="$marked" "$DRAINLOG" -- report
 assert_eq "$bare_status" "$R_STATUS" "-- report exits as report does"
 assert_eq "$bare_out" "$R_OUT" "and prints the same table, byte for byte"
+assert_eq "$bare_err" "$R_ERR" "with the same stderr"
 
 test_case "the marker ends the options and does not become one (SFT-0033)"
 # Behind the subcommand there is no option list left to end, so a second marker
@@ -944,10 +964,11 @@ run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" --
 check_usage "the marker with no subcommand behind it"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" -- --
 check_usage "a second marker, which is a positional and not a mode"
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" -- frobnicate
-check_usage "an unknown mode behind the marker"
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" -- report now
-check_usage "report behind the marker still takes no argument"
+# `-- frobnicate` and `-- report now` used to be driven here as well. Neither
+# reaches a line the surviving cases do not (SFT-0076): the unknown-mode arm and
+# report's arity gate are both covered by the bare `frobnicate` and `report now`
+# rows above, and the `--)` arm's own claim — the marker is consumed, and exactly
+# one of them is — is what `--`, `-- --` and `-- dispatch SFT-0001` pin here.
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch -- SFT-0001
 assert_eq 2 "$R_STATUS" "a marker after the subcommand is an operand, and exits 2"
 assert_contains "$R_ERR" "error: not a ticket ID: --" "refused in the ticket position it stood in"

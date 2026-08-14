@@ -604,12 +604,20 @@ EOF
 test_case "an absent optional tool costs a matrix axis, never a failure"
 # The portability matrix sweeps dash and three awks. None of them is baseline,
 # so on a machine without them the axis has to collapse rather than fail.
+#
+# The farm is also the host that empties a sweep completely: with no dash and no
+# optional awk, every combination left is the baseline `for_matrix` now excludes
+# (SFT-0078), so this run is the live proof that the emptied sweep reports one
+# `skip` — counted in the summary, named in run.sh's SKIP-reason line — instead
+# of passing silently. `tests=` is unchanged because `test_case` sits outside the
+# sweep, and `failures=0` because a sweep with nothing to vary is a narrowing,
+# not a failure.
 run_cmd "$TMPROOT" env -i PATH="$BIN" HOME="$TMPROOT" SIFT_TEST_KEEP= \
   TMPDIR="$TMPROOT" "$SUITE/cookbook/allocate-id.test.sh"
 assert_eq 0 "$R_STATUS" "the matrix file is green with only bash and one awk"
 assert_contains "$R_OUT" 'failures=0' "no assertion failed"
-assert_contains "$R_OUT" '# SUMMARY tests=16 assertions=30 failures=0 skipped=0' \
-  "narrowing itself changes none of the restricted run's counts"
+assert_contains "$R_OUT" '# SUMMARY tests=16 assertions=31 failures=0 skipped=1' \
+  "the emptied sweep costs one counted skip and nothing else"
 for record in \
   '# NARROWED shell dash — not installed' \
   '# NARROWED awk gawk — not installed' \
@@ -632,6 +640,17 @@ test_case "a locale the machine lacks costs its leg, never a fake one (SFT-0046)
 # shell and awk axes are pinned to one member each so the labels below are the
 # whole of what ran: `awk` rather than gawk/mawk/nawk because it is the baseline
 # name, so this case cannot narrow to nothing on a machine with no optional awk.
+#
+# The locale axis carries THREE names for the same reason (SFT-0078). `C` is now
+# the excluded baseline — the leg `recipe_runner` runs anyway — so an axis of
+# `C` plus the bogus name would leave both sweeps empty and this case would
+# assert its guard over nothing that ran. `POSIX` is the member that keeps a leg
+# on every machine: it is the second name `locale_available` returns true for
+# without probing, guaranteed present by the same standard, and it is not the
+# default, so it is swept rather than excluded. Keeping `C` in the axis beside it
+# is deliberate — the expected labels below then show the exclusion dropping the
+# baseline while the locale guard skips the missing name, which is the layering
+# this case has to keep true.
 saved_locales="$matrix_locales"; saved_shells="$matrix_shells"; saved_awks="$matrix_awks"
 BOGUS_LOCALE='zz_ZZ.no-such-locale'
 leg_dir="$(newdir)"
@@ -641,14 +660,14 @@ leg() {
   run_recipe "$leg_dir" 'printf "%s\n" "a b"'
   LEG_ERR="$LEG_ERR$R_ERR"
 }
-matrix_locales="C $BOGUS_LOCALE"; matrix_shells='bash'; matrix_awks='awk'
+matrix_locales="C POSIX $BOGUS_LOCALE"; matrix_shells='bash'; matrix_awks='awk'
 narrowed_log="$leg_dir/narrowed.log"
 for_matrix leg > "$narrowed_log"
 for_shell_locale leg >> "$narrowed_log"
 matrix_locales="$saved_locales"; matrix_shells="$saved_shells"; matrix_awks="$saved_awks"
 
-assert_eq ' bash/awk/C bash/C' "$LEGS" \
-  "the callback runs once per sweep for C and never for the locale the machine lacks"
+assert_eq ' bash/awk/POSIX bash/POSIX' "$LEGS" \
+  "the callback runs once per sweep for the locale that is present and not the baseline, and never for the one the machine lacks"
 assert_eq "# NARROWED locale $BOGUS_LOCALE — not available" "$(cat "$narrowed_log")" \
   "both entry points share one uncounted, once-per-file narrowing channel"
 assert_eq "" "$LEG_ERR" "and no leg's stderr carries a setlocale warning"

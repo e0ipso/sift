@@ -348,13 +348,25 @@ layout_entries() {
 
 # --- Running an extracted recipe --------------------------------------------
 #
+# The environment a case runs in when it pins nothing — the one every plain
+# cookbook case therefore already used. Declared once and read twice: by
+# `recipe_runner` below as its fallbacks, and by `baseline_leg` further down as
+# the combination the sweeps must not re-run (SFT-0078). Writing `bash`/`C` a
+# second time inside the sweeps would let the two drift, and the drift would be
+# silent in both directions — a sweep excluding a leg the runner no longer
+# defaults to drops real coverage, and one that misses the new default goes back
+# to re-running the plain case.
+RECIPE_DEFAULT_SHELL=bash
+RECIPE_DEFAULT_LOCALE=C
+RECIPE_DEFAULT_AWK=''   # empty: no shim, so `awk` is whatever PATH resolves
+#
 # run_recipe <workdir> <script-text> [VAR=VAL ...]
 #
 # Sets R_STATUS, R_OUT, R_ERR. Honours three knobs so one case can be replayed
 # across the portability matrix:
-#   R_SHELL  bash | dash          (default bash)
+#   R_SHELL  bash | dash          (default $RECIPE_DEFAULT_SHELL)
 #   R_AWK    absolute awk path    (default: whatever PATH resolves)
-#   R_LOCALE LC_ALL value         (default C)
+#   R_LOCALE LC_ALL value         (default $RECIPE_DEFAULT_LOCALE)
 #
 # The block is run under `set -e`: the cookbook's guards are `… || { echo …;
 # false; }` one-liners, and their documented "stops with the tree untouched"
@@ -392,7 +404,8 @@ run_recipe_plain() { recipe_runner '' "$@"; }
 # shellcheck disable=SC2034
 recipe_runner() {
   local opts="$1" dir="$2" script="$3"; shift 3
-  local sh_bin="${R_SHELL:-bash}" awk_bin="${R_AWK:-}" loc="${R_LOCALE:-C}"
+  local sh_bin="${R_SHELL:-$RECIPE_DEFAULT_SHELL}" awk_bin="${R_AWK:-$RECIPE_DEFAULT_AWK}"
+  local loc="${R_LOCALE:-$RECIPE_DEFAULT_LOCALE}"
   local wrap shim path outf errf src ln
   if [ -z "$(printf '%s' "$script" | tr -d '[:space:]')" ]; then
     src="${BASH_SOURCE[2]:-?}"; ln="${BASH_LINENO[1]:-?}"
@@ -466,10 +479,72 @@ locale_available() {  # locale_available <name>
   _locale_known="$_locale_known$loc=0 "; return 1
 }
 
+# --- The leg that is not a leg (SFT-0078) ------------------------------------
+#
+# Both sweeps below used to open with the combination `recipe_runner` already
+# defaults to — `bash`/`C` and the PATH `awk` — so every sweep re-ran, on the
+# fixture the plain case above it had just used, a claim that plain case had
+# already made, and made it *worse*: a matrix callback collapses several
+# conditions into one `t_ok`/`t_fail` whose failure output is a label rather than
+# an expected/actual pair. That leg is excluded here. Nothing is narrowed: the
+# exclusion removes ONE combination, never an axis member, so every shell, every
+# awk and every locale the machine has is still entered by another leg.
+
+# default_awk_bin — the awk a plain case really runs, resolved once.
+#
+# `command -v awk` is the answer, not the string `awk`: on most Linuxes
+# /usr/bin/awk is a symlink into an alternatives farm, so which of gawk/mawk/nawk
+# the default *is* is a property of the machine and cannot be written down here.
+_default_awk_bin=''
+default_awk_bin() {
+  if [ -z "$_default_awk_bin" ]; then
+    _default_awk_bin="$(command -v "${RECIPE_DEFAULT_AWK:-awk}" 2>/dev/null || true)"
+    # A machine with no awk at all: nothing can equal the default, so no leg is
+    # excluded — which is the right answer rather than a fallback.
+    [ -n "$_default_awk_bin" ] || _default_awk_bin='/nonexistent/awk'
+  fi
+  printf '%s\n' "$_default_awk_bin"
+}
+
+# baseline_leg <shell> <locale> [awk-binary] — true when a leg would run in
+# exactly the environment `recipe_runner` falls back to, so running it asserts
+# nothing the plain case above the sweep has not already asserted.
+#
+# The awk argument is optional because `for_shell_locale` pins no awk: with
+# R_AWK empty the leg runs the PATH awk by construction, which is the default by
+# definition. When it IS pinned, the comparison is against the resolved binary
+# and by inode (`-ef`) rather than by name — `bash/mawk/C` on a host whose `awk`
+# is gawk is a genuinely different program from the plain case's and must keep
+# running, while `bash/gawk/C` on that same host is the plain case again under
+# another spelling.
+baseline_leg() {  # baseline_leg <shell> <locale> [awk-binary]
+  [ "$1" = "$RECIPE_DEFAULT_SHELL" ] || return 1
+  [ "$2" = "$RECIPE_DEFAULT_LOCALE" ] || return 1
+  if [ "$#" -ge 3 ]; then
+    [ "$3" -ef "$(default_awk_bin)" ] || return 1
+  fi
+  return 0
+}
+
+# matrix_empty <callback> — a sweep with no leg left, said out loud.
+#
+# Excluding the baseline means a sweep CAN now come out empty: a host with no
+# dash, no second awk and no UTF-8 locale has nothing left to vary. That is a
+# narrowing of coverage down to the plain case, and the suite's rule is that a
+# narrowed leg is named — so it goes through the harness's `skip`, where the
+# `# SUMMARY … skipped=` count carries it into the run summary, rather than
+# through a sweep that quietly asserts nothing.
+matrix_empty() {  # matrix_empty <callback>
+  skip "the $1 sweep, which has no combination left to vary" \
+    "every member this machine has was narrowed away or is the excluded baseline $RECIPE_DEFAULT_SHELL/$RECIPE_DEFAULT_LOCALE on the awk PATH resolves"
+}
+
 # Matrix members are optional, but dropping one is still part of the result.
-# Keep this channel separate from skip(): narrowing must not change assertion or
-# skip counts, and one absent member may be encountered by many sweeps in one
-# test file. Both matrix entry points share this seen-set and emitter.
+# Keep this channel separate from skip(): an absent member must not change
+# assertion or skip counts, and one absent member may be encountered by many
+# sweeps in one test file. (A sweep that absence empties completely is the one
+# thing that IS counted, once, by `matrix_empty` above.) Both matrix entry
+# points share this seen-set and emitter.
 _matrix_narrowed_seen=' '
 matrix_narrowed() {  # matrix_narrowed <axis> <member> <reason>
   local axis="$1" member="$2" reason="$3" key
@@ -488,7 +563,7 @@ matrix_narrowed() {  # matrix_narrowed <axis> <member> <reason>
 # shellcheck disable=SC2034
 for_matrix() {
   local cb="$1"; shift
-  local sh a l bin
+  local sh a l bin legs=0
   for sh in $matrix_shells; do
     if ! command -v "$sh" > /dev/null 2>&1; then
       matrix_narrowed shell "$sh" "not installed"
@@ -505,12 +580,18 @@ for_matrix() {
           matrix_narrowed locale "$l" "not available"
           continue
         fi
+        # After the availability guards, so an absent member is still recorded
+        # on the narrowing channel before this one drops the repeat (SFT-0078).
+        if baseline_leg "$sh" "$l" "$bin"; then continue; fi
+        legs=$((legs + 1))
         R_SHELL="$sh"; R_AWK="$bin"; R_LOCALE="$l"; R_LABEL="$sh/$a/$l"
         "$cb" "$@"
       done
     done
   done
-  R_SHELL=bash; R_AWK=''; R_LOCALE=C; R_LABEL=default
+  R_SHELL="$RECIPE_DEFAULT_SHELL"; R_AWK="$RECIPE_DEFAULT_AWK"
+  R_LOCALE="$RECIPE_DEFAULT_LOCALE"; R_LABEL=default
+  [ "$legs" -gt 0 ] || matrix_empty "$cb"
 }
 
 # for_shell_locale <callback> [args…] — the same sweep for recipes built only
@@ -521,7 +602,7 @@ for_matrix() {
 # shellcheck disable=SC2034
 for_shell_locale() {
   local cb="$1"; shift
-  local sh l
+  local sh l legs=0
   for sh in $matrix_shells; do
     if ! command -v "$sh" > /dev/null 2>&1; then
       matrix_narrowed shell "$sh" "not installed"
@@ -532,9 +613,15 @@ for_shell_locale() {
         matrix_narrowed locale "$l" "not available"
         continue
       fi
+      # No awk is pinned here, so the excluded leg is bit-for-bit the plain
+      # runner's environment and takes the two-argument form (SFT-0078).
+      if baseline_leg "$sh" "$l"; then continue; fi
+      legs=$((legs + 1))
       R_SHELL="$sh"; R_AWK=''; R_LOCALE="$l"; R_LABEL="$sh/$l"
       "$cb" "$@"
     done
   done
-  R_SHELL=bash; R_AWK=''; R_LOCALE=C; R_LABEL=default
+  R_SHELL="$RECIPE_DEFAULT_SHELL"; R_AWK="$RECIPE_DEFAULT_AWK"
+  R_LOCALE="$RECIPE_DEFAULT_LOCALE"; R_LABEL=default
+  [ "$legs" -gt 0 ] || matrix_empty "$cb"
 }

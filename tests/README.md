@@ -139,8 +139,29 @@ narrows, the run stays green, and the suite keeps needing nothing but the
 baseline. The locale axis is inside that sentence, not an exception to it —
 `locale_available` in `lib/recipes.sh` probes each name by running it and skips
 the ones the machine lacks, because a leg labelled `en_US.utf8` on a host that
-falls back to `C` asserts nothing about collation. `bash` and `C` are the two
-members that are always there, so the sweep can never narrow to nothing.
+falls back to `C` asserts nothing about collation.
+
+One combination is excluded from both sweeps: the environment `recipe_runner`
+falls back to when a case pins nothing — `bash`, `C`, and the `awk` that `PATH`
+resolves — because that is the environment every plain case in the file already
+ran in, and a leg repeating it re-asserts, through a callback that reports a
+label rather than an expected/actual pair, what the plain case above it asserted
+in full (SFT-0078). The exclusion is derived from `RECIPE_DEFAULT_SHELL` /
+`RECIPE_DEFAULT_LOCALE` / `RECIPE_DEFAULT_AWK` rather than written out a second
+time, and its `awk` half is decided at runtime by inode against `command -v awk`,
+so `bash/mawk/C` on a host whose `awk` is gawk is a real leg and keeps running.
+It removes one combination, never an axis member: every shell, every `awk` and
+every locale the machine has is still entered.
+
+So a sweep *can* now narrow to nothing — on a host with no `dash`, no second
+`awk` and no UTF-8 locale, every combination left is the excluded baseline. What
+still covers the recipe there is the plain case above the sweep, which is why
+each sweep is required to sit under one asserting at least what its dropped leg
+asserted. The empty sweep is audible rather than silent: `for_matrix` and
+`for_shell_locale` report it through the harness's `skip`, naming the excluded
+combination, so it lands in the `# SUMMARY … skipped=` count and in `run.sh`'s
+SKIP-reason line like any other named gap. `static/suite-contract.test.sh` drives
+that path for real, by running a matrix file against the baseline-only PATH farm.
 
 The GitHub Actions job and the dev container both use Linux, so no BSD host is
 available there and the BSD half of the promise is covered statically instead:

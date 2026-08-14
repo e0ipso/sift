@@ -60,22 +60,47 @@ for args in omitted empty; do
   else t_fail "$args --prefix" "status=$R_STATUS" "stderr=$R_ERR"; fi
 done
 
-test_case "a lowercase prefix is rejected under a UTF-8 locale too"
+test_case "a lowercase prefix is rejected under a UTF-8 locale with collated ranges"
 # [A-Z] is collated: under en_US.UTF-8 the order is aAbBcC…zZ, so a range would
-# accept 'abc' on exactly the machines the range was meant to be portable to.
+# accept 'ABc' on exactly the machines the range was meant to be portable to.
 # Driven from the matrix axis and its availability guard rather than a third
 # hardcoded copy of the names: a locale the machine lacks would otherwise run
 # here under a libc fallback to C, asserting nothing about UTF-8 collation
 # (SFT-0046).
+#
+# A locale switch alone proves nothing on bash 5.0+, where globasciiranges is
+# enabled by default and a range is compared by ASCII code whatever LC_ALL says
+# — which is why this case ran green against a `[A-Z0-9]`/`[A-Z]` mutant until
+# SFT-0080. Clear the option explicitly to reproduce the matcher stock macOS
+# bash 3.2 uses, the shell the explicit character lists exist for.
+#
+# 'ABc' is the fixture, not 'abc': under aAbBcC…zZ collation 'a' sorts BEFORE
+# 'A', so a leading lowercase letter falls outside [A-Z] in every locale and
+# cannot tell a range from the explicit list. Every other row of the rejection
+# matrix above is settled before the character class or contains a character
+# outside a collated A..Z anywhere. Both verdicts are asserted under the same
+# locale and the same matcher, because a validator that rejected everything
+# would satisfy the refusal half on its own.
 for loc in $matrix_locales; do
   locale_available "$loc" || continue
-  for p in abc ABc; do
-    root="$(newdir)"
-    R_LOCALE="$loc" init_prefix "$root" "$p"
-    if [ "$R_STATUS" -eq 2 ] && [ ! -e "$root/.ai" ]
-    then t_ok "'$p' rejected under LC_ALL=$loc"
-    else t_fail "'$p' rejected under LC_ALL=$loc" "status=$R_STATUS" "stderr=$R_ERR"; fi
-  done
+
+  root="$(newdir)"
+  R_LOCALE="$loc" run_cmd "$root" bash +O globasciiranges "$INIT" \
+    --root "$root" --prefix ABc
+  if [ "$R_STATUS" -eq 2 ] &&
+     case "$R_ERR" in *"$MALFORMED"*) true ;; *) false ;; esac &&
+     [ ! -e "$root/.ai" ]
+  then t_ok "'ABc' rejected under LC_ALL=$loc with globasciiranges disabled"
+  else t_fail "'ABc' was accepted under LC_ALL=$loc with globasciiranges disabled" \
+    "status=$R_STATUS" "stderr=$R_ERR"; fi
+
+  root="$(newdir)"
+  R_LOCALE="$loc" run_cmd "$root" bash +O globasciiranges "$INIT" \
+    --root "$root" --prefix ABC
+  if [ "$R_STATUS" -eq 0 ] && grep -q '^prefix: ABC$' "$root/.ai/sift/config/config.yaml"
+  then t_ok "'ABC' accepted under LC_ALL=$loc with globasciiranges disabled"
+  else t_fail "'ABC' accepted under LC_ALL=$loc with globasciiranges disabled" \
+    "status=$R_STATUS" "stderr=$R_ERR"; fi
 done
 # R_LOCALE is an input global read by run_cmd in tests/lib/harness.sh, so no
 # reader for it exists in this file. The reset is load-bearing: without it every

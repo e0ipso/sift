@@ -83,6 +83,7 @@ change, in the same commit as the implementation (README.md, rule 9).
 | 42 | ~~SFT-0080~~ | ~~Drive the prefix validator through a collated matcher~~ — done | SFT-0067 |
 | 43 | ~~SFT-0081~~ | ~~Fail a cookbook case when its recipe extracts to nothing~~ — done |  |
 | 44 | SFT-0082 | Decide whether .ai/sift is tracked, and make the tree agree |  |
+| 45 | SFT-0083 | Collapse the matrix legs whose awk name resolves to a binary another leg already ran | SFT-0078 |
 
 ## Wave 3
 

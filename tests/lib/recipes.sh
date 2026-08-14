@@ -376,11 +376,32 @@ run_recipe_plain() { recipe_runner '' "$@"; }
 # this library. shellcheck reads one file at a time and so cannot see those reads;
 # exporting them would be a lie, since the readers share this shell rather than
 # being child processes.
+#
+# Empty script text is refused here rather than run (SFT-0081). Every caller
+# hands this function the output of an extractor whose whole contract is that a
+# reworded — or deleted — fenced block yields nothing, and running nothing exits
+# 0 having printed nothing: exactly what the cookbook's negative cases assert, so
+# a recipe deleted from README.md left ten of them green. The refusal is a
+# counted `t_fail` naming the caller's case and the line that called, not a
+# silent `return`, for two reasons: a case whose recipe vanished must report a
+# failing assertion rather than a smaller assertion count, and every cookbook
+# case — including ones added later — inherits the guard from the one boundary
+# they all cross instead of restating it. R_STATUS/R_OUT/R_ERR are still set, so
+# the assertions that follow read this call rather than the previous one's
+# leftovers; 127 is "there was no command to run", which is what happened.
 # shellcheck disable=SC2034
 recipe_runner() {
   local opts="$1" dir="$2" script="$3"; shift 3
   local sh_bin="${R_SHELL:-bash}" awk_bin="${R_AWK:-}" loc="${R_LOCALE:-C}"
-  local wrap shim path outf errf
+  local wrap shim path outf errf src ln
+  if [ -z "$(printf '%s' "$script" | tr -d '[:space:]')" ]; then
+    src="${BASH_SOURCE[2]:-?}"; ln="${BASH_LINENO[1]:-?}"
+    t_fail "the recipe extracted to nothing — README.md has no such fenced block" \
+      "an extractor returned empty text, so this case would have asserted against a recipe that does not exist" \
+      "handed to ${FUNCNAME[1]} from ${src##*/}:$ln"
+    R_STATUS=127; R_OUT=''; R_ERR=''
+    return 0
+  fi
   wrap="$(mktemp "$TMPROOT/recipe.XXXXXX")"
   { [ -z "$opts" ] || printf '%s\n' "$opts"; printf '%s\n' "$script"; } > "$wrap"
 

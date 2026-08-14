@@ -34,11 +34,16 @@ test_case "no guarded recipe uses bash-only test syntax"
 # and still fail closed under set -e — is driven by the two cases below.
 #
 # `block` is assigned on the first line of the body, by an eval shellcheck cannot
-# follow; it is not an unset variable, and the assertions below would fail loudly
-# on the empty string rather than pass quietly.
+# follow; it is not an unset variable.
+#
+# It is asserted non-empty first, though (SFT-0081). This is the one case in the
+# file that never runs a recipe, so the guard in `recipe_runner` cannot reach it,
+# and `assert_not_contains` is satisfied by the empty string: delete these four
+# blocks from README.md and a ban on their contents passes for want of contents.
 # shellcheck disable=SC2154
 for name in $GUARDED; do
   eval "block=\$$name"
+  assert_ne "" "$block" "$name extracts from README.md"
   assert_not_contains "$block" '[[ ' "$name uses no bash-only test syntax"
 done
 
@@ -584,6 +589,11 @@ assert_eq '.ai/sift/open/caching/feature/SFT-0001--nodir.md' "$R_OUT" \
 test_case "the feature backfill list reads open/ only"
 # Archived features are terminal: there is nothing left to propose, so the
 # recipe deliberately does not root itself at .ai/sift the way the bug one does.
+#
+# Non-empty first, the way the normative-block cases above do it (SFT-0081): an
+# absent root is what `assert_not_contains` reports on a recipe that was deleted
+# from README.md as readily as on one that deliberately narrows to open/.
+assert_ne "" "$FEATURE_MISSING" "the recipe extracts from README.md"
 assert_not_contains "$FEATURE_MISSING" '.ai/sift/archive' "archive is out of scope"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" archive caching/feature SFT-0001 arch 'Archived' 'type: feature' \

@@ -338,24 +338,15 @@ assert_eq 2 "$(grep -c '^--- $' "$dest")" "both markers are written back verbati
 assert_contains "$(roadmap "$d")" '| ~~SFT-0042~~ | ~~Spaced fence~~ — done |' \
   "and the roadmap row is struck in the same run"
 
-test_case "the widened fence pattern still cannot be re-opened by a body rule"
-# The widening pulls against SFT-0016: now that `--- ` closes the block, a
-# horizontal rule in the body — plain or spaced — is a fresh candidate for
-# re-opening it. It cannot, because `in_fm` is only ever set at NR == 1.
-d="$(newdir)"; make_tree "$d"
-f="$(ticket "$d" open backlog/bug SFT-0042 rules 'Rules in the body' body=adversarial)"
-space_the_fence "$f"
-before="$d/body.before"; body "$f" > "$before"
-roadmap_row "$d" 1 SFT-0042 'Rules in the body' '-'
-archive "$d" SFT-0042 'done' 'Landed'
-dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--rules.md"
-after="$d/body.after"; body "$dest" > "$after"
-assert_eq 0 "$R_STATUS" "exits 0"
-assert_same "$before" "$after" "every byte after the closing fence is unchanged"
-assert_eq "done" "$(fm "$dest" status)" "the front-matter status was still rewritten"
-assert_eq 1 "$(grep -c '^status: done$' "$dest")" "exactly one status line was written"
-assert_eq 1 "$(grep -c "^updated: $TODAY\$" "$dest")" "exactly one updated line was written"
-assert_eq 1 "$(grep -c '^resolution: "Landed"$' "$dest")" "exactly one resolution line"
+# The spaced fence and the adversarial body do not need a case multiplying them
+# together (SFT-0077). The only way a body horizontal rule — plain or spaced —
+# could re-open the front-matter region is `in_fm` being set again, and `in_fm`
+# is set only by a fence on line 1 (README.md, "front matter starts at line 1
+# only"), so the two inputs cannot interact. Each factor is pinned on its own:
+# the SFT-0016 case above drives `body=adversarial`, whose body carries a plain
+# AND a spaced horizontal rule, against an unspaced fence; the SFT-0026 case
+# drives the spaced markers end to end, through the rewrite and out to the
+# struck roadmap row.
 
 # --- Portability matrix ------------------------------------------------------
 

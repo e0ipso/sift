@@ -3,9 +3,11 @@
 # front-matter keys, the archived-`resolution` rule, folder/front-matter
 # agreement, and the two section-backfill lists (README.md).
 #
-# Pins the rest of SFT-0010: a validation recipe run from the wrong directory
-# must diagnose and fail, never print a clean report for a tree it never read.
-# The roadmap half of that ticket lives in roadmap-consistency.test.sh.
+# Pins SFT-0010 whole: a validation recipe run from the wrong directory must
+# diagnose and fail, never print a clean report for a tree it never read. All
+# four guarded recipes are swept below from the `GUARDED` list, the roadmap
+# consistency check among them, so this file owns the rule for every one of them
+# and roadmap-consistency.test.sh holds no half of it (SFT-0077).
 #
 # What binds these recipes together is that silence means "clean". That makes an
 # audit that reads nothing indistinguishable from a tree with nothing wrong, so
@@ -76,7 +78,11 @@ for name in $GUARDED; do
   d="$(newdir)"
   run_recipe "$d" "$(marked "$block")" PREFIX=SFT
   assert_ne 0 "$R_STATUS" "$name exits non-zero"
-  assert_not_contains "$R_OUT" "$MARKER" "$name stops at the guard, reaching nothing after it"
+  # Empty rather than merely marker-free (SFT-0077): every guarded recipe places
+  # the guard ahead of anything that writes to stdout, so silence is the honest
+  # expectation — and it still proves the marker after the block was never
+  # reached. This is what the four per-recipe repeats used to assert one apiece.
+  assert_eq "" "$R_OUT" "$name prints nothing at all, so silence is never read as a clean report"
 done
 
 # --- The prefix export -------------------------------------------------------
@@ -116,13 +122,6 @@ config_yaml "$d" inline ACME
 read_prefix "$d"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "ACME" "$R_OUT" "a trailing comment on the key's own line is discarded"
-
-test_case "no .ai/sift: the guard diagnoses and fails"
-d="$(newdir)"
-read_prefix "$d"
-assert_ne 0 "$R_STATUS" "exits non-zero"
-assert_eq "" "$R_OUT" "no prefix is printed"
-assert_contains "$R_ERR" 'missing .ai/sift — run from the repository root' "says where to run it"
 
 # --- Front-matter validation -------------------------------------------------
 
@@ -195,13 +194,6 @@ assert_eq "$REQUIRED_COUNT" "$(printf '%s\n' "$R_OUT" | grep -c '^== missing ')"
   "every header prints — under set -e the run is not truncated at the first"
 assert_eq "" "$(headers_only "$R_OUT")" "no file is listed"
 assert_eq "" "$R_ERR" "and nothing is written to stderr"
-
-test_case "no .ai/sift: front-matter validation diagnoses and fails"
-d="$(newdir)"
-validate "$d"
-assert_ne 0 "$R_STATUS" "exits non-zero"
-assert_eq "" "$R_OUT" "prints no headers, so nothing reads as clean"
-assert_contains "$R_ERR" 'missing .ai/sift' "says why"
 
 matrix_case() {
   local d="$1"
@@ -327,13 +319,6 @@ resolutions "$d"
 assert_eq 0 "$R_STATUS" "an empty archive exits 0"
 assert_eq "" "$R_OUT" "…printing nothing"
 assert_eq "" "$R_ERR" "…and writing nothing to stderr"
-
-test_case "no .ai/sift: the resolution audit diagnoses and fails"
-d="$(newdir)"
-resolutions "$d"
-assert_ne 0 "$R_STATUS" "exits non-zero"
-assert_eq "" "$R_OUT" "prints nothing, so silence is never read as a clean archive"
-assert_contains "$R_ERR" 'missing .ai/sift — run from the repository root' "says where to run it"
 
 test_case "the audit only reads"
 # An audit is the one kind of recipe that must never write, and this one is run

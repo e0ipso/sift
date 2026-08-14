@@ -27,8 +27,18 @@ for p in AB ABCDEFGH A1 SFT; do
 done
 
 test_case "rejected prefixes never reach a mkdir"
+# One row per branch, not one per spelling (SFT-0075). 'A' and '1AB' are the two
+# distinct ways the [A-Z]?* accept arm fails — no second character, and no
+# leading letter — and are not interchangeable. 'AB-C' is the single
+# punctuation-or-space row: the shell-metacharacter spellings it stands for
+# (ABC!, ABC!;rm, AB C) are driven end to end, canary and all, by the payload
+# case further down. 'abc' and 'ÄB' are the collation claim constraint 1 of
+# SFT-0075 keeps: they are why the arm spells its character list out instead of
+# writing [A-Z0-9]. 'ABc', the other half of that claim, is driven by the locale
+# loop below under a collated matcher with this loop's own two assertions, so it
+# is not repeated here.
 newline="$(printf 'A\nB')"
-for p in 'A' '1AB' 'ABC!' 'ABC!;rm' 'AB-C' 'AB C' 'abc' 'ABc' 'ÄB' "$newline"; do
+for p in 'A' '1AB' 'AB-C' 'abc' 'ÄB' "$newline"; do
   root="$(newdir)"
   init_prefix "$root" "$p"
   label="$(printf '%s' "$p" | tr '\n' '~')"

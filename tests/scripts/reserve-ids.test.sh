@@ -179,15 +179,19 @@ assert_eq "" "$R_OUT" "and prints no ID"
 assert_contains "$R_ERR" 'reserve-ids.sh needs a count' "saying what is missing"
 assert_contains "$R_ERR" "$USAGE" "with the usage line"
 
-test_case "a non-numeric or negative count is refused"
-for bad in abc 1.5 -1 '3 4' 1e3 ' '; do
-  reserve "$d" "$bad"
-  label="$(printf '%s' "$bad" | tr ' ' '~')"
-  if [ "$R_STATUS" -eq 1 ] && [ -z "$R_OUT" ] &&
-     case "$R_ERR" in *'count must be'*) true ;; *) false ;; esac
-  then t_ok "'$label' exits 1 with a diagnostic and no ID"
-  else t_fail "'$label' is refused" "status=$R_STATUS" "stdout=$R_OUT" "stderr=$R_ERR"; fi
-done
+test_case "a non-numeric count is refused with the character check's own message"
+# One row, not six (SFT-0075). abc, 1.5, -1, '3 4', 1e3 and ' ' all reach the one
+# `*[!0-9]*` arm of `case "$COUNT"`, so five of them pinned nothing the sixth did
+# not. -1 is the survivor because it is the input a reader would expect to land on
+# the at-least-1 branch instead, which makes it the row whose branch is worth
+# naming. The message is asserted exactly rather than on the shared 'count must
+# be' substring the at-least-1 message also carries: on the substring, a build
+# that routed every non-numeric count to the at-least-1 branch passed unchanged.
+reserve "$d" -1
+assert_eq 1 "$R_STATUS" "exits 1"
+assert_eq "" "$R_OUT" "and prints no ID"
+assert_contains "$R_ERR" 'count must be a positive whole number, got: -1' \
+  "the character check's own message, with the value echoed back"
 
 test_case "zero is refused with the count's own message"
 reserve "$d" 0

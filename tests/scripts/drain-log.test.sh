@@ -139,15 +139,7 @@ cost_line() { printf '%s\n' "$R_OUT" | grep '^minutes per ticket resolved:' || t
 # --- The sandbox itself ------------------------------------------------------
 
 test_case "no sift tree exists above the temporary tree"
-trees=''
-d="$TMPROOT"
-while :; do
-  [ -d "$d/.ai/sift" ] && trees="$trees $d"
-  parent="$(dirname "$d")"
-  [ "$parent" = "$d" ] && break
-  d="$parent"
-done
-assert_eq "" "$trees" "an upward walk from TMPROOT cannot reach a real sift tree to append to"
+assert_eq "" "$(markers_above "$TMPROOT")" "an upward walk from TMPROOT cannot reach a real sift tree to append to"
 
 # --- Write modes -------------------------------------------------------------
 

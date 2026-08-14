@@ -40,17 +40,8 @@ test_case "no sift marker exists above the temporary tree"
 # Every tier assertion below reads "the nearest hit is the one I planted". That
 # only holds while TMPROOT has no marker above it — and if one did exist, the
 # walk could resolve to the real repository this suite is testing.
-markers=''
-d="$TMPROOT"
-while :; do
-  for m in .ai/sift .git AGENTS.md CLAUDE.md; do
-    [ -e "$d/$m" ] && markers="$markers $d/$m"
-  done
-  parent="$(dirname "$d")"
-  [ "$parent" = "$d" ] && break
-  d="$parent"
-done
-assert_eq "" "$markers" "the upward walk from TMPROOT cannot reach a real project"
+assert_eq "" "$(markers_above "$TMPROOT" .ai/sift .git AGENTS.md CLAUDE.md)" \
+  "the upward walk from TMPROOT cannot reach a real project"
 
 # --- Tier precedence ---------------------------------------------------------
 

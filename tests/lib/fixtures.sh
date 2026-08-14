@@ -353,6 +353,13 @@ ticket() {
   : "$cat"
 }
 
+# space_the_fence <file> — put one trailing space on both front-matter markers.
+# YAML permits it after a document marker, so the result is still a valid ticket.
+space_the_fence() {
+  awk 'n < 2 && /^---[[:space:]]*$/ { n++; print "--- "; next } { print }' "$1" \
+    > "$1.spaced" && mv "$1.spaced" "$1"
+}
+
 # fm <file> <key> — read one front-matter value (test-side reimplementation, so
 # a bug in the product's own parser cannot mask itself).
 fm() {

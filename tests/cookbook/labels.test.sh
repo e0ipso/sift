@@ -284,6 +284,14 @@ while [ "$i" -le 12 ]; do
   i=$((i + 1))
 done
 ticket "$d" open caching/bug SFT-0013 dup 'Dup' 'labels: [api, api]' > /dev/null
+# The sweep no longer runs the default environment as its first leg (SFT-0078),
+# and the two-digit width is the one claim this fixture makes that no plain case
+# above makes: the blank-and-repeat case pins `Foo Bar` and the single-carrier
+# `api` at single-digit counts, where a fixed-offset cut and a leading-run
+# `sub()` are indistinguishable. Asserted here, plainly, so a host with no dash,
+# no second awk and no UTF-8 locale still checks it.
+lbl "$d" "$COUNT"
+assert_eq 12 "$(count_of 'Foo Bar')" "twelve carriers survive uniq -c's re-padded column"
 for_matrix count_matrix_case "$d"
 
 summary

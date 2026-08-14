@@ -78,7 +78,7 @@ change, in the same commit as the implementation (README.md, rule 9).
 | 37 | ~~SFT-0075~~ | ~~Collapse the init and prime validator matrices to one row per guard branch~~ — done |  |
 | 38 | ~~SFT-0076~~ | ~~Collapse the drain helpers' usage-exit permutations to one per option-loop branch~~ — done |  |
 | 39 | ~~SFT-0077~~ | ~~Delete the per-recipe cases the file's own GUARDED sweep already covers~~ — done |  |
-| 40 | SFT-0078 | Stop the portability matrices re-running the base case as their bash x C leg |  |
+| 40 | ~~SFT-0078~~ | ~~Stop the portability matrices re-running the base case as their bash x C leg~~ — done |  |
 | 41 | SFT-0079 | Hoist the duplicated fixture helpers into tests/lib |  |
 | 42 | ~~SFT-0080~~ | ~~Drive the prefix validator through a collated matcher~~ — done | SFT-0067 |
 | 43 | ~~SFT-0081~~ | ~~Fail a cookbook case when its recipe extracts to nothing~~ — done |  |

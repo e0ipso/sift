@@ -2,9 +2,15 @@
 # Cookbook: "Roadmap consistency check" (README.md).
 #
 # Pins SFT-0009 (the check reads a whole numeric suffix, so an ID past
-# <PREFIX>-9999 is not truncated into a phantom stale row) and the half of
-# SFT-0010 that belongs to this recipe (fail closed when .ai/sift is absent,
-# rather than reporting a clean bill of health for a tree it never read).
+# <PREFIX>-9999 is not truncated into a phantom stale row) and SFT-0015 (both
+# directions match a whole ID token, never a prefix of a longer one).
+#
+# SFT-0010 — fail closed when .ai/sift is absent, rather than reporting a clean
+# bill of health for a tree it never read — is NOT pinned here. This recipe is
+# the `ROADMAP` member of the `GUARDED` list in validation.test.sh, whose two
+# sweeps drive that rule over all four guarded recipes at once; a per-recipe
+# repeat here covered one of them and taught the next author to write a fifth
+# copy (SFT-0077).
 
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
@@ -91,13 +97,6 @@ assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq 'NOT IN ROADMAP: SFT-00420
 STALE IN ROADMAP: SFT-0042' "$R_OUT" \
   "the unlisted ticket and the ticketless row are both named, one finding each"
-
-test_case "no .ai/sift: diagnoses and fails instead of reporting clean"
-d="$(newdir)"
-check "$d"
-assert_ne 0 "$R_STATUS" "exits non-zero"
-assert_eq "" "$R_OUT" "reports no findings at all"
-assert_contains "$R_ERR" 'missing .ai/sift' "says why on stderr"
 
 matrix_case() {
   local d="$1"

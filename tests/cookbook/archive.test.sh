@@ -308,13 +308,6 @@ assert_eq '"Landed"' "$(fm "$dest" resolution)" "…including the one it inserts
 
 # --- A fence marker with a trailing space (SFT-0026) -------------------------
 
-# space_the_fence <file> — put one trailing space on both front-matter markers.
-# YAML permits it after a document marker, so the result is still a valid ticket.
-space_the_fence() {
-  awk 'n < 2 && /^---[[:space:]]*$/ { n++; print "--- "; next } { print }' "$1" \
-    > "$1.spaced" && mv "$1.spaced" "$1"
-}
-
 test_case "a ticket whose fence markers carry a trailing space still archives"
 # SFT-0026: this recipe used to open on the bare /^---$/ while all five read-only
 # walks opened on /^---[[:space:]]*$/, so `--- ` made one valid ticket front

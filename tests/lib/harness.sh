@@ -107,6 +107,37 @@ tree_digest() {  # tree_digest <dir>
   done
 }
 
+# markers_above <dir> [marker…] — every project marker that exists on the walk
+# from <dir> up to `/`, one `<ancestor>/<marker>` path per line, and nothing at
+# all when the walk is clean (SFT-0079).
+#
+# This is a claim about TMPROOT, which this file creates above, so it lives in
+# the harness rather than in fixtures.sh: no sift tree is involved, and a file
+# sourcing only the harness must still be able to state its sandbox premise.
+# Three files do — each keeps its own case and its own failure message, because
+# what the walk reaching a real project would invalidate differs per file.
+#
+# The marker list is a parameter, defaulting to `.ai/sift`, so the site that
+# needs a wider list (the gate's four tiers) names it where its tier semantics
+# are already documented instead of forking this helper.
+#
+# The test is `-e`, never `-d`: a `.git` FILE is a legitimate marker at the wide
+# site — it is what a worktree and a submodule root carry — so a `-d`-only walk
+# would silently stop seeing them.
+markers_above() {
+  local d="$1"; shift
+  [ "$#" -gt 0 ] || set -- .ai/sift
+  local parent m
+  while :; do
+    for m in "$@"; do
+      [ -e "$d/$m" ] && printf '%s\n' "$d/$m"
+    done
+    parent="$(dirname "$d")"
+    [ "$parent" = "$d" ] && break
+    d="$parent"
+  done
+}
+
 # run_cmd <workdir> <command…> — run a shipped script through its real command
 # line. Sets R_STATUS, R_OUT, R_ERR; honours R_LOCALE.
 #

@@ -63,15 +63,7 @@ sweep() {  # sweep <workdir> <check-fn> [env assignments…]
 # --- The sandbox itself ------------------------------------------------------
 
 test_case "no sift tree exists above the temporary tree"
-trees=''
-d="$TMPROOT"
-while :; do
-  [ -d "$d/.ai/sift" ] && trees="$trees $d"
-  parent="$(dirname "$d")"
-  [ "$parent" = "$d" ] && break
-  d="$parent"
-done
-assert_eq "" "$trees" "the upward walk from TMPROOT cannot reach a real sift tree"
+assert_eq "" "$(markers_above "$TMPROOT")" "the upward walk from TMPROOT cannot reach a real sift tree"
 
 # --- SIFT_ROOT ---------------------------------------------------------------
 

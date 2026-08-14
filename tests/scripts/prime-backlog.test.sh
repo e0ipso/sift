@@ -537,6 +537,8 @@ assert_eq 1 "$R_STATUS" "three arguments is not four"
 assert_contains "$R_ERR" 'takes exactly 4 arguments, got 3' "counted in the message"
 run_cmd "$d" env SIFT_ROOT="$d" "$APPEND" 1 ACME-0001 'One' '' 'extra'
 assert_eq 1 "$R_STATUS" "and neither is five"
+assert_contains "$R_ERR" 'takes exactly 4 arguments, got 5' \
+  "the interpolated count follows the arity it was given"
 append "$d" 0 ACME-0001 'One' ''
 assert_eq 1 "$R_STATUS" "wave 0 is refused"
 assert_contains "$R_ERR" 'wave must be at least 1' "with the bound stated"
@@ -545,14 +547,16 @@ assert_eq 1 "$R_STATUS" "a non-numeric wave is refused"
 append "$d" 1 acme-0001 'One' ''
 assert_eq 1 "$R_STATUS" "a lower-case ID is refused"
 assert_contains "$R_ERR" 'ticket ID must look like ACME-NNNN' "against the resolved prefix"
-append "$d" 1 ACME-1 'One' ''
-assert_eq 1 "$R_STATUS" "an unpadded ID is refused"
-append "$d" 1 ACME-000x 'One' ''
-assert_eq 1 "$R_STATUS" "so is one with a non-digit in the number"
+# The unpadded (ACME-1) and non-digit-tail (ACME-000x) spellings used to be driven
+# here too. Both shapes are in the id_cases fixture of "the two cards classify
+# every ID of one list alike (SFT-0042)" below, which drives them through BOTH
+# cards rather than only this one, so the rows here pinned strictly less and are
+# gone (SFT-0075). acme-0001 stays: its assert_contains pins the resolved prefix
+# inside the message, which the agreement helper's substring match does not.
 append "$d" 1 ACME-0001 '' ''
 assert_eq 1 "$R_STATUS" "an empty title is refused"
 assert_contains "$R_ERR" 'title must not be empty' "explicitly"
-assert_same "$before" "$(roadmap "$d")" "after eight refusals the roadmap is untouched"
+assert_same "$before" "$(roadmap "$d")" "after six refusals the roadmap is untouched"
 
 # --- The escaping hazard -----------------------------------------------------
 

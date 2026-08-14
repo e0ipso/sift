@@ -128,6 +128,31 @@ run_cmd() {
   R_ERR="$(cat "$errf")"
 }
 
+# assert_marker_is_inert <label> <workdir> <command…> — the bare-versus-`--`
+# equivalence, in one place (SFT-0076).
+#
+# SFT-0024 and SFT-0033 gave every card script one spelling of `--`, so several
+# of them make the identical claim: a lone marker with nothing behind it is
+# accepted and changes nothing. That claim used to be restated word for word per
+# script, which reads as three permutations of one case rather than as one rule
+# asked of three scripts. Each script still owns its own loop and its own `--)`
+# arm, so each still gets its own three assertions — what is shared is the
+# wording and the procedure, not the coverage.
+#
+# The command is passed whole rather than as a script path, because these scripts
+# are driven through `env SIFT_ROOT=… <script>` and the marker has to be appended
+# to a real command line for the parse to be the one under test.
+assert_marker_is_inert() {
+  local label="$1" dir="$2"; shift 2
+  local status out err
+  run_cmd "$dir" "$@"
+  status="$R_STATUS"; out="$R_OUT"; err="$R_ERR"
+  run_cmd "$dir" "$@" --
+  assert_eq "$status" "$R_STATUS" "$label: the marker alone exits exactly as the bare run does"
+  assert_eq "$out" "$R_OUT" "$label: and prints the same output, byte for byte"
+  assert_eq "$err" "$R_ERR" "$label: with the same stderr"
+}
+
 summary() {
   echo "# SUMMARY tests=$T_TESTS assertions=$T_ASSERTS failures=$T_FAILS skipped=$T_SKIPS"
   [ "$T_FAILS" -eq 0 ]

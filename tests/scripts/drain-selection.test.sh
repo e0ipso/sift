@@ -290,12 +290,12 @@ roadmap_row "$d" 1 ACME-0001 'One' '-'
 roadmap_row "$d" 2 ACME-0002 'Two' '-'
 
 next "$d"
-bare_status="$R_STATUS"; bare_out="$R_OUT"; bare_err="$R_ERR"
+bare_out="$R_OUT"
 assert_eq "ACME-0002" "$(out_key ticket)" "bare, the blocked row is stepped over"
-next "$d" --
-assert_eq "$bare_status" "$R_STATUS" "the marker alone exits exactly as the bare run does"
-assert_eq "$bare_out" "$R_OUT" "and prints the same report, byte for byte"
-assert_eq "$bare_err" "$R_ERR" "with the same stderr"
+# The accept branch, through the shared helper rather than restated per script
+# (SFT-0076): wave-status.sh makes the identical claim and now calls the same
+# three assertions, so the two cannot drift into two wordings of one rule.
+assert_marker_is_inert next-ticket.sh "$d" env SIFT_ROOT="$d" "$NEXT"
 
 next "$d" --include-blocked
 flag_out="$R_OUT"
@@ -305,17 +305,21 @@ next "$d" --include-blocked --
 assert_eq 0 "$R_STATUS" "an option in front of the marker still applies"
 assert_eq "$flag_out" "$R_OUT" "and the report is the one the flag produces"
 
+# The refusal branch: ONE case, because `-- --include-blocked`, `-- --`,
+# `-- ACME-0001` and `-- --group` are four spellings of one exit through the
+# `[ $# -eq 0 ] || usage` line after the loop (SFT-0076). The flag spelling is
+# the survivor because it is the only one whose wrong answer is a plausible one
+# — a report that silently included the blocked ticket — so it is the one that
+# can assert the script did not answer as if the flag had been read. The usage
+# line is asserted whole, which names both accepted spellings and so folds in
+# the `--group` assertion the deleted `-- --group` row carried.
 next "$d" -- --include-blocked
 assert_eq 2 "$R_STATUS" "behind the marker the flag is a positional, and none is accepted"
 assert_eq "" "$R_OUT" "in particular it does not answer as if the flag had been read"
 assert_ne "$flag_out" "$R_OUT" "and certainly not with the blocked ticket"
-assert_contains "$R_ERR" 'usage: next-ticket.sh [--include-blocked]' "the usage line says so"
+assert_contains "$R_ERR" 'usage: next-ticket.sh [--include-blocked] [--group]' \
+  "the usage line says so, naming every spelling the script does accept"
 assert_contains "$R_ERR" 'note: -- ends the options' "and the note documents the marker"
-
-next "$d" -- --
-assert_eq 2 "$R_STATUS" "a second marker is a positional too, not a second marker"
-next "$d" -- ACME-0001
-assert_eq 2 "$R_STATUS" "and a ticket ID behind it is refused: this script selects, it does not look up"
 
 # --- next-ticket.sh: dispatch groups -----------------------------------------
 #
@@ -377,11 +381,11 @@ grouped_out="$R_OUT"
 next "$d" --group --
 assert_eq 0 "$R_STATUS" "an option in front of the marker still applies"
 assert_eq "$grouped_out" "$R_OUT" "and the grouped report is byte for byte the same"
-next "$d" -- --group
-assert_eq 2 "$R_STATUS" "behind the marker it is a positional, and this script takes none"
-assert_eq "" "$R_OUT" "in particular it does not answer as if the flag had been read"
-assert_contains "$R_ERR" 'usage: next-ticket.sh' "the usage line says so"
-assert_contains "$R_ERR" '--group' "naming the flag among the spellings it accepts"
+# `-- --group` is gone (SFT-0076): it exits through the same
+# `[ $# -eq 0 ] || usage` line as `-- --include-blocked`, which keeps the single
+# case for that branch and now asserts the whole usage line — so the one thing
+# this row pinned that the other did not, `--group` being named among the
+# accepted spellings, is asserted there instead of here.
 
 test_case "a lead with no cluster is a group of one, and body prose is not front matter"
 # The cluster is read through fm_value's fence walk. A `^cluster:` grep would
@@ -773,20 +777,21 @@ test_case "wave-status.sh accepts -- and still refuses what follows it (SFT-0033
 # The refusal above is what makes the acceptance safe — the marker must not
 # become a way to smuggle `--wave 1` past the parser and read a full-roadmap
 # table as the answer to a narrower question.
-wave_status "$d"
-bare_status="$R_STATUS"; bare_out="$R_OUT"; bare_err="$R_ERR"
-wave_status "$d" --
-assert_eq "$bare_status" "$R_STATUS" "the marker alone exits exactly as the bare run does"
-assert_eq "$bare_out" "$R_OUT" "and prints the same table, byte for byte"
-assert_eq "$bare_err" "$R_ERR" "with the same stderr"
+# This script owns its own option loop and its own copy of the positional rule,
+# so it keeps its own accept case and its own refusal case even though
+# next-ticket.sh has the pair too — deleting them would leave wave-status.sh's
+# `--)` arm and its `[ $# -eq 0 ] || usage` uncovered. What is shared is the
+# wording: the accept half runs through the same helper next-ticket.sh uses.
+assert_marker_is_inert wave-status.sh "$d" env SIFT_ROOT="$d" "$STATUS"
 
+# One refusal, not two (SFT-0076): `-- --wave 1` and `-- anything` are a flag
+# spelling and a word spelling of one exit through the same positional rule. The
+# flag survives because only it can assert the plausible wrong answer — a full
+# roadmap table handed back for a narrower question — was not given.
 wave_status "$d" -- --wave 1
 assert_eq 2 "$R_STATUS" "behind the marker the flag is a positional, and none is accepted"
 assert_eq "" "$R_OUT" "so no table is printed for a request that was refused"
 assert_contains "$R_ERR" 'note: -- ends the options' "and the usage note documents the marker"
-
-wave_status "$d" -- anything
-assert_eq 2 "$R_STATUS" "a plain word behind the marker is refused just the same"
 
 test_case "reporting progress changes nothing"
 d="$(newdir)"; make_tree "$d" ACME

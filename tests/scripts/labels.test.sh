@@ -288,12 +288,15 @@ by_label "$d" --open
 assert_eq 2 "$R_STATUS" "a flag on its own is still no label"
 assert_eq "" "$R_OUT" "so nothing is listed for it either"
 
-test_case "a second positional argument is refused rather than silently dropped"
-# Two labels look like an AND the script does not implement; answering for the
-# first one would be a plausible wrong answer.
-by_label "$d" api caching
-assert_eq 2 "$R_STATUS" "exit 2"
-assert_eq "" "$R_OUT" "no answer is given for either label"
+# The standalone "a second positional argument is refused rather than silently
+# dropped" case stood here and drove `by_label "$d" api caching` — the same
+# command line, with a strict subset of the assertions, as the first member of
+# the marker loop in "a label in front of the marker still works, and a second is
+# still refused" below (SFT-0076). The loop is the survivor: `api caching`,
+# `api -- caching` and `-- api caching` are three CALLERS of take_label's one
+# `[ -z "$LABEL" ] || usage` line — in-loop twice, in-loop then post-marker, and
+# post-marker twice — so they are three branches rather than three spellings, and
+# the standalone case was the only genuine duplicate among them.
 
 test_case "an unknown option is refused"
 by_label "$d" caching --bogus

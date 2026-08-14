@@ -30,9 +30,18 @@ done
 test_case "rejected milestone names never reach a mkdir"
 # The empty string and the embedded newline are passed as real argv values, so
 # the case statement — not the shell that typed them — is what rejects them.
+#
+# One row per branch, not one per spelling (SFT-0075). The guard has five arms
+# ('' | -* | *- | *--* | *[!a-z0-9-]*) and the first four take one row each. The
+# character-class arm takes one row per distinct claim: '../evil' stands for
+# every dot-or-slash spelling (foo/bar, /abs, ., .., a.b, a/../../../evil), 'Foo'
+# is the collation claim constraint 1 of SFT-0075 keeps and the locale loop below
+# re-drives, 'a b' is a space, "$newline" is a real argv newline no other row
+# carries, and '*' is a glob metacharacter. The traversal claim is pinned by the
+# dedicated case below and by the destructive control further down, not by
+# counting spellings here.
 newline="$(printf 'a\nb')"
-for m in '../evil' 'a/../../../evil' 'foo/bar' '.' '..' 'Foo' '-lead' 'trail-' \
-         'a--b' 'a b' '' "$newline" '/abs' 'a.b' '~' '*'; do
+for m in '../evil' 'Foo' '-lead' 'trail-' 'a--b' 'a b' '' "$newline" '*'; do
   root="$(newdir)"
   init_milestone "$root" "$m"
   label="$(printf '%s' "$m" | tr '\n' '~')"
@@ -53,7 +62,7 @@ test_case "an uppercase milestone is rejected under a UTF-8 locale with collated
 #
 # Only Foo is repeated from the rejection matrix. The empty and hyphen-shape
 # rows ('', -lead, trail-, a--b) are rejected before the character class; the
-# remaining rows contain /, ., space, newline, ~ or *, all outside a collated
+# remaining rows contain /, ., space, newline or *, all outside a collated
 # a-z in every locale the suite drives.
 for loc in $matrix_locales; do
   locale_available "$loc" || continue

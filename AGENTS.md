@@ -158,10 +158,27 @@ SFT-0082's own merge lost the roadmap: `main` still carried a tracked copy, `git
 laid it back down over the live file, and the merge that untracked it then removed it from
 disk along with the bookkeeping written minutes earlier. SFT-0085 disarmed the hazard at the
 root by deleting the eleven already-merged branches whose trees still carried
-`.ai/sift/ROADMAP.md`, so no ref in `refs/heads` writes that path on checkout any more. That
-is a property of the current refs, not a rule anything enforces: a branch cut from a commit
-older than `468be0a` arms it again. Record a `cksum` of `.ai/sift/ROADMAP.md` before any
-operation that moves a ref, because a silent loss is only detectable against one.
+`.ai/sift/ROADMAP.md`, so no branch under `refs/heads` wrote that path on checkout any more.
+Nothing enforces that, and SFT-0086 decided it stays unenforced — deliberately, on two
+measurements, so read this as a decision rather than as an omission. It is a fact about the
+refs of one day, not a rule: a branch cut from a commit older than `468be0a` arms it again.
+The first measurement is that `refs/heads` is not the hazard's scope. Anything whose tree git
+can lay down is, and on the machine that took the decision all 80 branches were clean while
+thirteen other refs were not — a `refs/stash` entry cut before `468be0a`, and twelve per-turn
+checkpoint refs an agent harness writes on its own. A guard scoped to branches would have
+called that repository safe while a loaded tree sat one `git stash branch` away, which is
+worse than the prose it replaced, because prose does not certify. The second is that widening
+it does not rescue it: over every ref the same sweep is red on the day it ships, on a stash
+nobody may delete and on refs a tool recreates faster than anyone can prune them, and no edit
+to any file here turns it green. A check whose verdict is per-clone operator state rather than
+a property of this repository does not belong in a suite whose verdict is the second thing —
+it would read as noise in CI, where a fresh clone has one branch and no stash, and as an
+unfixable failure locally, which is what teaches people to run a red suite past. Cost was
+never the argument: both sweeps finish in well under a second. So the guard is the one that
+watches the damage instead of its preconditions. Record a `cksum` of `.ai/sift/ROADMAP.md`
+before any operation that moves a ref and compare it after, which holds whatever the tree came
+from — a branch, a stash, a tag, a detached commit, a second worktree — because a silent loss
+is only detectable against one.
 
 Recovering a roadmap already lost this way works because it was tracked once, and the commits
 that carried it are still reachable from `main`. `git log --oneline -- .ai/sift/ROADMAP.md`

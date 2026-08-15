@@ -680,6 +680,95 @@ R_LOCALE=C
 assert_contains "$R_ERR" 'setlocale' \
   "a leg really entered on that name would have warned, which is what the guard prevents"
 
+test_case "two awk names for one binary cost one leg, not two (SFT-0083)"
+# `matrix_awks` names implementations, and two of its names resolving to one
+# file is the common case rather than the exotic one — the Debian alternatives
+# farm points `nawk` at gawk — so a sweep ran the same program twice per cell
+# under two labels.
+#
+# The collapse is driven from a fixture rather than from however this host is
+# linked. Reading the host's own links would prove nothing on a host linked
+# differently, and would pass vacuously on a machine with three genuinely
+# distinct awks: there the assertion would be "nothing was collapsed", which is
+# also what a removed collapse prints. So the axis is pointed at a directory of
+# three names built to a known shape for the length of this case:
+#   awkalpha, awkbeta   two symlinks to one real awk — one binary, two names
+#   awkgamma            a COPY of that same awk — same program, different inode
+#   awk                 the name `default_awk_bin` resolves, linked to alpha's
+#                       binary, which is what makes the third sweep below the
+#                       host the interaction needs
+# `awkgamma` is the control that keeps the collapse honest in the other
+# direction: it behaves identically to `awkalpha` — same bytes, same version
+# string — so a collapse keyed on anything but file identity would swallow it,
+# and a real host's second implementation would stop being swept.
+awk_fix="$(newdir)/bin"
+mkdir -p "$awk_fix"
+real_awk="$(command -v awk)"
+ln -s "$real_awk" "$awk_fix/awkalpha"
+ln -s "$real_awk" "$awk_fix/awkbeta"
+ln -s "$real_awk" "$awk_fix/awk"
+cp "$real_awk" "$awk_fix/awkgamma"
+saved_locales="$matrix_locales"; saved_shells="$matrix_shells"; saved_awks="$matrix_awks"
+saved_path="$PATH"; saved_default="$_default_awk_bin"
+PATH="$awk_fix:$PATH"
+# The resolved default is memoised on first use and this case moves the answer,
+# so the cache is emptied to re-resolve against the fixture and put back
+# verbatim below — a case that left either one changed would hand the next case
+# a machine that is not this one.
+_default_awk_bin=''
+matrix_shells='bash'
+
+# Sweep one: the collapse itself, on a locale that is not the excluded baseline,
+# so every surviving member shows up as a leg.
+matrix_locales='POSIX'; matrix_awks='awkalpha awkbeta awkgamma'
+LEGS=''
+dup_log="$leg_dir/collapse.log"
+for_matrix leg > "$dup_log"
+assert_eq ' bash/awkalpha/POSIX bash/awkgamma/POSIX' "$LEGS" \
+  "the second name for one binary runs no leg, and the identical-but-separate binary still does"
+assert_eq '# NARROWED awk awkbeta — same binary as awkalpha on this machine' "$(cat "$dup_log")" \
+  "the dropped member is named on the uncounted narrowing channel, with the member it duplicates"
+
+# Sweep two: the same three files under a reordered axis. Which name survives is
+# a property of the axis order and nothing else — not the alphabet, not the
+# inode, not which one the harness happened to see first.
+matrix_awks='awkbeta awkalpha awkgamma'
+LEGS=''
+order_log="$leg_dir/order.log"
+for_matrix leg > "$order_log"
+assert_eq ' bash/awkbeta/POSIX bash/awkgamma/POSIX' "$LEGS" \
+  "the leg that runs is the FIRST axis member naming the binary, so reordering the axis moves it"
+assert_eq '# NARROWED awk awkalpha — same binary as awkbeta on this machine' "$(cat "$order_log")" \
+  "and the member it collapsed into is named the other way round too"
+
+# Sweep three: the composition with SFT-0078's exclusion, on the host where the
+# question arises. `awk`, `awkalpha` and `awkbeta` are now one file, exactly as
+# `awk`, `gawk` and `nawk` are on a Debian-family machine, and the locale is the
+# excluded baseline's, so the cell has to come out holding the remaining
+# implementation ALONE.
+#
+# What this pins is narrower than it looks, and worth saying plainly. It is not
+# that the collapse must be decided before the exclusion: because BOTH filters
+# ask about the binary rather than the name, the exclusion already drops the leg
+# of every name resolving to the default, so no ordering of the collapse can
+# hand this cell back to the second name. Re-ordering the two was tried against
+# these assertions and they stayed green. What does turn them red is either
+# filter regressing to a path-string comparison — the pre-SFT-0078 spelling —
+# which runs `bash/awkalpha/C` here as a second label for a leg already run.
+# So this is the assertion that the two filters keep composing on inode; the
+# four above are the ones the collapse itself has to pass.
+matrix_locales='C'; matrix_awks='awkalpha awkbeta awkgamma'
+LEGS=''
+cell_log="$leg_dir/cell.log"
+for_matrix leg > "$cell_log"
+assert_eq ' bash/awkgamma/C' "$LEGS" \
+  "the baseline exclusion and the collapse do not cancel out: the cell runs the other implementation alone"
+assert_eq '' "$(cat "$cell_log")" \
+  "and a member already named stays named once per file, however many sweeps drop it"
+
+matrix_locales="$saved_locales"; matrix_shells="$saved_shells"; matrix_awks="$saved_awks"
+PATH="$saved_path"; _default_awk_bin="$saved_default"
+
 test_case "a reworded README anchor turns the file that reads it red (SFT-0052)"
 # The other half of the extraction contract. Each owning file asserts that a
 # reworded anchor extracts NOTHING; what nothing costs is asserted here, once,

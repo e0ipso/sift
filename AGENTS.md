@@ -144,7 +144,10 @@ and by `src/skills/sift-drain/scripts/roadmap-check.sh`, which is why that check
 ticket commit instead of after it. One trap comes with the decision and is what produced
 SFT-0082 in the first place: `git add -f` on anything under `.ai/sift` bypasses the ignore rule
 and re-creates exactly the half-tracked split being described here, one file at a time. Never
-force-add into the tracker.
+force-add into the tracker. The paragraph you are reading is resolved rather than merely
+asserted: `tests/static/sift-tree-untracked.test.sh` extracts the tracked path out of the
+sentence above that names it and compares it against `git ls-files`, as an equality, so
+force-adding a second file fails the suite and rewording that sentence fails it too (SFT-0084).
 
 A second consequence is sharper, and it destroyed a live roadmap before it was written down.
 An ignored file gets none of git's overwrite protection. A tracked file with local changes

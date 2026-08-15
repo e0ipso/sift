@@ -526,6 +526,46 @@ baseline_leg() {  # baseline_leg <shell> <locale> [awk-binary]
   return 0
 }
 
+# --- The axis member that is another member's second name (SFT-0083) ---------
+#
+# `matrix_awks` is three NAMES; the axis is a promise about three
+# IMPLEMENTATIONS. On a Debian-family host the `awk` alternatives farm points
+# `nawk` at gawk, so two axis members resolve to one file and every sweep ran
+# the same program twice per shell × locale cell under two labels — a reader of
+# the output believing two awks were checked when one was. The duplicate is
+# dropped here at runtime; `matrix_awks` is untouched, so a host whose three
+# names really are three binaries still enters all three.
+#
+# first_awk_naming <awk-binary> — the first member of `matrix_awks` that
+# resolves to that binary, or nothing when no installed member does.
+#
+# Sameness is inode identity (`-ef`) against the resolved path, the same test
+# `baseline_leg` above already uses and for the same reason: a name comparison
+# calls /usr/bin/nawk a different program from /usr/bin/gawk when they are one
+# file, and a behavioural comparison (`--version`, a probe program) would call
+# two genuinely separate binaries one implementation because they agree.
+#
+# The scan walks the whole axis rather than a set accumulated as the sweep goes,
+# so the winner is the first member NAMING the binary and not the first member
+# that survived some earlier filter — which is what the acceptance criterion
+# asks for, and what makes the label a reader sees stable under a change to
+# `baseline_leg` above. The two filters do not fight over the `bash`/`C` cell in
+# either arrangement, and for a reason worth writing down rather than
+# rediscovering: SFT-0078's exclusion is itself inode-based, so on a host where
+# `awk`, `gawk` and `nawk` are one file it already drops the legs of ALL THREE
+# names there, and that cell runs the machine's other awk alone whichever order
+# the two filters are applied in. The arrangement here is the one that keeps
+# both true if the other filter ever changes.
+first_awk_naming() {  # first_awk_naming <awk-binary>
+  local bin="$1" a p
+  for a in $matrix_awks; do
+    p="$(command -v "$a" 2>/dev/null || true)"
+    [ -n "$p" ] || continue
+    if [ "$p" -ef "$bin" ]; then printf '%s\n' "$a"; return 0; fi
+  done
+  return 1
+}
+
 # matrix_empty <callback> — a sweep with no leg left, said out loud.
 #
 # Excluding the baseline means a sweep CAN now come out empty: a host with no
@@ -563,7 +603,7 @@ matrix_narrowed() {  # matrix_narrowed <axis> <member> <reason>
 # shellcheck disable=SC2034
 for_matrix() {
   local cb="$1"; shift
-  local sh a l bin legs=0
+  local sh a l bin first legs=0
   for sh in $matrix_shells; do
     if ! command -v "$sh" > /dev/null 2>&1; then
       matrix_narrowed shell "$sh" "not installed"
@@ -573,6 +613,16 @@ for_matrix() {
       bin="$(command -v "$a" || true)"
       if [ -z "$bin" ]; then
         matrix_narrowed awk "$a" "not installed"
+        continue
+      fi
+      # A second name for a binary an earlier member already carries into every
+      # cell of this sweep (SFT-0083). Narrowed rather than skipped: the leg it
+      # would have run was run, under the first member's label, so nothing that
+      # was asserted changes — exactly as for an absent member, and unlike
+      # `matrix_empty` below, where nothing ran at all.
+      first="$(first_awk_naming "$bin" || true)"
+      if [ -n "$first" ] && [ "$first" != "$a" ]; then
+        matrix_narrowed awk "$a" "same binary as $first on this machine"
         continue
       fi
       for l in $matrix_locales; do

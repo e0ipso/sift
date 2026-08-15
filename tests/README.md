@@ -153,6 +153,29 @@ so `bash/mawk/C` on a host whose `awk` is gawk is a real leg and keeps running.
 It removes one combination, never an axis member: every shell, every `awk` and
 every locale the machine has is still entered.
 
+The `awk` axis is a list of *implementations*, not of names, and the two differ
+on most machines: the Debian-family alternatives farm points `nawk` at gawk, so
+`gawk` and `nawk` are one file and a sweep naming both ran one program twice per
+cell under two labels. A member whose binary an earlier member already names is
+therefore collapsed at runtime — by inode against the resolved path, so an
+identical-but-separate binary is still a member — and the first name in
+`matrix_awks` that names the binary is the one that runs (SFT-0083). The axis
+declaration is untouched by this: on a host whose three names are three binaries
+all three are still swept, which is why the collapse is a runtime observation
+about one machine rather than an edit to the promise. It is reported on the same
+uncounted `matrix_narrowed` channel an absent member uses, because it changes
+nothing that was asserted — the leg ran, under the first name's label — so
+assertion and skip counts are unaffected even though the sweep is shorter. The
+collapse is decided over the axis as declared rather than over what survives the
+baseline exclusion above, so the name that runs is the first member *naming* the
+binary and not the first member some earlier filter left standing. The two
+filters compose because both ask about the binary: where the default `awk`,
+`gawk` and `nawk` are one file, the exclusion drops the `bash`/`C` legs of both
+`gawk` and `nawk`, the collapse drops `nawk` everywhere else, and that cell runs
+the machine's other awk alone. `static/suite-contract.test.sh` drives all of that from a fixture
+directory of two names linked to one awk plus a copy of it, rather than from
+however the host running the suite happens to be linked.
+
 So a sweep *can* now narrow to nothing — on a host with no `dash`, no second
 `awk` and no UTF-8 locale, every combination left is the excluded baseline. What
 still covers the recipe there is the plain case above the sweep, which is why

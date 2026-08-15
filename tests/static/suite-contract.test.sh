@@ -121,6 +121,18 @@ assert_no_dir "$d/absent" "assert_no_dir accepts an absent directory"
 assert_no_dir "$d" "assert_no_dir rejects a present directory"
 assert_same "$d/twin-a" "$d/twin-b" "assert_same accepts two identical files"
 assert_same "$d/twin-a" "$d/other" "assert_same rejects two different files"
+cat > "$d/inert-cmd" <<'CMD'
+#!/usr/bin/env bash
+printf 'steady\n'
+CMD
+cat > "$d/reactive-cmd" <<'CMD'
+#!/usr/bin/env bash
+[ "$#" -eq 0 ] || { printf 'saw %s\n' "$1"; printf 'a warning\n' >&2; exit 3; }
+printf 'steady\n'
+CMD
+chmod +x "$d/inert-cmd" "$d/reactive-cmd"
+assert_marker_is_inert 'a marker-blind command' "$d" "$d/inert-cmd"
+assert_marker_is_inert 'a marker-reading command' "$d" "$d/reactive-cmd"
 summary
 CHILD
         ;;
@@ -201,6 +213,9 @@ HELPER_PASSES=(
   'assert_no_file accepts an absent path'
   'assert_no_dir accepts an absent directory'
   'assert_same accepts two identical files'
+  'a marker-blind command: the marker alone exits exactly as the bare run does'
+  'a marker-blind command: and prints the same output, byte for byte'
+  'a marker-blind command: with the same stderr'
 )
 HELPER_FAILURES=(
   'assert_ne rejects two equal values'
@@ -210,6 +225,9 @@ HELPER_FAILURES=(
   'assert_no_file rejects a present path'
   'assert_no_dir rejects a present directory'
   'assert_same rejects two different files'
+  'a marker-reading command: the marker alone exits exactly as the bare run does'
+  'a marker-reading command: and prints the same output, byte for byte'
+  'a marker-reading command: with the same stderr'
 )
 
 test_case "every assertion helper reports on both of its arms"
@@ -219,6 +237,17 @@ test_case "every assertion helper reports on both of its arms"
 # -s — would print `ok` for a false claim, and every product failure it guards
 # would come back green. Both arms are driven, because a helper wired to always
 # fail is as wrong as one wired to always pass.
+#
+# `assert_marker_is_inert` (SFT-0076) is on the list for a sharper reason than
+# the seven above it. It reports through assert_eq, so its reporting is already
+# covered; what is its own is the PROCEDURE it wraps — run the command bare, run
+# it again with `--` appended, compare all three channels. Drop the `--` from the
+# second run, or compare a channel against itself, and the helper compares one
+# command with itself and reports three passes for every command on earth, which
+# is exactly what the two call sites in `scripts/drain-selection.test.sh` would
+# then be asserting. The reactive command below is the control that catches it:
+# it differs on all three channels the moment it is handed an argument, so a
+# helper that never appends one calls it inert.
 run_child helpers
 assert_eq 1 "$R_STATUS" "the child reports its failures instead of dying"
 for m in "${HELPER_PASSES[@]}"; do
@@ -227,9 +256,35 @@ done
 for m in "${HELPER_FAILURES[@]}"; do
   assert_eq 'not ok' "$(child_verdict "$m")" "$m"
 done
-assert_contains "$R_OUT" '# SUMMARY tests=1 assertions=14 failures=7 skipped=0' \
+assert_contains "$R_OUT" '# SUMMARY tests=1 assertions=20 failures=10 skipped=0' \
   "and each helper bumped T_ASSERTS once, T_FAILS once per false claim"
 assert_no_dir "$CHILD_ROOT" "the state the filesystem helpers needed went with it"
+
+test_case "markers_above reports what it finds, not only that it found nothing (SFT-0079)"
+# All three call sites make the same claim — that the walk up from TMPROOT reaches
+# no real project — so between them they drive one arm of this helper. A
+# markers_above that printed nothing whatever would leave every one of them green
+# while the sandbox precondition they cite stopped being checked at all.
+#
+# Two properties beyond "it finds something" are pinned here because the helper's
+# own comment promises them and no caller does. The walk tests `-e`, never `-d`,
+# so the `.git` FILE a worktree or submodule root carries is a marker; and the
+# marker list defaults to `.ai/sift` alone, which is what makes the gate's wider
+# four-tier list a decision that site makes rather than one hidden in here.
+#
+# What lies above TMPROOT belongs to the machine, not to this case, so it is
+# measured and folded into the expectation instead of assumed to be empty.
+d="$(newdir)"
+mkdir -p "$d/repo/pkg/deep" "$d/repo/.ai/sift"
+: > "$d/repo/pkg/.git"
+above_wide="$(markers_above "$TMPROOT" .ai/sift .git)"
+above_default="$(markers_above "$TMPROOT")"
+assert_eq "$(printf '%s\n%s\n%s' "$d/repo/pkg/.git" "$d/repo/.ai/sift" "$above_wide")" \
+  "$(markers_above "$d/repo/pkg/deep" .ai/sift .git)" \
+  "every marker on the walk is printed as <ancestor>/<marker>, deepest first, a plain .git file included"
+assert_eq "$(printf '%s\n%s' "$d/repo/.ai/sift" "$above_default")" \
+  "$(markers_above "$d/repo/pkg/deep")" \
+  "and the default list is .ai/sift alone, so the same .git goes unreported"
 
 # --- The fixture library's own contract (SFT-0065) ---------------------------
 #
@@ -280,6 +335,26 @@ url='"https://example.invalid/owner/repo/issues/7"'
 f="$(ticket "$d" open backlog/bug SFT-0042 sourced 'Sourced from a tracker' "source: $url")"
 assert_eq "$url" "$(fm "$f" source)" "the unrecognised key reads back from inside the fence"
 assert_eq 1 "$(grep -c '^source: ' "$f")" "written once, not appended beside a default"
+
+test_case "space_the_fence spaces the two fence markers and nothing below them (SFT-0079)"
+# The `n < 2` guard, which is the whole reason this helper is not a blanket
+# rewrite. Its callers assert the spaced markers are written back verbatim, so a
+# helper that spaced every `---` in the file would keep all three of them green —
+# and would quietly hollow out `cookbook/move-milestone.test.sh`'s re-open case,
+# whose adversarial body has to still contain a PLAIN horizontal rule for the
+# thing it pins (a body rule cannot re-open the front matter) to have both shapes
+# to pin it against.
+d="$(newdir)"; make_tree "$d"
+f="$(ticket "$d" open caching/bug SFT-0042 rules 'Rules in the body' body=adversarial)"
+plain_before="$(grep -c '^---$' "$f")"
+spaced_before="$(grep -c '^--- $' "$f")"
+assert_eq 3 "$plain_before" "the fixture arrives with two plain fence markers and one plain body rule"
+assert_eq 1 "$spaced_before" "…and one already-spaced body rule, which the helper must not count as a fence"
+space_the_fence "$f"
+assert_eq $((plain_before - 2)) "$(grep -c '^---$' "$f")" \
+  "exactly the two fence markers lost their plain spelling; the body rule keeps it"
+assert_eq $((spaced_before + 2)) "$(grep -c '^--- $' "$f")" \
+  "and exactly two lines gained the trailing space, so no body rule was swept in"
 
 # --- run.sh's own flags -------------------------------------------------------
 

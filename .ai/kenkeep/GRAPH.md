@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:69688eed9992bae1029a4fdc587a27d7afb65100448ca64045a667291e36fd4b'
-node_count: 76
+nodes_hash: 'sha256:c202ca416db5cee988cc5cec9c76b9880f1f0d4e220816b0f4a425f9a62fa079'
+node_count: 91
 ---
 # kenkeep Graph
 
-Total nodes: 76
+Total nodes: 91
 
 ## map-runlog-md-the-drain-s-append-only-run-log
 
@@ -108,6 +108,15 @@ Total nodes: 76
 - **tags:** sift, tickets, schemas
 - **relates_to:** map-sift-ticket-body-sections
 
+## map-tests-lib-the-three-shared-libraries-and-what-each-owns
+
+- **kind:** map
+- **title:** tests/lib: the three shared libraries and what each owns
+- **path:** testing/suite/map-tests-lib-the-three-shared-libraries-and-what-each-owns.md
+- **tags:** testing, sift, layout
+- **relates_to:** practice-never-edit-the-tree-while-the-suite-is-running, map-sift-test-suite-runs-the-readme-recipes-themselves, practice-tree-digest-cannot-see-an-empty-directory
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:map:0
+
 ## map-the-cluster-front-matter-key-and-dispatch-groups
 
 - **kind:** map
@@ -116,6 +125,15 @@ Total nodes: 76
 - **tags:** sift, cluster, sift-drain, front-matter
 - **relates_to:** map-sift-ticket-front-matter, map-sift-drain-skill, map-sift-readme-normative-spec
 - **derived_from:** 7dcf0144-592c-4853-a5c2-57b8ad8ad350:map:0
+
+## practice-a-branch-scoped-ref-audit-misses-the-refs-that-arm-an-ignored-path
+
+- **kind:** practice
+- **title:** A branch scoped ref audit misses the refs that arm an ignored path
+- **path:** convention/practice-a-branch-scoped-ref-audit-misses-the-refs-that-arm-an-ignored-path.md
+- **tags:** git, sift, gotcha, testing
+- **relates_to:** practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:1
 
 ## practice-a-comment-opening-with-shellcheck-is-a-directive-not-prose
 
@@ -132,19 +150,46 @@ Total nodes: 76
 - **tags:** sift, convention, sift-drain, sift-prime, testing
 - **relates_to:** practice-a-roadmap-row-is-its-first-ticket-cell, practice-match-a-sift-ticket-id-as-a-whole-token
 
+## practice-a-cross-product-of-factors-that-cannot-interact-is-not-coverage
+
+- **kind:** practice
+- **title:** A cross product of factors that cannot interact is not coverage
+- **path:** testing/case-set/practice-a-cross-product-of-factors-that-cannot-interact-is-not-coverage.md
+- **tags:** testing, convention, sift
+- **relates_to:** practice-a-narrowing-list-is-a-claim-that-needs-its-own-case
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:7
+
+## practice-a-helper-is-unasserted-on-the-arm-its-callers-never-see
+
+- **kind:** practice
+- **title:** A helper is unasserted on the arm its callers never see
+- **path:** testing/assertions/practice-a-helper-is-unasserted-on-the-arm-its-callers-never-see.md
+- **tags:** testing, gotcha, convention
+- **relates_to:** practice-tree-digest-cannot-see-an-empty-directory, practice-never-edit-the-tree-while-the-suite-is-running
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:9
+
 ## practice-a-narrowing-list-is-a-claim-that-needs-its-own-case
 
 - **kind:** practice
 - **title:** A list that narrows a check is a claim, and needs a case of its own
-- **path:** testing/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md
+- **path:** testing/case-set/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md
 - **tags:** testing, convention, sift, gotcha
 - **relates_to:** practice-a-one-way-set-comparison-never-sees-a-withdrawal, practice-never-edit-the-tree-while-the-suite-is-running, practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test
+
+## practice-a-negative-only-cookbook-assertion-is-blind-to-a-vanished-recipe
+
+- **kind:** practice
+- **title:** A negative only cookbook assertion is blind to a vanished recipe
+- **path:** testing/assertions/practice-a-negative-only-cookbook-assertion-is-blind-to-a-vanished-recipe.md
+- **tags:** testing, docs, convention, sift
+- **relates_to:** map-sift-test-suite-runs-the-readme-recipes-themselves, practice-probe-in-a-copied-tree-never-restore-with-git-checkout
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:10
 
 ## practice-a-one-way-set-comparison-never-sees-a-withdrawal
 
 - **kind:** practice
 - **title:** A one-way set comparison never sees a withdrawal
-- **path:** testing/practice-a-one-way-set-comparison-never-sees-a-withdrawal.md
+- **path:** testing/assertions/practice-a-one-way-set-comparison-never-sees-a-withdrawal.md
 - **tags:** sift-init, convention, tickets
 - **relates_to:** practice-check-then-act-cp-is-not-a-create-if-absent, practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version, practice-a-narrowing-list-is-a-claim-that-needs-its-own-case
 
@@ -176,9 +221,18 @@ Total nodes: 76
 
 - **kind:** practice
 - **title:** A sweep claim in a test's own prose is an assertion with no test
-- **path:** testing/practice-a-sweep-claim-in-test-prose-is-an-assertion-with-no-test.md
+- **path:** testing/case-set/practice-a-sweep-claim-in-test-prose-is-an-assertion-with-no-test.md
 - **tags:** testing, docs, convention, sift
 - **relates_to:** practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts, practice-prove-the-damage-before-asserting-the-guard
+
+## practice-a-ticket-that-asks-whether-to-guard-something-may-resolve-as-no-guard
+
+- **kind:** practice
+- **title:** A ticket that asks whether to guard something may resolve as no guard
+- **path:** tickets/practice-a-ticket-that-asks-whether-to-guard-something-may-resolve-as-no-guard.md
+- **tags:** sift, tickets, convention
+- **relates_to:** practice-write-atomic-evidence-based-tickets, practice-keep-roadmap-in-sync-same-change
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:11
 
 ## practice-account-for-ai-sift-being-gitignored
 
@@ -196,6 +250,15 @@ Total nodes: 76
 - **tags:** awk, shell, portability, gotcha, sift-drain
 - **relates_to:** practice-keep-recipes-portable-gnu-and-bsd
 
+## practice-an-axis-of-names-is-not-an-axis-of-implementations
+
+- **kind:** practice
+- **title:** An axis of names is not an axis of implementations
+- **path:** portability/practice-an-axis-of-names-is-not-an-axis-of-implementations.md
+- **tags:** portability, testing, gotcha, shell
+- **relates_to:** practice-keep-recipes-portable-gnu-and-bsd, practice-never-require-an-installable-binary
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:4
+
 ## practice-an-unset-awk-variable-subscripts-an-array-as-the-empty-string
 
 - **kind:** practice
@@ -208,7 +271,7 @@ Total nodes: 76
 
 - **kind:** practice
 - **title:** Assert only interleaving-invariant properties in a race test
-- **path:** testing/practice-assert-only-interleaving-invariant-properties-in-a-race-test.md
+- **path:** testing/suite/practice-assert-only-interleaving-invariant-properties-in-a-race-test.md
 - **tags:** testing, concurrency, sift-init
 - **relates_to:** practice-prove-the-damage-before-asserting-the-guard
 
@@ -219,6 +282,15 @@ Total nodes: 76
 - **path:** sift-drain/practice-batch-test-authoring-at-the-wave-gate.md
 - **tags:** sift-drain, testing, orchestration
 - **relates_to:** map-sift-drain-skill
+
+## practice-build-a-deterministic-fixture-for-host-dependent-behaviour-from-symlinks-plus-a-copy
+
+- **kind:** practice
+- **title:** Build a deterministic fixture for host dependent behaviour from symlinks plus a copy
+- **path:** testing/assertions/practice-build-a-deterministic-fixture-for-host-dependent-behaviour-from-symlinks-plus-a-copy.md
+- **tags:** testing, portability, shell
+- **relates_to:** practice-an-axis-of-names-is-not-an-axis-of-implementations, practice-prove-the-damage-before-asserting-the-guard
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:5
 
 ## practice-check-then-act-cp-is-not-a-create-if-absent
 
@@ -243,7 +315,7 @@ Total nodes: 76
 - **title:** Do not add AI attribution trailers to commit messages
 - **path:** convention/practice-do-not-add-ai-attribution-trailers-to-commit-messages.md
 - **tags:** git, commits, convention
-- **derived_from:** 0784ce94-7d65-4e60-92d2-a0044e4045b0:practice:2
+- **derived_from:** 0784ce94-7d65-4e60-92d2-a0044e4045b0:practice:2, 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:15
 
 ## practice-fresh-sift-trees-ignore-themselves-via-ai-sift-gitignore
 
@@ -253,6 +325,15 @@ Total nodes: 76
 - **tags:** sift-init, git, sift
 - **relates_to:** practice-account-for-ai-sift-being-gitignored, map-sift-init-deterministic-project-root-gate-and-tree-materialization
 - **derived_from:** 0784ce94-7d65-4e60-92d2-a0044e4045b0:practice:1
+
+## practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge
+
+- **kind:** practice
+- **title:** Git does not protect an ignored file from a checkout or a merge
+- **path:** convention/practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge.md
+- **tags:** git, sift, gotcha, convention
+- **relates_to:** practice-account-for-ai-sift-being-gitignored, practice-probe-in-a-copied-tree-never-restore-with-git-checkout
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:0
 
 ## practice-give-a-reports-own-state-a-key-the-echoed-data-cannot-collide-with
 
@@ -275,7 +356,7 @@ Total nodes: 76
 
 - **kind:** practice
 - **title:** Guard a one-copy rule behaviourally when the bug would be a paraphrase
-- **path:** testing/practice-guard-a-one-copy-rule-behaviourally-when-the-bug-would-be-a-paraphrase.md
+- **path:** testing/case-set/practice-guard-a-one-copy-rule-behaviourally-when-the-bug-would-be-a-paraphrase.md
 - **tags:** testing, convention, sift, gotcha
 - **relates_to:** practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test, practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts
 
@@ -318,6 +399,15 @@ Total nodes: 76
 - **path:** cli/practice-honour-with-a-second-loop-never-a-bare-break.md
 - **tags:** shell, cli, sift-drain, gotcha, portability
 
+## practice-keep-per-clone-operator-state-out-of-a-suite-whose-verdict-is-a-property-of-the-repository
+
+- **kind:** practice
+- **title:** Keep per clone operator state out of a suite whose verdict is a property of the repository
+- **path:** testing/suite/practice-keep-per-clone-operator-state-out-of-a-suite-whose-verdict-is-a-property-of-the-repository.md
+- **tags:** testing, convention, sift, git
+- **relates_to:** practice-a-narrowing-list-is-a-claim-that-needs-its-own-case, practice-never-edit-the-tree-while-the-suite-is-running
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:2
+
 ## practice-keep-recipes-portable-gnu-and-bsd
 
 - **kind:** practice
@@ -350,6 +440,15 @@ Total nodes: 76
 - **tags:** sift, tickets, front-matter
 - **relates_to:** map-sift-ticket-front-matter
 
+## practice-mutation-probe-a-branch-a-later-broader-check-would-catch-anyway
+
+- **kind:** practice
+- **title:** Mutation probe a branch a later broader check would catch anyway
+- **path:** testing/assertions/practice-mutation-probe-a-branch-a-later-broader-check-would-catch-anyway.md
+- **tags:** testing, gotcha, convention, sift
+- **relates_to:** practice-prove-the-damage-before-asserting-the-guard, practice-guard-a-one-copy-rule-behaviourally-when-the-bug-would-be-a-paraphrase
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:8
+
 ## practice-negotiate-the-sift-prime-slate-in-chat-only-reserve-ids-in-one-pass
 
 - **kind:** practice
@@ -371,9 +470,18 @@ Total nodes: 76
 
 - **kind:** practice
 - **title:** Never edit the tree while tests/run.sh runs, and budget its two minutes
-- **path:** testing/practice-never-edit-the-tree-while-the-suite-is-running.md
+- **path:** testing/suite/practice-never-edit-the-tree-while-the-suite-is-running.md
 - **tags:** testing, gotcha, convention, sift
 - **relates_to:** practice-tree-digest-cannot-see-an-empty-directory, practice-probe-in-a-copied-tree-never-restore-with-git-checkout
+
+## practice-never-force-add-a-file-under-this-repository-s-own-sift-tree
+
+- **kind:** practice
+- **title:** Never force add a file under this repository's own sift tree
+- **path:** convention/practice-never-force-add-a-file-under-this-repository-s-own-sift-tree.md
+- **tags:** sift, git, convention, testing
+- **relates_to:** practice-account-for-ai-sift-being-gitignored, practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge, practice-keep-roadmap-in-sync-same-change
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:14
 
 ## practice-never-push-or-file-upstream-during-a-drain
 
@@ -404,8 +512,9 @@ Total nodes: 76
 - **kind:** practice
 - **title:** Never validate with an [a-z] glob range — spell the set out
 - **path:** portability/practice-never-write-a-z-glob-ranges-in-shell-validation.md
-- **tags:** portability, shell, gotcha, convention
-- **relates_to:** practice-keep-recipes-portable-gnu-and-bsd
+- **tags:** portability, shell, gotcha, convention, testing
+- **relates_to:** practice-keep-recipes-portable-gnu-and-bsd, practice-probe-a-locale-by-running-it-under-a-known-strict-shell
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:13
 
 ## practice-never-write-data-through-a-sed-replacement-text
 
@@ -427,7 +536,7 @@ Total nodes: 76
 
 - **kind:** practice
 - **title:** Pin a document's claim with a tagged marker a test extracts
-- **path:** testing/practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts.md
+- **path:** testing/case-set/practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts.md
 - **tags:** testing, docs, convention, sift, shell
 - **relates_to:** practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test, practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version, practice-prove-the-damage-before-asserting-the-guard
 
@@ -451,15 +560,24 @@ Total nodes: 76
 
 - **kind:** practice
 - **title:** Prove a rewrite left the rest of the file alone with diff
-- **path:** testing/practice-prove-a-rewrite-left-the-rest-of-the-file-alone-with-diff.md
+- **path:** testing/assertions/practice-prove-a-rewrite-left-the-rest-of-the-file-alone-with-diff.md
 - **tags:** testing, shell, sift, gotcha, convention
 - **relates_to:** map-sift-test-suite-runs-the-readme-recipes-themselves
+
+## practice-prove-an-index-scoped-check-is-asking-this-repository
+
+- **kind:** practice
+- **title:** Prove an index scoped check is asking this repository
+- **path:** testing/assertions/practice-prove-an-index-scoped-check-is-asking-this-repository.md
+- **tags:** testing, git, gotcha, shell
+- **relates_to:** practice-prove-the-damage-before-asserting-the-guard, practice-never-require-an-installable-binary
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:3
 
 ## practice-prove-the-damage-before-asserting-the-guard
 
 - **kind:** practice
 - **title:** Prove the damage before asserting the guard
-- **path:** testing/practice-prove-the-damage-before-asserting-the-guard.md
+- **path:** testing/assertions/practice-prove-the-damage-before-asserting-the-guard.md
 - **tags:** testing, security, sift-init
 - **relates_to:** practice-tree-digest-cannot-see-an-empty-directory
 
@@ -600,9 +718,18 @@ Total nodes: 76
 
 - **kind:** practice
 - **title:** tree_digest cannot see an empty directory
-- **path:** testing/practice-tree-digest-cannot-see-an-empty-directory.md
+- **path:** testing/assertions/practice-tree-digest-cannot-see-an-empty-directory.md
 - **tags:** testing, shell, sift, gotcha, convention
 - **relates_to:** practice-prove-a-rewrite-left-the-rest-of-the-file-alone-with-diff, map-sift-test-suite-runs-the-readme-recipes-themselves
+
+## practice-use-type-p-when-building-a-path-farm-by-hand
+
+- **kind:** practice
+- **title:** Use type -P when building a PATH farm by hand
+- **path:** shell/practice-use-type-p-when-building-a-path-farm-by-hand.md
+- **tags:** shell, gotcha, testing, convention
+- **relates_to:** practice-never-require-an-installable-binary
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:12
 
 ## practice-validate-the-shape-at-a-write-boundary-never-existence-in-the-tree
 
@@ -611,6 +738,15 @@ Total nodes: 76
 - **path:** shell/writes/practice-validate-the-shape-at-a-write-boundary-never-existence-in-the-tree.md
 - **tags:** sift-drain, cli, convention, tickets
 - **relates_to:** practice-a-subcommand-ends-the-option-list-so-the-marker-goes-in-front-of-it, practice-move-tickets-and-edit-front-matter-together
+
+## practice-widen-the-sweep-before-deleting-the-case-it-already-covers
+
+- **kind:** practice
+- **title:** Widen the sweep before deleting the case it already covers
+- **path:** testing/case-set/practice-widen-the-sweep-before-deleting-the-case-it-already-covers.md
+- **tags:** testing, convention, sift
+- **relates_to:** practice-a-narrowing-list-is-a-claim-that-needs-its-own-case, practice-a-sweep-claim-in-test-prose-is-an-assertion-with-no-test
+- **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:6
 
 ## practice-wrap-a-cookbook-recipe-in-a-subshell-never-bash-e-c
 

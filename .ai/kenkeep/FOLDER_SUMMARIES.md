@@ -51,6 +51,24 @@ summaries:
     test-design rules for this suite — positive controls, interleaving-invariant
     assertions, diff-based proofs and document pins; read when adding or
     changing a case under tests/
+  testing/assertions: >-
+    what an assertion can and cannot see — the blind spots that make a case
+    permanently green, and the positive controls, mutation probes and fixtures
+    that prove a case can still fail; read before trusting or writing an
+    assertion
+  testing/case-set: >-
+    how many cases a behaviour needs and which ones may go — sweeps and their
+    narrowing lists, prose that overstates coverage, redundant per-item cases
+    and non-interacting cross products; read when adding or deleting a case
+  testing/coverage: >-
+    how many cases a behaviour needs and which ones may go — sweeps and their
+    narrowing lists, prose that overstates coverage, redundant per-item cases
+    and non-interacting cross products; read when adding or deleting a case
+  testing/suite: >-
+    the shared harness and the rules for a run as a whole — what each library
+    under tests/lib owns, what may enter the suite's verdict, and the no-write
+    and concurrency constraints on a run; read before adding a helper or a test
+    file
   tickets: >-
     ticket shape, lifecycle, and bookkeeping rules; read when creating, moving,
     archiving, or drafting tickets or changing front-matter/body schemas
@@ -70,4 +88,8 @@ summaries:
 - `sift-prime`: sift-prime backlog-priming practices and skill map; read when priming or seeding the backlog, or changing proposal/dedupe/drafting behavior
 - `spec`: normative README/AGENTS.md API and how the shipping spec may change; read when editing README.md or AGENTS.md convention text
 - `testing`: test-design rules for this suite — positive controls, interleaving-invariant assertions, diff-based proofs and document pins; read when adding or changing a case under tests/
+- `testing/assertions`: what an assertion can and cannot see — the blind spots that make a case permanently green, and the positive controls, mutation probes and fixtures that prove a case can still fail; read before trusting or writing an assertion
+- `testing/case-set`: how many cases a behaviour needs and which ones may go — sweeps and their narrowing lists, prose that overstates coverage, redundant per-item cases and non-interacting cross products; read when adding or deleting a case
+- `testing/coverage`: how many cases a behaviour needs and which ones may go — sweeps and their narrowing lists, prose that overstates coverage, redundant per-item cases and non-interacting cross products; read when adding or deleting a case
+- `testing/suite`: the shared harness and the rules for a run as a whole — what each library under tests/lib owns, what may enter the suite's verdict, and the no-write and concurrency constraints on a run; read before adding a helper or a test file
 - `tickets`: ticket shape, lifecycle, and bookkeeping rules; read when creating, moving, archiving, or drafting tickets or changing front-matter/body schemas

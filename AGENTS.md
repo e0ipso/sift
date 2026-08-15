@@ -146,6 +146,29 @@ SFT-0082 in the first place: `git add -f` on anything under `.ai/sift` bypasses 
 and re-creates exactly the half-tracked split being described here, one file at a time. Never
 force-add into the tracker.
 
+A second consequence is sharper, and it destroyed a live roadmap before it was written down.
+An ignored file gets none of git's overwrite protection. A tracked file with local changes
+stops a checkout dead — "your local changes would be overwritten" — but an ignored path is not
+the working tree's to defend, so a checkout that needs that path writes straight over it, and
+a checkout that no longer needs it deletes it, both without a word. That is exactly how
+SFT-0082's own merge lost the roadmap: `main` still carried a tracked copy, `git checkout main`
+laid it back down over the live file, and the merge that untracked it then removed it from
+disk along with the bookkeeping written minutes earlier. SFT-0085 disarmed the hazard at the
+root by deleting the eleven already-merged branches whose trees still carried
+`.ai/sift/ROADMAP.md`, so no ref in `refs/heads` writes that path on checkout any more. That
+is a property of the current refs, not a rule anything enforces: a branch cut from a commit
+older than `468be0a` arms it again. Record a `cksum` of `.ai/sift/ROADMAP.md` before any
+operation that moves a ref, because a silent loss is only detectable against one.
+
+Recovering a roadmap already lost this way works because it was tracked once, and the commits
+that carried it are still reachable from `main`. `git log --oneline -- .ai/sift/ROADMAP.md`
+lists them newest first; `git show <commit>:.ai/sift/ROADMAP.md > .ai/sift/ROADMAP.md` puts
+that snapshot back. What returns is the file as of that commit and nothing after it, so every
+archive strike and wave row written later has to be re-applied by hand — `RUNLOG.md` says
+which tickets returned since, and the `archive/` tree says how each one ended. Restore from an
+out-of-repository copy in preference to this whenever one exists; the history is the fallback,
+and it is always stale by however much bookkeeping the loss took with it.
+
 ## Verifying a change
 
 `tests/run.sh` is the whole verification story — the test suite and static analysis in one

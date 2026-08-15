@@ -128,6 +128,24 @@ Two obligations come with keeping the copies, and they apply to every rule on th
 - **A change to one copy lands in the same commit as the change to the other**, with the
   agreement test run to prove they still agree. Both copies carry a comment saying so.
 
+## This repository's own sift tree is untracked
+
+`.ai/sift/.gitignore` is `*` with a single `!.gitignore` exception, and that is the whole
+answer: `git ls-files .ai/sift` returns that one file and nothing else. The choice was settled
+in SFT-0082, after commit `eda5051` force-added the roadmap and one archived ticket and left
+the tree half in and half out, and it follows from the premise at the top of this file — sift
+state is a working-tree artifact, recoverable by reading the files themselves, so it needs no
+second copy in the history, and `git` is the audit log of the implementation each ticket
+carried rather than of the bookkeeping that dispatched it. The price is named rather than
+hidden, because a convention that conceals its own cost is not one this repo writes: rule 9 —
+a ticket's archive move and its roadmap strike are one change — can never be checked by code
+review, since neither half of that pairing appears in a diff, so it holds only by convention
+and by `src/skills/sift-drain/scripts/roadmap-check.sh`, which is why that check runs before a
+ticket commit instead of after it. One trap comes with the decision and is what produced
+SFT-0082 in the first place: `git add -f` on anything under `.ai/sift` bypasses the ignore rule
+and re-creates exactly the half-tracked split being described here, one file at a time. Never
+force-add into the tracker.
+
 ## Verifying a change
 
 `tests/run.sh` is the whole verification story — the test suite and static analysis in one

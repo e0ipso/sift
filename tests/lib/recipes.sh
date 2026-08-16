@@ -286,16 +286,16 @@ readme_runlog_columns() {
   '
 }
 
-# readme_refresh_resolved <card-dir> <tree-root> — the refresh recipe's `cp`
-# lines with `$CARD` and the tree root substituted and the shell quoting removed,
+# readme_refresh_resolved <skill-dir> <tree-root> — the refresh recipe's `cp`
+# lines with `$SKILL` and the tree root substituted and the shell quoting removed,
 # which is the form the initializer prints them in.
 #
 # Substitution is a concatenation, never a sed or gsub replacement text: both
 # values are absolute paths and a replacement is re-scanned for `&` and
-# backreferences. `.ai/sift` is rooted first, so a card directory that happened
+# backreferences. `.ai/sift` is rooted first, so a skill directory that happened
 # to contain that string could not be rewritten a second time.
 readme_refresh_resolved() {
-  readme_refresh | awk -v card="$1" -v root="$2" '
+  readme_refresh | awk -v skill="$1" -v root="$2" '
     function subst(s, from, to,   p, out) {
       out = ""
       while ((p = index(s, from)) > 0) {
@@ -308,7 +308,7 @@ readme_refresh_resolved() {
       line = $0
       gsub(/"/, "", line)
       line = subst(line, ".ai/sift", root "/.ai/sift")
-      line = subst(line, "$CARD", card)
+      line = subst(line, "$SKILL", skill)
       print line
     }
   '

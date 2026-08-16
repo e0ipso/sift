@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
-# Static analysis: the inventory of cross-card copies AGENTS.md keeps.
+# Static analysis: the inventory of cross-skill copies AGENTS.md keeps.
 #
-# "Duplication between cards" is a decision record: two rules are written out
-# once per card because the cards install independently, and the record lists
+# "Duplication between skills" is a decision record: two rules are written out
+# once per skill because the skills install independently, and the record lists
 # every copy so an agent asking "how many copies of this rule are there, and
 # where" gets a correct answer. A stale entry answers worse than no entry at
 # all, because it is believed — a reader who follows one lands somewhere
 # unrelated and concludes the record is wrong about which copies exist.
 #
-# So the entries are pinned here. Each `@CARD-COPY:` line in that section names
+# So the entries are pinned here. Each `@SKILL-COPY:` line in that section names
 # a file and the verbatim construct that holds the rule inside it, and both have
 # to still be true: the file exists, and some line of it that is not a comment
-# still holds the construct. A copy renamed, deleted, or moved to the other card
+# still holds the construct. A copy renamed, deleted, or moved to the other skill
 # fails this file rather than rotting quietly in a document nobody re-reads.
 #
 # The entries are EXTRACTED from AGENTS.md, never restated here. A list restated
 # in a test is a third place to forget, which is the failure this file exists to
 # prevent rather than to demonstrate.
 #
-# Comment lines are excluded on purpose. Both cards explain their copy at length
+# Comment lines are excluded on purpose. Both skills explain their copy at length
 # in prose directly above it, and an entry satisfied by a sentence about a
 # construct would survive the construct's deletion — the one drift that matters
 # most.
@@ -36,8 +36,8 @@ AGENTS="$REPO_ROOT/AGENTS.md"
 # The heading whose entries are authoritative, and the marker on each entry.
 # Both are documented in the section itself, so a human editing it knows this
 # suite reads those lines.
-SECTION='## Duplication between cards'
-MARKER='@CARD-COPY:'
+SECTION='## Duplication between skills'
+MARKER='@SKILL-COPY:'
 
 TAB="$(printf '\t')"
 
@@ -106,7 +106,7 @@ SELF="tests/static/$(basename "$0")"
 if grep -Fq -e "$SELF" "$AGENTS"; then t_ok "the record says which test file reads it"
 else t_fail "the record says which test file reads it" "AGENTS.md never names $SELF"; fi
 
-test_case "the inventory still covers both cards and both rules"
+test_case "the inventory still covers both skills and both rules"
 # A coverage floor, not a second copy of the list: these are the three files the
 # two recorded rules live in, so a well-meaning trim of the inventory fails here
 # rather than silently narrowing what the record claims to track.
@@ -174,7 +174,7 @@ assert_eq "$bogus :: $VICTIM_ANCHOR (no such file)" \
 
 test_case "the uniqueness half of the obligation, and why it is not counted here"
 # The record carries two standing obligations. "Every copy it names is still
-# there" is the one asserted above. The other — "each card holds exactly one
+# there" is the one asserted above. The other — "each skill holds exactly one
 # copy of the rule" — is deliberately not asserted as a count over these
 # entries, and the reason is not that the count is awkward.
 #
@@ -198,7 +198,7 @@ test_case "the uniqueness half of the obligation, and why it is not counted here
 # of rule 1 inside sift-prime to one answer, and drain-log.sh's dispatch and
 # return positions are held to one refusal set through the same check in
 # tests/scripts/drain-log.test.sh for rule 2.
-skip "one-copy-per-card as a textual count over the recorded constructs" \
+skip "one-copy-per-skill as a textual count over the recorded constructs" \
   "blind to the paraphrase that was the real bug, and needs a ROW_ID_PAT= exemption"
 
 summary

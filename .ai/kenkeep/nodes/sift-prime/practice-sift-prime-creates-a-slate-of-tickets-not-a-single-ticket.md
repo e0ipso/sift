@@ -17,7 +17,7 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-sift-prime's job is to fill the roadmap with a coherent slate of tickets that `/sift-drain` can pull. Converging on a single ticket is the rare exception, not the goal. The card says *tickets* / *issues*, never *a ticket*; there is no floor, quota, or target count — plurality is carried by wording alone.
+sift-prime's job is to fill the roadmap with a coherent slate of tickets that `/sift-drain` can pull. Converging on a single ticket is the rare exception, not the goal. The skill says *tickets* / *issues*, never *a ticket*; there is no floor, quota, or target count — plurality is carried by wording alone.
 
 <!-- kk:related:start -->
 # Related

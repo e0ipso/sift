@@ -42,7 +42,7 @@ to catch.
 
 Do not reach for the tempting general fix of stripping double-quoted spans from
 each line before scanning. It was tried and rejected: it mangles the
-`PREFIX="$(sed -n 's/^prefix:…\([A-Za-z0-9_]…\)…')"` line in both cards' `lib.sh`,
+`PREFIX="$(sed -n 's/^prefix:…\([A-Za-z0-9_]…\)…')"` line in both skills' `lib.sh`,
 removing the leading `sed` so the regex-tool exclusion stops applying, and turns
 one false positive into two.
 

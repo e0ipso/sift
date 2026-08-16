@@ -3,7 +3,7 @@
 #
 # README.md and schemas/ are copied, never generated: a regenerated paraphrase
 # is spec drift that every repository initialised afterwards then reads as
-# truth. The regression this pins is a card whose assets/README.md had fallen
+# truth. The regression this pins is a skill whose assets/README.md had fallen
 # behind the root README.
 
 set -u
@@ -11,19 +11,19 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 . "$DIR/../lib/harness.sh"
 . "$DIR/../lib/recipes.sh"
 
-CARD="$REPO_ROOT/src/skills/sift-init"
-INIT="$CARD/scripts/sift-init.sh"
+SKILL="$REPO_ROOT/src/skills/sift-init"
+INIT="$SKILL/scripts/sift-init.sh"
 
-test_case "the card's assets match the normative spec"
-assert_same "$REPO_ROOT/README.md" "$CARD/assets/README.md" \
+test_case "the skill's assets match the normative spec"
+assert_same "$REPO_ROOT/README.md" "$SKILL/assets/README.md" \
   "assets/README.md is the root README byte for byte"
 
 test_case "the schema set matches in both directions"
 root_set="$(cd "$REPO_ROOT/schemas" && ls *.xsd | LC_ALL=C sort)"
-asset_set="$(cd "$CARD/assets/schemas" && ls *.xsd | LC_ALL=C sort)"
-assert_eq "$root_set" "$asset_set" "no schema is missing from or stale in the card"
+asset_set="$(cd "$SKILL/assets/schemas" && ls *.xsd | LC_ALL=C sort)"
+assert_eq "$root_set" "$asset_set" "no schema is missing from or stale in the skill"
 for x in $root_set; do
-  assert_same "$REPO_ROOT/schemas/$x" "$CARD/assets/schemas/$x" "$x matches"
+  assert_same "$REPO_ROOT/schemas/$x" "$SKILL/assets/schemas/$x" "$x matches"
 done
 
 test_case "a fresh tree receives exactly those bytes"
@@ -75,7 +75,7 @@ assert_not_contains "$R_OUT" '  stale ' \
 # schema are what a tree initialised before a fix landed actually looks like, and
 # without them a check that never fires is indistinguishable from one that holds.
 printf '# an older convention\n' > "$root/.ai/sift/README.md"
-head -n 3 "$CARD/assets/schemas/task-ticket.xsd" > "$root/.ai/sift/schemas/task-ticket.xsd"
+head -n 3 "$SKILL/assets/schemas/task-ticket.xsd" > "$root/.ai/sift/schemas/task-ticket.xsd"
 stale_digest="$(tree_digest "$root/.ai/sift")"
 stale_paths="$(find "$root/.ai/sift" | LC_ALL=C sort)"
 
@@ -90,12 +90,12 @@ test_case "the report carries the remedy, not just the finding"
 # The recursion this closes: the refresh is documented in the cookbook, and the
 # cookbook lives in the very file that is out of date. An operator holding the
 # stale copy would be pointed at an instruction their copy does not contain, so
-# the two commands are printed from the card, fully resolved.
+# the two commands are printed from the skill, fully resolved.
 # Both commands are built from the cookbook's own refresh block (SFT-0052) with
-# `$CARD` and the tree root substituted, rather than restated here: the claim is
+# `$SKILL` and the tree root substituted, rather than restated here: the claim is
 # that the initializer prints THE DOCUMENTED RECIPE with its paths resolved, and
 # a copy of the recipe cannot make that claim.
-REFRESH="$(readme_refresh_resolved "$CARD" "$root")"
+REFRESH="$(readme_refresh_resolved "$SKILL" "$root")"
 assert_ne "" "$REFRESH" "the refresh recipe extracts from README.md"
 assert_eq 2 "$(printf '%s\n' "$REFRESH" | grep -c .)" "and it is the two documented commands"
 assert_contains "$R_OUT" "$(printf '%s\n' "$REFRESH" | sed -n '1p')" \
@@ -120,10 +120,10 @@ assert_eq '# an older convention' "$(cat "$root/.ai/sift/README.md")" \
 
 test_case "the documented refresh makes the report go quiet"
 # The cookbook's remedy, run exactly as documented: the block is extracted from
-# README.md and executed with $CARD supplied, rather than hand-copied here
+# README.md and executed with $SKILL supplied, rather than hand-copied here
 # (SFT-0052). The recipe's own paths are relative to the tree, so it runs with
 # $root as its working directory the way an operator runs it from theirs.
-run_recipe "$root" "$(readme_refresh)" CARD="$CARD"
+run_recipe "$root" "$(readme_refresh)" SKILL="$SKILL"
 assert_eq 0 "$R_STATUS" "the documented refresh runs clean"
 run_cmd "$root" "$INIT" --root "$root" --prefix SFT
 assert_eq 0 "$R_STATUS" "exits 0"
@@ -132,10 +132,10 @@ assert_same "$REPO_ROOT/README.md" "$root/.ai/sift/README.md" \
   "and the tree carries the normative spec again, byte for byte"
 assert_contains "$R_OUT" 'gate: READY' "a refreshed tree still passes the gate"
 
-# --- An installed schema the card no longer ships (SFT-0035) -----------------
+# --- An installed schema the skill no longer ships (SFT-0035) -----------------
 #
 # The drift check above walks the SHIPPED set, so it is blind in one direction:
-# a schema in the tree with no counterpart in the card is never mentioned. The
+# a schema in the tree with no counterpart in the skill is never mentioned. The
 # documented refresh shares the blind spot — `cp` overwrites what still ships and
 # steps over the rest — so following the remedy to the letter still leaves the
 # tree carrying a schema the convention no longer defines, and a drafter that
@@ -144,7 +144,7 @@ assert_contains "$R_OUT" 'gate: READY' "a refreshed tree still passes the gate"
 # deletion the initializer refuses to perform. The tree entering this block is
 # the refreshed, fully current one the case above left behind.
 
-test_case "a schema the card no longer ships is named, and only that one"
+test_case "a schema the skill no longer ships is named, and only that one"
 assert_not_contains "$R_OUT" '  orphan ' \
   "a tree holding exactly the shipped set says nothing"
 
@@ -163,7 +163,7 @@ assert_contains "$R_OUT" 'orphan   .ai/sift/schemas/legacy-ticket.xsd' \
   "the withdrawn schema is named, in the report's column shape"
 assert_contains "$R_OUT" 'no longer defines it' "with what the finding means"
 assert_not_contains "$R_OUT" 'orphan   .ai/sift/schemas/task-ticket.xsd' \
-  "a schema the card still ships is not"
+  "a schema the skill still ships is not"
 assert_not_contains "$R_OUT" '  stale ' \
   'and it is not folded into stale, whose cp remedy could not fix it'
 
@@ -206,10 +206,10 @@ work="$(newdir)"
 damaged="$(readme_reworded "$work" "$ANCHOR_REFRESH")" || damaged=''
 assert_ne "" "$damaged" "the anchor line is in README.md to be reworded"
 README="${damaged:-$README}"
-assert_eq "" "$(readme_refresh_resolved "$CARD" "$root")" \
+assert_eq "" "$(readme_refresh_resolved "$SKILL" "$root")" \
   "an anchor that no longer matches yields no commands at all"
 README="$REPO_ROOT/README.md"
-assert_ne "" "$(readme_refresh_resolved "$CARD" "$root")" \
+assert_ne "" "$(readme_refresh_resolved "$SKILL" "$root")" \
   "and the real README still extracts, so the case put it back"
 
 summary

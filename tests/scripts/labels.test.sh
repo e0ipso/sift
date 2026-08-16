@@ -367,7 +367,7 @@ for two in 'api caching' 'api -- caching' '-- api caching'; do
   else t_fail "[$two] is refused" "status=$R_STATUS" "stdout=$R_OUT" "stderr=$R_ERR"; fi
 done
 
-test_case "list-labels.sh reads -- the same way, so the card has one marker"
+test_case "list-labels.sh reads -- the same way, so the skill has one marker"
 # The two scripts disagreeing about a marker is worse than either answer alone:
 # a caller who learned the spelling from one gets a usage error from the other.
 labels "$d" --
@@ -446,7 +446,7 @@ zeta9" "$(printf '%s\n' "$listed" | grep -vxF "$warned")" \
 test_case "the kebab rule is defined once and read by name (SFT-0029)"
 # Criterion 1, asserted mechanically rather than by reading. The rule that was
 # duplicated has the shape `]+(-[`, so any second bracketed spelling under the
-# card's scripts/ is a copy — including one added to a script that has no label
+# skill's scripts/ is a copy — including one added to a script that has no label
 # job today. Behavioural agreement, above, can only notice drift after it lands.
 copies="$(cat "$DRAIN"/*.sh | grep -c ']+(-\[' || true)"
 assert_eq 1 "$copies" "exactly one bracketed kebab pattern across every drain script"

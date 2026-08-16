@@ -14,14 +14,14 @@ kk_id: >-
   practice-guard-a-one-copy-rule-behaviourally-when-the-bug-would-be-a-paraphrase
 kk_derived_from: []
 kk_relates_to:
-  - practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test
+  - practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test
   - practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts
 kk_depends_on: []
 kk_confidence: high
 ---
-AGENTS.md's cross-card record carries two standing obligations. "Every copy the record
-names is still there" is textual, and `tests/static/agents-card-copies.test.sh` asserts it
-by resolving each `@CARD-COPY:` entry against the tree. The other — "each card holds
+AGENTS.md's cross-skill record carries two standing obligations. "Every copy the record
+names is still there" is textual, and `tests/static/agents-skill-copies.test.sh` asserts it
+by resolving each `@SKILL-COPY:` entry against the tree. The other — "each skill holds
 exactly one copy of the rule" — is deliberately *not* asserted as a count over those same
 entries, and the reason is recorded as a `skip` in that file rather than left for someone
 to re-propose.
@@ -47,6 +47,6 @@ the two paths classify the same input the same way instead.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test](/practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test.md)
+- Related: [practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test](/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md)
 - Related: [practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts](/practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts.md)
 <!-- kk:related:end -->

@@ -23,7 +23,7 @@ kk_confidence: high
 ---
 `.ai/sift/RUNLOG.md` sits beside `ROADMAP.md` and is written by `sift-drain` through `scripts/drain-log.sh`, never by hand. The first dispatch of a drain creates it, every later write appends, and no row is ever rewritten.
 
-It is diagnostic timing only and never ticket state: it records nothing about a ticket that the ticket file does not already say, so status is read from front-matter and `ROADMAP.md`, never from the log. It exists to separate **agent runtime from operator idle time** — git merge timestamps bound a ticket's cost but fold in the gaps when nobody was at the keyboard, so they cannot be the evidence base for a change to the card.
+It is diagnostic timing only and never ticket state: it records nothing about a ticket that the ticket file does not already say, so status is read from front-matter and `ROADMAP.md`, never from the log. It exists to separate **agent runtime from operator idle time** — git merge timestamps bound a ticket's cost but fold in the gaps when nobody was at the keyboard, so they cannot be the evidence base for a change to the skill.
 
 The unit it records is a dispatch group, not a ticket. Rows carry six columns — `| event | ticket | phase | utc | epoch | status |` — with a literal `-` in any cell an event has no use for. Three event kinds exist: `dispatch`, one row per ticket in the group; `phase`, one row naming `orient`, `implement`, `verify` or `bookkeep` and no ticket, because a phase belongs to the dispatch rather than to any member; and `return`, one row per ticket carrying the state it ended in, which is what makes partial group failure representable.
 

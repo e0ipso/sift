@@ -21,7 +21,7 @@ kk_depends_on: []
 kk_confidence: high
 ---
 Reading a value out of a table row is two steps that look like one: choose the field, then
-extract the value from it. Both cards that read `ROADMAP.md` wrote the choice as
+extract the value from it. Both skills that read `ROADMAP.md` wrote the choice as
 `for (i = 1; i <= NF; i++) if ($i ~ pat) { cell = i; break }` and the extraction as a
 separate, stricter function. Tightening only the extraction leaves the choice pointing at
 a field the extraction now rejects, so the row reads as having no value at all — or, worse,

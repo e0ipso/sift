@@ -398,7 +398,7 @@ test_case "-- ends the options, and nothing may follow it (SFT-0033)"
 # This script used to parse no arguments at all, so it answered every command
 # line — `roadmap-check.sh --` included — with the same whole-tree verdict, and
 # `roadmap-check.sh open` read as "the tree is consistent" for a scope nobody
-# had checked. SFT-0033 gave it the card's shared shape: the marker is accepted
+# had checked. SFT-0033 gave it the skill's shared shape: the marker is accepted
 # and means the option list is over, and a positional is refused because this
 # script takes none. Exit 0 from a run that swallowed its argument is the
 # failure being pinned, so the fixture is a CONSISTENT tree: here the wrong

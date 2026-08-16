@@ -3,7 +3,7 @@
 The sweep measures one distance: what the project's own documents say the project is,
 against what is actually on disk. Everything proposed is a gap in that distance and
 nothing else. An improvement nobody has claimed to want is somebody else's backlog — the
-value of this card is that the user recognises every row of the slate as their own stated
+value of this skill is that the user recognises every row of the slate as their own stated
 intent, unmet.
 
 Phases 1–3 write nothing. The findings live in the orchestrator's context and in the chat
@@ -71,7 +71,7 @@ theme. Fenced, the sweep looks only inside the fence. Unfenced, it runs at full 
 **Findings outside the fence become one closing line at the end of the run, never
 tickets.** The user drew the fence to decide what enters their backlog; filing outside it
 overrides that decision while appearing to serve them. The closing line preserves the
-finding — they can re-run the card unfenced, or fence it there next time — without taking
+finding — they can re-run the skill unfenced, or fence it there next time — without taking
 the decision away from them.
 
 The fence moves where the analysis looks. It never moves the evidence bar. A narrow fence
@@ -87,7 +87,7 @@ fits no `type`, and there is nowhere on disk to put it.
 
 That makes the `Dimension` column below a restatement of the convention's own set, so it is
 pinned to it: the line below names the file and the verbatim construct that has to still be
-there, and `tests/static/card-prose-pins.test.sh` extracts it and fails when the set has
+there, and `tests/static/skill-prose-pins.test.sh` extracts it and fails when the set has
 changed underneath this table. Add or drop a dimension only together with the convention.
 
 ```text
@@ -165,13 +165,13 @@ if one needs an existence guard and the other needs a different query.
 a title, a one-line `why`, and the citations handed to it. Given members that do not share
 a fix it cannot write a Direction covering them, and it will not report the contradiction —
 it will write something plausible. `sift-drain` then reads `## Direction` as the
-implementing agent's brief, so the invention lands two cards downstream on an agent with no
+implementing agent's brief, so the invention lands two skills downstream on an agent with no
 way to know it was invented. A split that should have been a merge costs one extra row on
 the slate. A merge that should have been a split costs a ticket whose brief is fiction.
 
-None of this bends the atomicity rule. One file is still one problem: a cluster is one
-problem with several manifestations, never several problems in one file. A member that is
-its own problem was never a member.
+None of this bends the one-problem-per-ticket rule. One file is still one problem: a
+cluster is one problem with several manifestations, never several problems in one file. A
+member that is its own problem was never a member.
 
 ### The citations survive the merge
 
@@ -213,7 +213,7 @@ Those stay separate tickets, and each carries the optional `cluster` front-matte
 kebab-case value naming the shared root cause, identical across every member. `sift-drain`
 reads that key and re-assembles the members at dispatch time, so the relationship survives
 the split without any ticket having to overstate its scope. The key's bounds and the
-grouping rules are the convention's and the drain card's to state — do not restate them
+grouping rules are the convention's and the drain skill's to state — do not restate them
 here, because two documents describing one algorithm is how they come to disagree.
 
 So there are three outcomes, not two. One shared Direction is one ticket. A shared root
@@ -222,7 +222,7 @@ symptom with nothing behind it is several unrelated tickets and no key at all.
 
 ### Five worked examples
 
-These come from the backlog this card was drafted against. The IDs mean nothing in another
+These come from the backlog this skill was drafted against. The IDs mean nothing in another
 repository — read them for where the line falls, not as convention.
 
 - **One fix, two files: the model cluster.** Two tickets (SFT-0023, SFT-0028) each truncated
@@ -286,10 +286,10 @@ Check every candidate against that corpus before presenting anything. Three outc
 - **Kept** — nothing in either bucket covers it.
 
 **Re-proposing work already archived `wontfix` is the failure that ends the user's trust
-in this card.** They spent the decision once and wrote the reason down; handing it back
-as fresh work says the card did not read what they wrote. Re-rejecting costs them more
+in this skill.** They spent the decision once and wrote the reason down; handing it back
+as fresh work says the skill did not read what they wrote. Re-rejecting costs them more
 than the proposal was ever worth, and once they have seen it happen they read the whole
-slate as noise and stop running the card. The `resolution` column exists to make that
+slate as noise and stop running the skill. The `resolution` column exists to make that
 impossible. Read it.
 
 Match on subject matter, not on title strings. An archived ticket titled "Drop the
@@ -300,6 +300,6 @@ library"; the corpus is small enough to read every line of, so read every line o
 
 An open ticket whose evidence the sweep found has moved on — the cited line has changed,
 the work is partly done — is not a candidate. It is an update to something that already
-exists, and it goes to the user as a note beside the slate. This card writes new tickets;
+exists, and it goes to the user as a note beside the slate. This skill writes new tickets;
 it does not rewrite existing ones, and quietly proposing a duplicate of live work is the
 same trust failure as re-proposing archived work, with a split ID space thrown in.

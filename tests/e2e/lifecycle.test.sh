@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # End to end: an empty directory becomes a rule-9-consistent sift tree.
 #
-# The one heavy test in the suite. Everything else pins a single recipe or
-# script; this drives the whole documented workflow — gate, init, allocate,
-# create, archive — and lets roadmap-check.sh, which nothing else in the
-# workflow calls, be the judge of the result.
+# One of the two heavy tests in the suite (drain-wave.test.sh is the other).
+# Everything else pins a single recipe or script; this drives the whole
+# documented workflow — gate, init, allocate, create, archive — and lets
+# roadmap-check.sh, which nothing else in the workflow calls, be the judge of
+# the result.
 
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
@@ -12,21 +13,21 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 . "$DIR/../lib/recipes.sh"
 . "$DIR/../lib/fixtures.sh"
 
-CARD="$REPO_ROOT/src/skills/sift-init/scripts"
+SKILL="$REPO_ROOT/src/skills/sift-init/scripts"
 CHECK="$REPO_ROOT/src/skills/sift-drain/scripts/roadmap-check.sh"
 
 root="$(newdir)"
 
 test_case "the gate refuses to guess before anything exists"
-run_cmd "$root" env SIFT_ROOT="$root" "$CARD/sift-gate.sh"
+run_cmd "$root" env SIFT_ROOT="$root" "$SKILL/sift-gate.sh"
 assert_eq 3 "$R_STATUS" "exit 3: a root is known, the tree is not there yet"
 assert_contains "$R_OUT" 'state=UNINITIALIZED' "and says so"
 
 test_case "init materialises a tree the gate calls READY"
-run_cmd "$root" "$CARD/sift-init.sh" --root "$root" --prefix ACME --milestone v1-2
+run_cmd "$root" "$SKILL/sift-init.sh" --root "$root" --prefix ACME --milestone v1-2
 assert_eq 0 "$R_STATUS" "init exits 0"
 assert_contains "$R_OUT" 'gate: READY' "init verifies its own work"
-run_cmd "$root" env SIFT_ROOT="$root" "$CARD/sift-gate.sh"
+run_cmd "$root" env SIFT_ROOT="$root" "$SKILL/sift-gate.sh"
 assert_eq 0 "$R_STATUS" "the gate agrees, on its own"
 assert_contains "$R_OUT" 'prefix=ACME' "and reads back the configured prefix"
 

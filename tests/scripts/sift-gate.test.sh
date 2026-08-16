@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # sift-gate.sh — root resolution and tree-state reporting (SFT-0008).
 #
-# The gate is the first thing every sift card runs, and it is the only component
+# The gate is the first thing every sift skill runs, and it is the only component
 # that decides WHERE the tree is. Two properties are worth more than the rest:
 #
 #   - Tier precedence over proximity. An existing tree beats a nearer .git, which
@@ -9,7 +9,7 @@
 #     on a first run would materialise a SECOND tree with its own 0001 — an ID
 #     collision the convention declares impossible and no migration can unpick.
 #   - It never writes. Every case below re-checksums the tree afterwards, because
-#     a gate that repairs what it inspects is a gate no card can trust to report.
+#     a gate that repairs what it inspects is a gate no skill can trust to report.
 #
 # Every invocation is sandboxed: either SIFT_ROOT points into TMPROOT, or $PWD
 # does. The first case proves the sandbox holds by asserting no marker exists

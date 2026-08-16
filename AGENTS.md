@@ -33,16 +33,16 @@ Because the layout and front-matter are the public API, edits to README.md are A
 - **README.md's own `##` headings are a parsed API too, not just its content.** The sift-drain ticket-agent prompt no longer reads the spec in full: it names the sections it reads, tagged `@README-SECTION:`, and `tests/static/prompt-readme-sections.test.sh` extracts those names and asserts each one exists in README.md *and* in the shipped `sift-init` mirror. Renaming or removing a heading the prompt names fails the suite. Rename it in the prompt in the same change, or the agents that depend on that section silently lose it.
 - **Never let a feature require a binary the user has to install.** Recipes target the Unix userland already present: bash, the standard file utilities and `awk`, in the options both GNU and BSD (macOS) provide. `grep -r/-l/-L/-o/--include`, `find -maxdepth`, `sort -u` and `awk '{print $2}'` are all safe on both. Two are not, and are banned outright: **`sed -i`**, whose GNU and BSD forms disagree so badly that the BSD one eats the script as a backup suffix — use `sed … "$f" > "$f.tmp" && mv "$f.tmp" "$f"`; and **`xargs -r`**, a GNU extension older BSD `xargs` rejects — use `| while read -r f; do … done`, which also sidesteps the empty-input case where bare `xargs grep` falls through to reading stdin. In `awk`, write character classes as `[[:space:]]`, never `[ \t]` — POSIX leaves a backslash inside a bracket expression undefined, so a strict `awk` reads that set as {space, backslash, `t`} and silently eats the leading `t` of a title like "tenant caching". Anything outside the baseline — `xmllint`, `jq`, a language runtime — is an optional convenience only: guard it with `command -v` so its absence costs nothing, or leave it out. The XSD schemas are the shape to imitate, readable as a checklist and rendered by hand. A recipe that silently assumes a tool is installed is a bug, not a shortcut.
 
-## Duplication between cards
+## Duplication between skills
 
-Each card installs on its own — `sift-drain` may be present without `sift-prime`, and neither
-directory may source a file from the other — so a rule both cards need is written out twice.
+Each skill installs on its own — `sift-drain` may be present without `sift-prime`, and neither
+directory may source a file from the other — so a rule both skills need is written out twice.
 Two rules are in that position today, and every copy of both is listed here. Adding a third
 rule to the list means adding its guard test in the same change.
 
 **Rule 1 — what a roadmap row is.** A row is a markdown table line, and within it the first
 cell holding a whole-token `<PREFIX>-NNNN`. Sift-drain reads by that rule in `roadmap_rows`,
-whose `BEGIN` pattern and `cell_id` are the whole of that card's copy; sift-prime writes by it
+whose `BEGIN` pattern and `cell_id` are the whole of that skill's copy; sift-prime writes by it
 through `ROW_ID_PAT` and the `cell_id` inside `ROW_CELL_ID_AWK`, which the duplicate guard and
 the append hop share. The two copies drifted apart three times (SFT-0022, SFT-0025, SFT-0031),
 each silently, each surfacing only once a tree was already wrong.
@@ -57,20 +57,20 @@ and unguarded until SFT-0042.
 
 **Where every copy is.** One entry per copy: the file, then the verbatim construct that holds
 the rule inside it. The entries below are parsed —
-`tests/static/agents-card-copies.test.sh` extracts them from this section rather than restating
+`tests/static/agents-skill-copies.test.sh` extracts them from this section rather than restating
 them, and fails when a named file is gone or when no executable line of that file still holds
-the named construct. A copy that is renamed, deleted, or moved to the other card therefore
+the named construct. A copy that is renamed, deleted, or moved to the other skill therefore
 cannot leave this list behind still claiming it is there.
 
 ```text
-@CARD-COPY: src/skills/sift-drain/scripts/lib.sh roadmap_rows() {
-@CARD-COPY: src/skills/sift-drain/scripts/lib.sh pat = prefix
-@CARD-COPY: src/skills/sift-drain/scripts/lib.sh function cell_id(
-@CARD-COPY: src/skills/sift-prime/scripts/roadmap-append.sh case "$ID" in
-@CARD-COPY: src/skills/sift-prime/scripts/roadmap-append.sh ROW_ID_PAT=
-@CARD-COPY: src/skills/sift-prime/scripts/roadmap-append.sh ROW_CELL_ID_AWK=
-@CARD-COPY: src/skills/sift-prime/scripts/roadmap-append.sh function cell_id(
-@CARD-COPY: src/skills/sift-drain/scripts/drain-log.sh require_ticket_id() {
+@SKILL-COPY: src/skills/sift-drain/scripts/lib.sh roadmap_rows() {
+@SKILL-COPY: src/skills/sift-drain/scripts/lib.sh pat = prefix
+@SKILL-COPY: src/skills/sift-drain/scripts/lib.sh function cell_id(
+@SKILL-COPY: src/skills/sift-prime/scripts/roadmap-append.sh case "$ID" in
+@SKILL-COPY: src/skills/sift-prime/scripts/roadmap-append.sh ROW_ID_PAT=
+@SKILL-COPY: src/skills/sift-prime/scripts/roadmap-append.sh ROW_CELL_ID_AWK=
+@SKILL-COPY: src/skills/sift-prime/scripts/roadmap-append.sh function cell_id(
+@SKILL-COPY: src/skills/sift-drain/scripts/drain-log.sh require_ticket_id() {
 ```
 
 **The citation form (SFT-0043): construct names, never line numbers.** SFT-0042 wrote this
@@ -81,20 +81,20 @@ one of the constructs listed above, so each would have moved a citation without 
 anything the record actually asserts. Pinning the numbers buys a suite that fails on comment
 edits, which teaches a maintainer to bump a number without reading what it points at — the
 believed-but-wrong reference this record exists to prevent, one level down. A construct name
-catches the drift that matters, which copies exist and on which card, and `grep -n` recovers a
+catches the drift that matters, which copies exist and on which skill, and `grep -n` recovers a
 line number whenever a reader wants one. The cost of the choice is recorded too: a construct
 that merely moves within its own file is not drift this list can detect, and does not need to
 be.
 
-**The decision (SFT-0038, widened to rule 2 by SFT-0042): keep one copy per card, and pay for
+**The decision (SFT-0038, widened to rule 2 by SFT-0042): keep one copy per skill, and pay for
 it with a test that fails when the two classify one input differently.** Both tests live in
 `tests/scripts/prime-backlog.test.sh`, beside each other:
 
 - Rule 1 is covered by "the reader and the writer classify every cell of one table alike",
-  which drives one fixture table through both cards: a plain cell, a cell glued to a longer
+  which drives one fixture table through both skills: a plain cell, a cell glued to a longer
   word, a glued cell shadowing a real one beside it, a struck cell, a five-digit ID, a `Needs`
   mention, trailing junk, and a line of prose. All three past divergences fail it.
-- Rule 2 is covered by "the two cards classify every ID of one list alike (SFT-0042)", which
+- Rule 2 is covered by "the two skills classify every ID of one list alike (SFT-0042)", which
   drives one fixture list through `roadmap-append.sh`'s argument check and `drain-log.sh`'s
   `require_ticket_id`: four digits, five digits, too few digits, a bare prefix, a prefix with
   an empty tail, a non-digit tail, a second hyphenated group, the wrong case, an ID glued
@@ -102,27 +102,27 @@ it with a test that fails when the two classify one input differently.** Both te
   position. The last two are comparable only in an OPERAND position, which the case beside it
   pins: `drain-log.sh` parses an option list and `roadmap-append.sh` does not, so a
   hyphen-leading word in the drain's subcommand slot is an unknown mode that
-  `require_ticket_id` never sees and the writer has no counterpart to. Both cards resolving
+  `require_ticket_id` never sees and the writer has no counterpart to. Both skills resolving
   the same `<PREFIX>` is a premise of this agreement rather than a consequence of it, so the
   two cases after it drive the same comparison across a ragged config, an inferred prefix and
-  a prefix nothing determines, with a card handed a different `SIFT_PREFIX` as the control.
+  a prefix nothing determines, with a skill handed a different `SIFT_PREFIX` as the control.
 
 When either rule grows a new edge, extend that rule's fixture rather than adding a second test
 somewhere else.
 
-The other two options lose. Shipping one `row-reader.awk` into both cards by the same
+The other two options lose. Shipping one `row-reader.awk` into both skills by the same
 install-time synchronization the convention assets use (SFT-0006) buys less than it looks: only
 the ten-line `cell_id` is genuinely common — the reader emits five TSV fields per row while the
 writer only asks whether one ID owns a row, so the loops around it differ for good reasons — and
-it adds a third source of truth, a sync step to forget, and a new failure mode where a card that
+it adds a third source of truth, a sync step to forget, and a new failure mode where a skill that
 lost the file cannot read a roadmap at all. Letting `sift-prime` require `sift-drain` to be
-installed contradicts the card model outright. The argument was made about rule 1, where the
+installed contradicts the skill model outright. The argument was made about rule 1, where the
 shared surface is largest; it only gets weaker for rule 2, whose whole copy is six lines of
 `case`.
 
 Two obligations come with keeping the copies, and they apply to every rule on the list:
 
-- **Each card holds exactly one copy of the rule.** A second copy inside one card is the same
+- **Each skill holds exactly one copy of the rule.** A second copy inside one skill is the same
   bug at shorter range, which is what `roadmap-append.sh` had become: its append hop selected a
   cell on the bare pattern while the duplicate guard beside it used `cell_id`.
 - **A change to one copy lands in the same commit as the change to the other**, with the

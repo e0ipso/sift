@@ -4,7 +4,7 @@ title: 'The collated-range ban is about letter ranges: [0-9] is out of scope'
 description: >-
   portability.test.sh only flags a range whose high end is a letter, so a digit
   range passes; respelling one as [0123456789] buys nothing and breaks
-  cross-card comparison.
+  cross-skill comparison.
 tags:
   - portability
   - shell
@@ -35,7 +35,7 @@ convention supports.
 
 So do not "defensively" respell a digit set as `[0123456789]`. `roadmap-append.sh`
 in sift-prime and `roadmap_rows` in sift-drain's `lib.sh` are required to hold
-byte-comparable ID patterns across two cards that ship separately and cannot
+byte-comparable ID patterns across two skills that ship separately and cannot
 source each other; a unilateral respelling in one of them breaks that comparison
 and buys no portability. Spell letter sets out, leave digit runs as `[0-9]`.
 

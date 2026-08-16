@@ -20,8 +20,8 @@
 #
 # Sandboxing: SIFT_ROOT always points into TMPROOT, and each roadmap case keeps
 # its own before-copy under TMPROOT rather than inside the tree under test. Root
-# and prefix resolution are swept across both cards by root-resolution.test.sh —
-# across every card script that can be run without writing, which is why
+# and prefix resolution are swept across both skills by root-resolution.test.sh —
+# across every skill script that can be run without writing, which is why
 # roadmap-append.sh's half of that contract is held below instead (SFT-0050).
 
 set -u
@@ -179,7 +179,7 @@ assert_eq 2 "$R_STATUS" "a SIFT_ROOT with no tree under it exits 2"
 assert_contains "$R_ERR" 'no .ai/sift/ directory under SIFT_ROOT' \
   "rather than starting a roadmap of its own in an uninitialised directory"
 assert_contains "$R_ERR" 'run sift-init before priming' \
-  "with the card-specific repair hint sift-prime's lib.sh adds and sift-drain's does not"
+  "with the skill-specific repair hint sift-prime's lib.sh adds and sift-drain's does not"
 mkdir -p "$d/.ai/sift"
 run_cmd "$d" env SIFT_ROOT="$d" "$APPEND" 1 ACME-0001 'One' ''
 assert_eq 2 "$R_STATUS" "a tree with no ROADMAP.md exits 2"
@@ -548,9 +548,9 @@ append "$d" 1 acme-0001 'One' ''
 assert_eq 1 "$R_STATUS" "a lower-case ID is refused"
 assert_contains "$R_ERR" 'ticket ID must look like ACME-NNNN' "against the resolved prefix"
 # The unpadded (ACME-1) and non-digit-tail (ACME-000x) spellings used to be driven
-# here too. Both shapes are in the id_cases fixture of "the two cards classify
+# here too. Both shapes are in the id_cases fixture of "the two skills classify
 # every ID of one list alike (SFT-0042)" below, which drives them through BOTH
-# cards rather than only this one, so the rows here pinned strictly less and are
+# skills rather than only this one, so the rows here pinned strictly less and are
 # gone (SFT-0075). acme-0001 stays: its assert_contains pins the resolved prefix
 # inside the message, which the agreement helper's substring match does not.
 append "$d" 1 ACME-0001 '' ''
@@ -604,7 +604,7 @@ assert_eq "| 1 | ACME-0002 | Cache & purge 50% of keys |  |" \
 # --- The row the drain has to be able to read --------------------------------
 
 test_case "sift-drain reads back the row sift-prime wrote"
-# The two cards meet at this file and nowhere else, so the write is only correct
+# The two skills meet at this file and nowhere else, so the write is only correct
 # if the reader agrees: wave-status.sh re-parses the roadmap as tab-separated
 # fields, which is exactly what an escaped tab would have broken.
 d="$(newdir)"; make_tree "$d" ACME
@@ -617,7 +617,7 @@ assert_contains "$(printf '%s\n' "$R_OUT" | tr -s ' ')" \
   ' 1 ACME-0001 [p2/m/open] Cache \t tenant lookups' \
   "and recovers the whole title, with the backslash-t intact"
 
-# --- Rule 1 of 2 across the cards: what a roadmap row is ---------------------
+# --- Rule 1 of 2 across the skills: what a roadmap row is ---------------------
 
 # reader_rows <root> — every ID the sift-drain reader reports as a row. Driven
 # through roadmap-check.sh rather than by sourcing lib.sh, so the reader is
@@ -644,14 +644,14 @@ writer_rows() {
 }
 
 test_case "the reader and the writer classify every cell of one table alike"
-# The two cards meet at "what is a row" and nowhere else, and they ship
+# The two skills meet at "what is a row" and nowhere else, and they ship
 # separately, so a divergence is invisible until a tree is already wrong: the
 # reader says an ID has a row, the writer says it has none and appends a second,
 # and roadmap-check.sh reports a duplicate neither of them meant to make
 # (SFT-0031). One table carries every cell shape the rule has ever been argued
 # over — plain, glued to a word, glued but shadowing a real cell beside it,
 # struck, five digits, a Needs mention, trailing junk, and a line of prose — and
-# both cards are asked about every ID named anywhere in it.
+# both skills are asked about every ID named anywhere in it.
 d="$(newdir)"; make_tree "$d" ACME
 {
   printf '| 1 | ACME-0001 | Plain | - |\n'
@@ -671,7 +671,7 @@ got_writer="$(writer_rows "$d" \
   ACME-0006 ACME-0007 ACME-0008 ACME-0009 ACME-00011)"
 assert_eq "$want" "$got_reader" "the reader reports exactly the whole-token ticket cells"
 assert_eq "$want" "$got_writer" "the writer refuses exactly the same set as duplicates"
-assert_eq "$got_reader" "$got_writer" "so neither card sees a row the other does not"
+assert_eq "$got_reader" "$got_writer" "so neither skill sees a row the other does not"
 
 test_case "the append hop counts exactly the rows the duplicate guard counts (SFT-0038)"
 # The same cell rule, one hop over. The case above asks the duplicate guard what
@@ -680,7 +680,7 @@ test_case "the append hop counts exactly the rows the duplicate guard counts (SF
 # XACME-0002 line was therefore a row to the numbering and not a row to the
 # guard: it was counted into nrows and its "#" read into maxnum, so the append
 # landed at 3 in a table the guard beside it says holds exactly one row — the
-# cross-card divergence of SFT-0031, inside one file. SFT-0038 folded both hops
+# cross-skill divergence of SFT-0031, inside one file. SFT-0038 folded both hops
 # onto one cell_id and waived the test for it; this is that test.
 d="$(newdir)"; make_tree "$d" ACME
 roadmap_row "$d" 1 ACME-0001 'One' '-'
@@ -694,7 +694,7 @@ assert_eq "| 2 | ACME-0003 | Three |  |" \
 assert_eq 0 "$(removed_lines "$before" "$d")" \
   "and the glued line is left exactly as it was found, not renumbered"
 
-# --- Rule 2 of 2 across the cards: what a ticket ID is -----------------------
+# --- Rule 2 of 2 across the skills: what a ticket ID is -----------------------
 
 # writer_id_accepts <root> <ID…> — every candidate roadmap-append.sh's ID-shape
 # argument check lets past. Keyed on the message rather than on the exit status,
@@ -733,8 +733,8 @@ drain_id_accepts() {
   done | LC_ALL=C sort
 }
 
-test_case "the two cards classify every ID of one list alike (SFT-0042)"
-# The second rule both cards hold a copy of, and the one that had no guard until
+test_case "the two skills classify every ID of one list alike (SFT-0042)"
+# The second rule both skills hold a copy of, and the one that had no guard until
 # SFT-0042: what a well-formed ticket ID is. roadmap-append.sh checks its ID
 # argument, drain-log.sh's require_ticket_id checks every ticket argument of a log
 # row, and neither may source the other. A divergence is invisible until a tree is
@@ -744,7 +744,7 @@ test_case "the two cards classify every ID of one list alike (SFT-0042)"
 # five digits, too few digits, a bare prefix, a prefix with an empty tail, a
 # non-digit tail, a second hyphenated group, the wrong case, an ID glued to a
 # longer token on either edge, a hyphen-leading argument and the `--` marker
-# standing in an ID position — and both cards are asked about all of them.
+# standing in an ID position — and both skills are asked about all of them.
 d="$(newdir)"; make_tree "$d" ACME
 id_cases=(
   ACME-0001        # the canonical four-digit ID
@@ -756,7 +756,7 @@ id_cases=(
   XACME-0002       # glued to a longer token on the left edge
   ACME-0001-0002   # a second hyphenated group after a well-formed one
   acme-0001        # the right shape in the wrong case
-  -ACME-0001       # hyphen-leading, the claim the card's `--` grammar rests on
+  -ACME-0001       # hyphen-leading, the claim the skill's `--` grammar rests on
   --               # the end-of-options marker itself, standing in an ID position
 )
 want="$(printf '%s\n' ACME-0001 ACME-00011 | LC_ALL=C sort)"
@@ -764,7 +764,7 @@ got_writer="$(writer_id_accepts "$d" "${id_cases[@]}")"
 got_drain="$(drain_id_accepts "$d" "${id_cases[@]}")"
 assert_eq "$want" "$got_writer" "the writer accepts exactly the well-formed IDs"
 assert_eq "$want" "$got_drain" "the run log accepts exactly the same set"
-assert_eq "$got_writer" "$got_drain" "so neither card logs an ID the other cannot slot"
+assert_eq "$got_writer" "$got_drain" "so neither skill logs an ID the other cannot slot"
 
 test_case "a hyphen-leading ID is comparable in an operand position and nowhere else"
 # The one shape the list above could not be taken on faith for. drain-log.sh
@@ -772,7 +772,7 @@ test_case "a hyphen-leading ID is comparable in an operand position and nowhere 
 # ever reaches require_ticket_id at all — and the answer differs by POSITION,
 # which is why it is pinned here rather than assumed.
 #
-# In an operand position it does reach the check, on both cards, and both refuse
+# In an operand position it does reach the check, on both skills, and both refuse
 # it: roadmap-append.sh has no option list whatsoever, so its ID is always the
 # second positional. That is what makes the two entries in the list above a real
 # comparison rather than two scripts declining for unrelated reasons.
@@ -801,15 +801,15 @@ assert_not_contains "$R_ERR" 'not a ticket ID' "require_ticket_id never sees it,
 run_cmd "$d" env SIFT_ROOT="$d" "$DRAIN/drain-log.sh" -- -ACME-0001
 assert_eq 2 "$R_STATUS" "and the marker does not turn that slot into a ticket position"
 assert_not_contains "$R_ERR" 'not a ticket ID' "it ends an option list, it does not add an operand"
-assert_no_file "$d/.ai/sift/RUNLOG.md" "no refusal on either card created a run log"
+assert_no_file "$d/.ai/sift/RUNLOG.md" "no refusal on either skill created a run log"
 assert_same "$before" "$(roadmap "$d")" "and the roadmap is byte-identical after all four"
 
 # --- The premise both copies of rule 2 rest on: one tree, one prefix ---------
 
 # drain_id_accepts_as <root> <prefix> <ID…> — the drain probe with the prefix
 # forced through the environment instead of resolved from the tree. Both copies
-# of the ID rule spell the prefix as `$PREFIX`, so "the two cards classify every
-# ID alike" is only ever true of cards that resolved the SAME prefix. This is how
+# of the ID rule spell the prefix as `$PREFIX`, so "the two skills classify every
+# ID alike" is only ever true of skills that resolved the SAME prefix. This is how
 # that premise is broken on purpose.
 drain_id_accepts_as() {
   local root="$1" pfx="$2"; shift 2
@@ -825,19 +825,19 @@ drain_id_accepts_as() {
   done | LC_ALL=C sort
 }
 
-test_case "the two cards read one prefix out of one tree, however the config states it"
+test_case "the two skills read one prefix out of one tree, however the config states it"
 # The agreement above was measured on a tree whose config says `prefix: ACME` and
-# nothing else. The prefix is itself resolved by a block each card holds its own
-# copy of, so the shapes can be byte-identical and the cards still disagree about
+# nothing else. The prefix is itself resolved by a block each skill holds its own
+# copy of, so the shapes can be byte-identical and the skills still disagree about
 # which strings are IDs — and that disagreement is the one that reaches a real
-# tree, because a config is written by hand and read by both cards.
+# tree, because a config is written by hand and read by both skills.
 #
 # One ID pair is enough per scenario: with a resolved prefix of ACME, ACME-0001
 # is an ID and ZULU-0001 is not, and swapping the answer is exactly what a drifted
 # resolution does.
 d="$(newdir)"; make_tree "$d" ACME
 # Quoted, comment-trailed, and stated twice: three ways a hand-edited config goes
-# ragged at once. `head -n 1` decides, so the first line wins on both cards or
+# ragged at once. `head -n 1` decides, so the first line wins on both skills or
 # neither.
 printf 'prefix: "ACME"   # the ticket prefix\nprefix: ZULU\n' \
   > "$d/.ai/sift/config/config.yaml"
@@ -852,7 +852,7 @@ ticket "$d" open v1/bug ZULU-0001 alpha 'Alpha' > /dev/null
 assert_eq "ZULU-0001" "$(writer_id_accepts "$d" ACME-0001 ZULU-0001)" \
   "with no config at all the writer infers the prefix from the ticket filenames"
 assert_eq "ZULU-0001" "$(drain_id_accepts "$d" ACME-0001 ZULU-0001)" \
-  "and the run log infers the same one, so the inference is not a per-card guess"
+  "and the run log infers the same one, so the inference is not a per-skill guess"
 
 d="$(newdir)"; make_tree "$d" ACME
 rm "$d/.ai/sift/config/config.yaml"
@@ -864,14 +864,14 @@ assert_eq 2 "$w_status" "with nothing to resolve a prefix from, the writer exits
 assert_eq "$w_status" "$R_STATUS" "and the drain exits the same way"
 assert_eq "$w_err" "$R_ERR" "with byte-identical stderr, the hint included"
 assert_contains "$w_err" 'cannot determine the ticket prefix' \
-  "so neither card falls back to a prefix of its own and calls IDs by it"
+  "so neither skill falls back to a prefix of its own and calls IDs by it"
 assert_no_file "$d/.ai/sift/RUNLOG.md" "no run log was created"
 assert_same "$before" "$(roadmap "$d")" "and no row was appended"
 
-test_case "an environment that hands one card a different prefix is where the agreement stops"
+test_case "an environment that hands one skill a different prefix is where the agreement stops"
 # The positive control for the three scenarios above, and the real-world shape of
 # the failure the record names: SIFT_PREFIX is per invocation, so an orchestrator
-# that exports it for one card and not the other gets two cards that classify the
+# that exports it for one skill and not the other gets two skills that classify the
 # same string differently — the drain writing a run-log row for a ZULU ticket that
 # can never take a roadmap row, and `report` pairing it against nothing. Without
 # this control, a probe that had stopped depending on the resolved prefix would

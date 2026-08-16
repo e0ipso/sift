@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# sync-assets.sh — the one command that keeps the card's assets current (SFT-0006).
+# sync-assets.sh — the one command that keeps the skill's assets current (SFT-0006).
 #
-# Every case runs against a throwaway copy of the card layout, never the real
+# Every case runs against a throwaway copy of the skill layout, never the real
 # repository, because the script's whole job is to write.
 
 set -u
@@ -12,14 +12,14 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 REAL_CARD="$REPO_ROOT/src/skills/sift-init"
 
-# A minimal repository with the card's shape: the script resolves its paths from
+# A minimal repository with the skill's shape: the script resolves its paths from
 # its own location, so the copy must keep src/skills/sift-init/scripts/.
 fake_repo() {
-  local t card
+  local t skill
   t="$(newdir)"
-  card="$t/src/skills/sift-init"
-  mkdir -p "$card/scripts" "$card/assets/schemas" "$t/schemas"
-  cp "$REAL_CARD/scripts/sync-assets.sh" "$card/scripts/"
+  skill="$t/src/skills/sift-init"
+  mkdir -p "$skill/scripts" "$skill/assets/schemas" "$t/schemas"
+  cp "$REAL_CARD/scripts/sync-assets.sh" "$skill/scripts/"
   printf '# normative spec\n' > "$t/README.md"
   printf '<xsd>one</xsd>\n' > "$t/schemas/one.xsd"
   printf '<xsd>two</xsd>\n' > "$t/schemas/two.xsd"
@@ -30,16 +30,16 @@ sync() { run_cmd "$1" "${R_SHELL:-bash}" "$1/src/skills/sift-init/scripts/sync-a
 
 assets_of() { printf '%s' "$1/src/skills/sift-init/assets"; }
 
-# The same card, parked where the script's three-levels-up walk lands on a tree
-# that is not a sift checkout at all: the relocated card the root guard exists
+# The same skill, parked where the script's three-levels-up walk lands on a tree
+# that is not a sift checkout at all: the relocated skill the root guard exists
 # for. Everything the four preconditions ask for is present, so the run reaches
 # that guard with nothing above it refusing first.
 relocated_repo() {
-  local t card
+  local t skill
   t="$(newdir)"
-  card="$t/nested/skills/sift-init"
-  mkdir -p "$card/scripts" "$card/assets/schemas" "$t/schemas"
-  cp "$REAL_CARD/scripts/sync-assets.sh" "$card/scripts/"
+  skill="$t/nested/skills/sift-init"
+  mkdir -p "$skill/scripts" "$skill/assets/schemas" "$t/schemas"
+  cp "$REAL_CARD/scripts/sync-assets.sh" "$skill/scripts/"
   printf '# some other tree spec\n' > "$t/README.md"
   printf '<xsd>one</xsd>\n' > "$t/schemas/one.xsd"
   printf '%s\n' "$t"
@@ -185,7 +185,7 @@ assert_contains "$R_ERR" "sync-assets: normative schemas/ not found at $rt/schem
   "and names the directory it could not find"
 assert_eq "$before" "$(tree_digest "$t")" "with not one byte of the fixture written"
 
-test_case "a card without an assets directory is refused, not created"
+test_case "a skill without an assets directory is refused, not created"
 # The `mkdir -p "$assets/schemas"` further down could be read as covering this;
 # it cannot, because the refusal is above it. tree_digest hashes files only, so
 # the directory the failing path would have created is asserted separately.
@@ -195,32 +195,32 @@ before="$(tree_digest "$t")"
 sync "$t"
 assert_eq 2 "$R_STATUS" "exits 2"
 assert_contains "$R_ERR" \
-  "sync-assets: card assets directory not found at $rt/src/skills/sift-init/assets" \
+  "sync-assets: skill assets directory not found at $rt/src/skills/sift-init/assets" \
   "and names the assets directory it will not invent"
 assert_no_dir "$a" "the refusal creates nothing"
 assert_eq "$before" "$(tree_digest "$t")" "with not one byte of the fixture written"
-skip "the [ -d \"\$card\" ] precondition at sync-assets.sh:29" \
-  "unreachable: card is assigned by cd-ing into the script's own parent, so a missing directory aborts that assignment under set -e and the check can only ever be true"
+skip "the [ -d \"\$skill\" ] precondition at sync-assets.sh:29" \
+  "unreachable: skill is assigned by cd-ing into the script's own parent, so a missing directory aborts that assignment under set -e and the check can only ever be true"
 
-test_case "a relocated card is copied into once the root guard is removed"
+test_case "a relocated skill is copied into once the root guard is removed"
 # The positive control tests/README.md requires under "Destructive and
 # concurrent sequences": without it, a guard that never ran looks exactly like
 # one that held, because the assertion below is "nothing was written".
-t="$(relocated_repo)"; card="$(relocated_card "$t")"
-grep -v 'lacks src/skills/sift-init' "$card/scripts/sync-assets.sh" > "$card/scripts/unguarded.sh"
-run_cmd "$t" bash "$card/scripts/unguarded.sh"
+t="$(relocated_repo)"; skill="$(relocated_card "$t")"
+grep -v 'lacks src/skills/sift-init' "$skill/scripts/sync-assets.sh" > "$skill/scripts/unguarded.sh"
+run_cmd "$t" bash "$skill/scripts/unguarded.sh"
 assert_eq 0 "$R_STATUS" "the copy without the guard runs to completion"
-assert_same "$t/README.md" "$card/assets/README.md" \
-  "and writes the foreign root's README over the card's assets"
+assert_same "$t/README.md" "$skill/assets/README.md" \
+  "and writes the foreign root's README over the skill's assets"
 
-test_case "a relocated card refuses the root it resolved"
-t="$(relocated_repo)"; card="$(relocated_card "$t")"; rt="$(cd "$t" && pwd -P)"
+test_case "a relocated skill refuses the root it resolved"
+t="$(relocated_repo)"; skill="$(relocated_card "$t")"; rt="$(cd "$t" && pwd -P)"
 before="$(tree_digest "$t")"
-run_cmd "$t" bash "$card/scripts/sync-assets.sh"
+run_cmd "$t" bash "$skill/scripts/sync-assets.sh"
 assert_eq 2 "$R_STATUS" "exits 2"
 assert_contains "$R_ERR" "sync-assets: resolved root $rt lacks src/skills/sift-init" \
   "and names the root it refused to sync from"
-assert_no_file "$card/assets/README.md" "the foreign README is not copied"
+assert_no_file "$skill/assets/README.md" "the foreign README is not copied"
 assert_eq "$before" "$(tree_digest "$t")" "with not one byte of the fixture written"
 
 test_case "an incomplete sync is reported as FAIL, with every mismatch named"
@@ -251,12 +251,12 @@ assert_eq 1 "$R_STATUS" "still exits 1"
 assert_contains "$R_ERR" 'sync-assets: FAIL — 2 mismatch(es); assets are incomplete' \
   "one missing README and one missing schema make two, not four"
 
-test_case "the card documents one command and no hand-copying"
-skill="$(cat "$REAL_CARD/SKILL.md")"
-assert_contains "$skill" 'src/skills/sift-init/scripts/sync-assets.sh' \
+test_case "the skill documents one command and no hand-copying"
+skill_md="$(cat "$REAL_CARD/SKILL.md")"
+assert_contains "$skill_md" 'src/skills/sift-init/scripts/sync-assets.sh' \
   "SKILL.md names the script"
-assert_contains "$skill" 'Do not hand-copy' "…and rules out doing it by hand"
-maint="$(awk '/^## Maintaining this card/ { m = 1 } m' "$REAL_CARD/SKILL.md")"
+assert_contains "$skill_md" 'Do not hand-copy' "…and rules out doing it by hand"
+maint="$(awk '/^## Maintaining this skill/ { m = 1 } m' "$REAL_CARD/SKILL.md")"
 assert_eq 1 "$(printf '%s\n' "$maint" | grep -c 'sync-assets.sh')" \
   "the maintenance section points at exactly one command"
 assert_eq 0 "$(printf '%s\n' "$maint" | grep -cE '^[[:space:]]*(cp|diff) ')" \

@@ -63,10 +63,10 @@ WAVE=$((10#$WAVE))
 # sift-drain's drain-log.sh states the same rule in require_ticket_id, so a run-log
 # row can never name an ID that could not have taken a roadmap row. That second
 # copy is a standing decision, not an oversight, and it is recorded in AGENTS.md
-# under "Duplication between cards" (SFT-0038, widened by SFT-0042): the cards
+# under "Duplication between skills" (SFT-0038, widened by SFT-0042): the skills
 # install independently and neither directory may source a file from the other, so
-# the rule is written out once per card and a drift is caught by a test rather than
-# by a tree that is already wrong. The test is "the two cards classify every ID of
+# the rule is written out once per skill and a drift is caught by a test rather than
+# by a tree that is already wrong. The test is "the two skills classify every ID of
 # one list alike" in tests/scripts/prime-backlog.test.sh — change this copy and the
 # drain's in the same commit, and run that test to prove they still agree.
 case "$ID" in
@@ -100,16 +100,16 @@ for cell in "$TITLE" "$NEEDS"; do
 done
 
 # --- What a roadmap row is ---------------------------------------------------
-# One definition, held in exactly one place on this card and read by both the
+# One definition, held in exactly one place on this skill and read by both the
 # duplicate check and the append hop below, so the two cannot disagree about
 # what they are looking at: a roadmap row is a markdown table line, and within
 # it the FIRST cell holding a whole-token <PREFIX>-NNNN.
 #
 # sift-drain's lib.sh roadmap_rows states the same rule for the read side. That
 # second copy is a standing decision, not an oversight, and it is recorded in
-# AGENTS.md under "Duplication between cards" (SFT-0038): the cards install
+# AGENTS.md under "Duplication between skills" (SFT-0038): the skills install
 # independently and neither directory may source a file from the other, so the
-# rule is written out once per card and a drift between them is caught by a test
+# rule is written out once per skill and a drift between them is caught by a test
 # rather than by a tree that is already wrong. The test is "the reader and the
 # writer classify every cell of one table alike" in
 # tests/scripts/prime-backlog.test.sh — change this rule and the drain reader in
@@ -127,7 +127,7 @@ ROW_ID_PAT="$PREFIX-[0-9][0-9][0-9][0-9][0-9]*"
 #
 # An awk fragment prepended to both programs below rather than a copy pasted
 # into each: two copies inside one file is the same bug as two copies across two
-# cards, at shorter range, and it is the bug this file had — the append hop
+# skills, at shorter range, and it is the bug this file had — the append hop
 # selected its cell on the bare pattern and so counted a glued XACME-0001 cell
 # as a row the duplicate guard beside it never saw. Being a single-quoted shell
 # string, it must stay free of an apostrophe, a dollar sign and a backslash;
@@ -253,7 +253,7 @@ if command grep -qE "$WAVE_RE" "$ROADMAP"; then
       # Selecting on the bare pattern counted it, and then read its "#" into
       # maxnum, so a table holding one real row beside one mistyped line
       # numbered the next row 3 while the guard above saw a single row — the
-      # same divergence as between the cards, inside one file.
+      # same divergence as between the skills, inside one file.
       cell = 0
       for (i = 1; i <= NF; i++) if (cell_id($i) != "") { cell = i; break }
       if (cell) {

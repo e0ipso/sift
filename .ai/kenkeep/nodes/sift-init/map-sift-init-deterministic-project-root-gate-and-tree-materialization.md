@@ -20,7 +20,7 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-`src/skills/sift-init/` is the initialization card every sift skill gates on. `scripts/sift-gate.sh` is the read-only resolver (exit codes READY / UNINIT-high / UNINIT-low / UNRESOLVED / INCOMPLETE). `scripts/sift-init.sh` materializes the tree idempotently: `README.md` and `schemas/*.xsd` are copied byte-for-byte from card assets (never generated), then `config/config.yaml`, `MILESTONES.md`, `ROADMAP.md`, `open/`, and `archive/` are created as needed. Categories appear on demand with the first ticket; there are no `.gitkeep` placeholders.
+`src/skills/sift-init/` is the initialization skill every sift skill gates on. `scripts/sift-gate.sh` is the read-only resolver (exit codes READY / UNINIT-high / UNINIT-low / UNRESOLVED / INCOMPLETE). `scripts/sift-init.sh` materializes the tree idempotently: `README.md` and `schemas/*.xsd` are copied byte-for-byte from skill assets (never generated), then `config/config.yaml`, `MILESTONES.md`, `ROADMAP.md`, `open/`, and `archive/` are created as needed. Categories appear on demand with the first ticket; there are no `.gitkeep` placeholders.
 
 When changing this, verify concurrent inits still produce exactly one creator and that repair never overwrites user content or re-adds a deleted tree-local `.gitignore`.
 

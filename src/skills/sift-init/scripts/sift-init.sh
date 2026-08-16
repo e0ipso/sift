@@ -21,13 +21,13 @@
 #
 # The one thing a re-run adds is a report. README.md and schemas/ are the shipped
 # convention rather than repository state, so when an installed copy no longer matches
-# the one this card carries, each differing file is listed as `stale` and the `cp` that
+# the one this skill carries, each differing file is listed as `stale` and the `cp` that
 # refreshes it is printed. Nothing is rewritten: taking the new copy is the operator's
 # explicit act, because these files are also the only place they can annotate the
 # convention for their repository.
 #
 # The report reads the comparison in the other direction too: an installed schema this
-# card no longer ships is listed as `orphan` — not `stale`, because there is no shipped
+# skill no longer ships is listed as `orphan` — not `stale`, because there is no shipped
 # copy for its bytes to differ from. That one is not even offered as a `cp`, since the
 # refresh copies and cannot remove. The printed remedy is an `rm` for the operator to
 # run by hand, because the file may equally be a schema the repository added for itself
@@ -131,11 +131,11 @@ case "$milestone" in
     echo "error: milestone must be lowercase kebab-case: $milestone" >&2; exit 2 ;;
 esac
 
-# --- Locate the card's assets ----------------------------------------------
+# --- Locate the skill's assets ----------------------------------------------
 
 here=$(cd "$(dirname "$0")" && pwd -P)
 assets="$here/../assets"
-[ -d "$assets" ] || { echo "error: card assets not found at $assets" >&2; exit 2; }
+[ -d "$assets" ] || { echo "error: skill assets not found at $assets" >&2; exit 2; }
 # Canonicalized once the directory is known to exist, so the refresh command the
 # drift report prints below is a path an operator can paste, not one with `/..`
 # folded through the middle of it.
@@ -288,7 +288,7 @@ fi
 
 # --- The convention itself, copied never generated --------------------------
 # README.md and schemas/ are the normative spec. A regenerated paraphrase is spec
-# drift, so they ship as card assets and are copied byte for byte.
+# drift, so they ship as skill assets and are copied byte for byte.
 
 install_file "$assets/README.md" "README.md" || exit 2
 for x in "$assets"/schemas/*.xsd; do
@@ -313,7 +313,7 @@ done
 #
 # `cmp -s` and not `diff`: a byte verdict is the whole question, it is already in
 # the suite's baseline dependency contract, and it prints nothing the operator
-# did not ask to see. The same comparison `sync-assets.sh` makes on the card's
+# did not ask to see. The same comparison `sync-assets.sh` makes on the skill's
 # side of the copy, now made on the consuming side too.
 
 check_drift() {  # check_drift <shipped source> <relative destination> — reads only
@@ -327,8 +327,8 @@ for x in "$assets"/schemas/*.xsd; do
   check_drift "$x" "schemas/$(basename "$x")"
 done
 
-# --- And an installed schema the card no longer ships? ----------------------
-# The loop above walks the SHIPPED set, so its domain is what this card carries:
+# --- And an installed schema the skill no longer ships? ----------------------
+# The loop above walks the SHIPPED set, so its domain is what this skill carries:
 # it sees a file whose bytes changed and a file that went missing, but never an
 # extra one. A schema sitting in the tree that the convention has since withdrawn
 # is invisible to it, and the documented refresh is blind the same way — `cp`
@@ -420,7 +420,7 @@ printf '%s' "$kept"
 # The report carries the remedy, not just the finding. The refresh is documented
 # in the cookbook, but the cookbook lives IN the file that is out of date — an
 # operator holding the stale copy would be told to read an instruction their copy
-# does not contain. So the two commands are printed here, from the card, where
+# does not contain. So the two commands are printed here, from the skill, where
 # they are always as current as the drift check that triggered them.
 if [ -n "$stale" ]; then
   printf '%s' "$stale"
@@ -438,7 +438,7 @@ fi
 # hence a command to run rather than an action taken.
 if [ -n "$orphan" ]; then
   printf '%s' "$orphan"
-  printf '\nThat file is installed under a name this card no longer ships. Either the\n'
+  printf '\nThat file is installed under a name this skill no longer ships. Either the\n'
   printf 'convention withdrew the schema — removing one is a breaking change, which is why\n'
   printf 'you are being told — or your repository added a schema of its own, which is\n'
   printf 'yours to keep. Nothing here can tell those two apart, and deleting a file it did\n'

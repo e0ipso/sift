@@ -20,9 +20,9 @@ on exit, including on failure; nothing in the suite writes inside the repository
 | Group | What it covers |
 |---|---|
 | `cookbook/` | the recipes in `README.md`, run as written against throwaway trees |
-| `scripts/` | the shipped card scripts through their real command lines |
+| `scripts/` | the shipped skill scripts through their real command lines |
 | `static/` | the portability bans, shell lint, the XSD drafting schemas, the claims one repository document makes about another file, the test libraries' own behaviour — `lib/harness.sh`'s assertion arms, its `markers_above` walk, and the ticket shapes `lib/fixtures.sh` produces, `space_the_fence` included — and the suite's own no-dependency / determinism / cleanup contract |
-| `e2e/` | one full gate → init → allocate → archive → roadmap-check lifecycle |
+| `e2e/` | full workflows: the gate → init → allocate → archive → roadmap-check lifecycle, and the drain loop's scripted surface over a two-wave roadmap |
 
 `cookbook/` does not paraphrase the recipes: `lib/recipes.sh` extracts the fenced
 block out of `README.md` by its anchor line and runs that text. A recipe that
@@ -79,11 +79,11 @@ allocation; `roadmap-check` owns rule-9 consistency; `drain-selection` owns
 next-ticket/wave-status; `drain-log` owns the run log; `labels` owns the drain's
 label index (list-labels/tickets-by-label); `prime-backlog` owns the two ends of
 a priming pass, existing-work's dedupe corpus and roadmap-append's write. Root
-and prefix resolution is the one contract every card script shares, so it is
+and prefix resolution is the one contract every skill script shares, so it is
 swept across them once, in `root-resolution`, instead of being re-asserted per
 file.
 
-That sweep takes every card script that can be run without writing, both cards
+That sweep takes every skill script that can be run without writing, both skills
 included. The two writers are the named exception, and each holds the same
 contract in its own file instead — `drain-log.sh` in `drain-log`, and
 `roadmap-append.sh` in `prime-backlog` — driven by a real write command line, so

@@ -9,9 +9,9 @@
 #
 # Usage:
 #   scripts/wave-status.sh
-#   scripts/wave-status.sh --   # -- ends the options, as elsewhere on the card
+#   scripts/wave-status.sh --   # -- ends the options, as elsewhere on the skill
 #
-# `--` means one thing across the card: the option list ends here and everything
+# `--` means one thing across the skill: the option list ends here and everything
 # behind it is positional. This script has no positional to take, so the marker
 # is accepted and anything following it is a usage error.
 #

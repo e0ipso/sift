@@ -15,7 +15,7 @@ kk_id: practice-probe-in-a-copied-tree-never-restore-with-git-checkout
 kk_derived_from: []
 kk_relates_to:
   - >-
-    map-sift-skill-cards-are-sourced-from-src-skills-and-symlinked-into-claude-skills
+    map-sift-skills-are-sourced-from-src-skills-and-symlinked-into-claude-skills
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -43,5 +43,5 @@ anchor, which is the one edit its own no-writes case forbids in the real tree.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-skill-cards-are-sourced-from-src-skills-and-symlinked-into-claude-skills](/convention/map-sift-skill-cards-are-sourced-from-src-skills-and-symlinked-into-claude-skills.md)
+- Related: [map-sift-skills-are-sourced-from-src-skills-and-symlinked-into-claude-skills](/convention/map-sift-skills-are-sourced-from-src-skills-and-symlinked-into-claude-skills.md)
 <!-- kk:related:end -->

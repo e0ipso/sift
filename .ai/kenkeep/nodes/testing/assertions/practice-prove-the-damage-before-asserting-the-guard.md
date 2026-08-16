@@ -35,7 +35,7 @@ Pair the digest with a `find` inventory when the damage could be an empty direct
 The rule is not confined to destructive paths. A *code* guard takes the same control:
 `tests/scripts/sync-assets.test.sh` strips the guard line out of a copy of the script with
 `grep -v 'lacks src/skills/sift-init'`, runs the unguarded copy in the same fixture, and
-asserts it writes the foreign root's README over the card's assets — only then does the
+asserts it writes the foreign root's README over the skill's assets — only then does the
 guarded run assert nothing was written. Reaching a script's *verification* block needs the
 same care in reverse: the fault it is written against is an incomplete copy where every
 command reported success, and the way to produce that without a trick is a PATH-prepended

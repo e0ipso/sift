@@ -37,7 +37,7 @@
 #   scripts/drain-log.sh report
 #   scripts/drain-log.sh -- dispatch <TICKET>...   # -- ends the options
 #
-# `--` means one thing across the card: the option list ends here and everything
+# `--` means one thing across the skill: the option list ends here and everything
 # behind it is positional. This script's first positional is a SUBCOMMAND, so
 # the option list ends at that subcommand whether or not the marker is spelled,
 # and the marker is only meaningful where an option could otherwise have stood —
@@ -72,7 +72,7 @@ LOG="$SIFT/RUNLOG.md"
 
 # Refuse a ticket argument that is not a ticket ID, before anything is written.
 #
-# The log is append-only and nothing in the card rewrites a row, so a typo is
+# The log is append-only and nothing in the skill rewrites a row, so a typo is
 # permanent. The cost is not the bad row but what `report` makes of it: it pairs
 # a return with its dispatch by string equality on this column, so
 # `dispatch <PREFIX>-004` followed by `return <PREFIX>-0040` splits one ticket
@@ -82,7 +82,7 @@ LOG="$SIFT/RUNLOG.md"
 # just the first one: a batch is exactly where a typo in a later position would
 # otherwise ride along unchecked.
 #
-# SHAPE ONLY — never a lookup for a ticket file. This is the one card script
+# SHAPE ONLY — never a lookup for a ticket file. This is the one skill script
 # that writes, and the orchestrator stamps `return` AFTER the sub-agent has
 # archived its ticket, so a check that insisted the ID name a file in open/
 # would fail the closing row of every ticket that actually completed. Archiving
@@ -97,10 +97,10 @@ LOG="$SIFT/RUNLOG.md"
 # exactly PREFIX- plus four-or-more digits. This is byte-for-byte the check
 # roadmap-append.sh in sift-prime applies to its own ID argument, and that second
 # copy is a recorded decision rather than an accident: AGENTS.md under
-# "Duplication between cards" (SFT-0038, widened by SFT-0042) holds that the cards
+# "Duplication between skills" (SFT-0038, widened by SFT-0042) holds that the skills
 # install independently and neither directory may source a file from the other, so
-# a rule both need is written out once per card and a drift between them is caught
-# by a test rather than by a tree that is already wrong. The test is "the two cards
+# a rule both need is written out once per skill and a drift between them is caught
+# by a test rather than by a tree that is already wrong. The test is "the two skills
 # classify every ID of one list alike" in tests/scripts/prime-backlog.test.sh, which
 # drives one fixture list of ID-shaped and not-ID-shaped strings through both — so
 # change this copy and roadmap-append.sh in the same commit, and run that test to

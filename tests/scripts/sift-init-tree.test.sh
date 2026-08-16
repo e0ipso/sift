@@ -22,9 +22,9 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 . "$DIR/../lib/recipes.sh"
 . "$DIR/../lib/fixtures.sh"
 
-CARD="$REPO_ROOT/src/skills/sift-init/scripts"
-INIT="$CARD/sift-init.sh"
-GATE="$CARD/sift-gate.sh"
+SKILL="$REPO_ROOT/src/skills/sift-init/scripts"
+INIT="$SKILL/sift-init.sh"
+GATE="$SKILL/sift-gate.sh"
 CHECK="$REPO_ROOT/src/skills/sift-drain/scripts/roadmap-check.sh"
 DRAIN_LIB="$REPO_ROOT/src/skills/sift-drain/scripts/lib.sh"
 PRIME_LIB="$REPO_ROOT/src/skills/sift-prime/scripts/lib.sh"
@@ -131,7 +131,7 @@ tree_pair_differences() {
     "$(excused_entries "$FIXTURE_ONLY_EXCUSED")"
 }
 
-# card_prefix <lib> <root> — ask a card's real shared-library parser for the
+# card_prefix <lib> <root> — ask a skill's real shared-library parser for the
 # prefix; do not restate its sed expression in the test.
 card_prefix() {
   (
@@ -196,11 +196,11 @@ for entry in $required; do
 done
 
 for lib in "$DRAIN_LIB" "$PRIME_LIB"; do
-  card="$(basename "$(dirname "$(dirname "$lib")")")"
+  skill="$(basename "$(dirname "$(dirname "$lib")")")"
   assert_eq ACME "$(card_prefix "$lib" "$initialized")" \
-    "$card parses the initialized prefix"
+    "$skill parses the initialized prefix"
   assert_eq ACME "$(card_prefix "$lib" "$fixture")" \
-    "$card parses the fixture prefix"
+    "$skill parses the fixture prefix"
 done
 
 for tree in "$initialized" "$fixture"; do

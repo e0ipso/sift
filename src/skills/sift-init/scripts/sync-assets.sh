@@ -4,7 +4,7 @@
 # additions and removals).
 #
 # Paths resolve from this script's location, so the command works from any cwd
-# as long as the card still lives under src/skills/sift-init/.
+# as long as the skill still lives under src/skills/sift-init/.
 #
 # Usage (from anywhere):
 #   src/skills/sift-init/scripts/sync-assets.sh
@@ -15,20 +15,20 @@
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd -P)
-card=$(cd "$here/.." && pwd -P)
-assets="$card/assets"
-# card is src/skills/sift-init → repository root is three levels up
-root=$(cd "$card/../../.." && pwd -P)
+skill=$(cd "$here/.." && pwd -P)
+assets="$skill/assets"
+# skill is src/skills/sift-init → repository root is three levels up
+root=$(cd "$skill/../../.." && pwd -P)
 
 die() { echo "sync-assets: $*" >&2; exit 2; }
 fail() { echo "sync-assets: $*" >&2; errors=$((errors + 1)); }
 
 [ -f "$root/README.md" ] || die "normative README not found at $root/README.md"
 [ -d "$root/schemas" ] || die "normative schemas/ not found at $root/schemas"
-[ -d "$assets" ] || die "card assets directory not found at $assets"
-[ -d "$card" ] || die "card directory not found at $card"
+[ -d "$assets" ] || die "skill assets directory not found at $assets"
+[ -d "$skill" ] || die "skill directory not found at $skill"
 
-# Confirm we landed on the right root (guards against a relocated card path).
+# Confirm we landed on the right root (guards against a relocated skill path).
 [ -d "$root/src/skills/sift-init" ] || die "resolved root $root lacks src/skills/sift-init"
 
 mkdir -p "$assets/schemas"

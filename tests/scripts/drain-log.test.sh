@@ -17,12 +17,12 @@
 # only, and it exists solely to prove the writer stamps a real clock.
 #
 # Sandboxing: SIFT_ROOT always points into TMPROOT, and where the upward walk is
-# the thing under test, $PWD does. This is the one card script that WRITES into
+# the thing under test, $PWD does. This is the one skill script that WRITES into
 # the tree it resolves, so the first case proves no .ai/sift exists above TMPROOT
 # — a mis-resolved root here would append to the log of the repository running
 # the suite.
 #
-# Root resolution is swept across the sibling card scripts by
+# Root resolution is swept across the sibling skill scripts by
 # root-resolution.test.sh. drain-log.sh cannot join that sweep: its SCRIPTS list
 # splits on whitespace, so an entry carries exactly one argument, and no
 # one-argument invocation of drain-log.sh succeeds against a fresh tree —
@@ -845,7 +845,7 @@ test_case "an empty status is refused before it can become a permanent blank cel
 # concurrent sequences": the six-column row an ungated `return SFT-0001 ''` would
 # have appended is written into a fixture log by hand, and `report` is shown
 # reading it as a ticket that never came back. That cell would be permanent —
-# the log is append-only and nothing in the card rewrites a row — so the group
+# the log is append-only and nothing in the skill rewrites a row — so the group
 # stays pending, closes as INCOMPLETE, and drops out of the median: a run that
 # reads as a dropped connection when the ticket was in fact returned.
 #
@@ -894,7 +894,7 @@ assert_eq 2 "$(log_rows "$eroot/.ai/sift/RUNLOG.md")" \
   "the two dispatch rows being still the whole of it"
 
 test_case "-- may stand in front of the subcommand and records the same row (SFT-0033)"
-# The card spells `--` one way (SFT-0024, SFT-0033), and this is the one script
+# The skill spells `--` one way (SFT-0024, SFT-0033), and this is the one script
 # whose first argument is already positional. So the marker has to survive
 # contact with the subcommand grammar in both directions: `-- dispatch` must
 # still be a dispatch rather than an unknown mode, and it must write the row a
@@ -969,7 +969,7 @@ assert_no_file "$root/.ai/sift/RUNLOG.md" "and none of those refusals created a 
 # --- The ticket column --------------------------------------------------------
 
 test_case "a ticket argument that is not a ticket ID is refused by name (SFT-0039)"
-# The log is append-only and nothing in the card rewrites a row, so the typo has
+# The log is append-only and nothing in the skill rewrites a row, so the typo has
 # to be caught at the keystroke. What makes it worth catching is what `report`
 # makes of it: it pairs a return with its dispatch by string equality on this
 # column, so `dispatch SFT-004` followed by `return SFT-0040 done` used to yield
@@ -1023,7 +1023,7 @@ check_not_id "-SFT-0001"
 assert_no_file "$idroot/.ai/sift/RUNLOG.md" "and none of those refusals created a log"
 
 test_case "the shape is the whole check: no ticket file is looked for (SFT-0039)"
-# Deliberate scope. This is the one card script that WRITES, and the orchestrator
+# Deliberate scope. This is the one skill script that WRITES, and the orchestrator
 # stamps `return` after the sub-agent has archived its ticket — so a check that
 # insisted the ID name a file in open/ would fail the closing row of every
 # ticket that actually completed. The tree here holds no tickets whatsoever.

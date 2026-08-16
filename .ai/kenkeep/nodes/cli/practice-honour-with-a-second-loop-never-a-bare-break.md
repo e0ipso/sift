@@ -24,7 +24,7 @@ value — the worst shape of failure, because the marker was written to protect 
 `tickets-by-label.sh -- caching` died on "no label given" for exactly this reason
 (SFT-0024).
 
-Across the sift-drain card, `--` means one thing: the option list ends here and every
+Across the sift-drain skill, `--` means one thing: the option list ends here and every
 argument behind it is positional, whatever it looks like. Honouring that takes two loops.
 The option loop breaks at the marker; a second loop then walks what is left and applies the
 script's positional rule to each one. Put that rule in a helper the in-loop `*)` arm calls

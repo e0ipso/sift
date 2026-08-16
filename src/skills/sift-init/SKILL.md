@@ -1,6 +1,6 @@
 ---
 name: sift-init
-description: This skill should be used when the user asks to "initialize sift", "set up sift", "add sift to this repo", "create the sift tree", or when any other sift skill needs to confirm that `.ai/sift` exists before it runs. Provides the deterministic project-root gate every sift card runs first, and the idempotent tree materialization behind it.
+description: This skill should be used when the user asks to "initialize sift", "set up sift", "add sift to this repo", "create the sift tree", or when any other sift skill needs to confirm that `.ai/sift` exists before it runs. Provides the deterministic project-root gate every sift skill runs first, and the idempotent tree materialization behind it.
 ---
 
 # Initialize Sift
@@ -9,17 +9,17 @@ Two jobs, in order: **resolve** where this repository's sift tree belongs, then
 **materialize** it if it is not there. Resolution is deterministic and reads only;
 materialization is the only write, and it is idempotent.
 
-Every other sift card calls the gate here before it does anything else. Do not
-re-implement the walk in prose — the answer must be the same for every card, on every
+Every other sift skill calls the gate here before it does anything else. Do not
+re-implement the walk in prose — the answer must be the same for every skill, on every
 run, which means one script.
 
-**Pinned claim.** This card's installable identity is its front-matter `name`, which has to
+**Pinned claim.** This skill's installable identity is its front-matter `name`, which has to
 equal the directory holding it. That agreement is tagged below, on a line of the form
 `@PIN: <repo-root-relative target> <verbatim construct>` — a target ending in `/` being a
-card directory, whose `SKILL.md` front matter has to hold the construct. The line is
-machine-read: `tests/static/card-prose-pins.test.sh` extracts it and fails when the
+skill directory, whose `SKILL.md` front matter has to hold the construct. The line is
+machine-read: `tests/static/skill-prose-pins.test.sh` extracts it and fails when the
 directory is gone or the front matter no longer carries that name, so renaming one half
-without the other cannot ship a card the harness resolves under the wrong name.
+without the other cannot ship a skill the harness resolves under the wrong name.
 
 ```text
 @PIN: src/skills/sift-init/ name: sift-init
@@ -102,11 +102,11 @@ What lands, all create-if-absent:
 ```
 .ai/sift/
 ├── .gitignore             ← `*` and `!.gitignore`: the tree ignores itself
-├── README.md              ← copied byte for byte from the card's assets
+├── README.md              ← copied byte for byte from the skill's assets
 ├── MILESTONES.md          ← generated, one milestone (default `backlog`)
 ├── ROADMAP.md             ← generated, `## Wave 1` and an empty table
 ├── config/config.yaml     ← generated, holds the prefix
-├── schemas/*.xsd          ← copied from the card's assets
+├── schemas/*.xsd          ← copied from the skill's assets
 ├── open/<milestone>/      ← empty; category folders are created by the first ticket
 └── archive/               ← empty
 ```
@@ -135,8 +135,8 @@ run and prints a `stale` line for each file that differs, alongside `created` an
 The check reads only. Taking the new copy is a separate, explicit act:
 
 ```sh
-cp <card>/assets/README.md <root>/.ai/sift/README.md
-cp <card>/assets/schemas/*.xsd <root>/.ai/sift/schemas/
+cp <skill>/assets/README.md <root>/.ai/sift/README.md
+cp <skill>/assets/schemas/*.xsd <root>/.ai/sift/schemas/
 ```
 
 The report prints both lines with the paths already resolved, so an operator holding a
@@ -166,7 +166,7 @@ warns about.
 Never touch the repository's root `.gitignore` to achieve this. A tree that ignores
 itself is removed by deleting the directory, with nothing left behind upstream.
 
-## Maintaining this card
+## Maintaining this skill
 
 `assets/README.md` and `assets/schemas/*.xsd` are copies of this repository's root
 `README.md` and `schemas/`. Editing the convention without updating the copies ships a

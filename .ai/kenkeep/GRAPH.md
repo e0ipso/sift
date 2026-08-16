@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:a53e25c87a955ad1e52f1a4b994f3dde2843314aa4f11cb93ee9aa1abf804bdb'
+nodes_hash: 'sha256:e46737c78b915752e9e8fbe08b3157104ecba0d61405d8cd97c0f886038b1155'
 node_count: 94
 ---
 # kenkeep Graph
@@ -58,11 +58,11 @@ Total nodes: 94
 - **tags:** sift, convention, docs
 - **relates_to:** map-sift-file-based-issue-tracker
 
-## map-sift-skill-cards-are-sourced-from-src-skills-and-symlinked-into-claude-skills
+## map-sift-skills-are-sourced-from-src-skills-and-symlinked-into-claude-skills
 
 - **kind:** map
-- **title:** Sift skill cards are sourced from src/skills and symlinked into .claude/skills
-- **path:** convention/map-sift-skill-cards-are-sourced-from-src-skills-and-symlinked-into-claude-skills.md
+- **title:** Sift skills are sourced from src/skills and symlinked into .claude/skills
+- **path:** convention/map-sift-skills-are-sourced-from-src-skills-and-symlinked-into-claude-skills.md
 - **tags:** skills, repo-layout, symlinks, sift
 - **relates_to:** map-sift-drain-skill, map-sift-prime-the-skill-that-fills-a-sift-backlog, map-sift-init-deterministic-project-root-gate-and-tree-materialization
 - **derived_from:** b5808e75-449c-411f-9d30-922a7bc78458:map:0
@@ -142,14 +142,6 @@ Total nodes: 94
 - **path:** drift-detection/practice-a-comment-opening-with-shellcheck-is-a-directive-not-prose.md
 - **tags:** shell, lint, testing, gotcha, portability
 
-## practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test
-
-- **kind:** practice
-- **title:** A cross-card rule is inventoried in AGENTS.md with its own guard test
-- **path:** cross-card/practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test.md
-- **tags:** sift, convention, sift-drain, sift-prime, testing
-- **relates_to:** practice-a-roadmap-row-is-its-first-ticket-cell, practice-match-a-sift-ticket-id-as-a-whole-token
-
 ## practice-a-cross-product-of-factors-that-cannot-interact-is-not-coverage
 
 - **kind:** practice
@@ -158,6 +150,14 @@ Total nodes: 94
 - **tags:** testing, convention, sift
 - **relates_to:** practice-a-narrowing-list-is-a-claim-that-needs-its-own-case
 - **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:7
+
+## practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test
+
+- **kind:** practice
+- **title:** A cross-skill rule is inventoried in AGENTS.md with its own guard test
+- **path:** cross-skill/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md
+- **tags:** sift, convention, sift-drain, sift-prime, testing
+- **relates_to:** practice-a-roadmap-row-is-its-first-ticket-cell, practice-match-a-sift-ticket-id-as-a-whole-token
 
 ## practice-a-helper-is-unasserted-on-the-arm-its-callers-never-see
 
@@ -174,7 +174,7 @@ Total nodes: 94
 - **title:** A list that narrows a check is a claim, and needs a case of its own
 - **path:** testing/case-set/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md
 - **tags:** testing, convention, sift, gotcha
-- **relates_to:** practice-a-one-way-set-comparison-never-sees-a-withdrawal, practice-never-edit-the-tree-while-the-suite-is-running, practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test
+- **relates_to:** practice-a-one-way-set-comparison-never-sees-a-withdrawal, practice-never-edit-the-tree-while-the-suite-is-running, practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test
 
 ## practice-a-negative-only-cookbook-assertion-is-blind-to-a-vanished-recipe
 
@@ -197,9 +197,9 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** A roadmap row is its first ticket cell, not any mention of the ID
-- **path:** cross-card/practice-a-roadmap-row-is-its-first-ticket-cell.md
+- **path:** cross-skill/practice-a-roadmap-row-is-its-first-ticket-cell.md
 - **tags:** sift, roadmap, tickets, convention
-- **relates_to:** practice-match-a-sift-ticket-id-as-a-whole-token, practice-keep-roadmap-in-sync-same-change, practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test
+- **relates_to:** practice-match-a-sift-ticket-id-as-a-whole-token, practice-keep-roadmap-in-sync-same-change, practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test
 
 ## practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version
 
@@ -366,7 +366,7 @@ Total nodes: 94
 - **title:** Guard a one-copy rule behaviourally when the bug would be a paraphrase
 - **path:** testing/case-set/practice-guard-a-one-copy-rule-behaviourally-when-the-bug-would-be-a-paraphrase.md
 - **tags:** testing, convention, sift, gotcha
-- **relates_to:** practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test, practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts
+- **relates_to:** practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test, practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts
 
 ## practice-guard-a-recipe-before-its-first-write-not-its-last
 
@@ -436,7 +436,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** Match a sift ticket ID as a whole token, never as a substring
-- **path:** cross-card/practice-match-a-sift-ticket-id-as-a-whole-token.md
+- **path:** cross-skill/practice-match-a-sift-ticket-id-as-a-whole-token.md
 - **tags:** sift, tickets, convention, cookbook
 - **relates_to:** practice-keep-recipes-portable-gnu-and-bsd, practice-never-renumber-or-reuse-a-ticket-id
 
@@ -546,7 +546,7 @@ Total nodes: 94
 - **title:** Pin a document's claim with a tagged marker a test extracts
 - **path:** testing/case-set/practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts.md
 - **tags:** testing, docs, convention, sift, shell
-- **relates_to:** practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test, practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version, practice-prove-the-damage-before-asserting-the-guard
+- **relates_to:** practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test, practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version, practice-prove-the-damage-before-asserting-the-guard
 
 ## practice-probe-a-locale-by-running-it-under-a-known-strict-shell
 
@@ -562,7 +562,7 @@ Total nodes: 94
 - **title:** Probe in a copied tree, and never restore a probe with git checkout
 - **path:** convention/practice-probe-in-a-copied-tree-never-restore-with-git-checkout.md
 - **tags:** convention, testing, gotcha, git, sift
-- **relates_to:** map-sift-skill-cards-are-sourced-from-src-skills-and-symlinked-into-claude-skills
+- **relates_to:** map-sift-skills-are-sourced-from-src-skills-and-symlinked-into-claude-skills
 
 ## practice-prove-a-rewrite-left-the-rest-of-the-file-alone-with-diff
 
@@ -782,7 +782,7 @@ Total nodes: 94
 ## practice-write-atomic-evidence-based-tickets
 
 - **kind:** practice
-- **title:** Keep tickets atomic and evidence-based, drafted against the type's schema
+- **title:** One problem per ticket, evidence-based, drafted against the type's schema
 - **path:** tickets/practice-write-atomic-evidence-based-tickets.md
 - **tags:** sift, tickets, convention
 - **relates_to:** map-sift-ticket-body-sections

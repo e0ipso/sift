@@ -3,8 +3,8 @@
 #
 # Nothing here assumes shellcheck is installed — the same rule that governs the
 # recipes governs their tooling — so the authoritative lint is the shell's own
-# parser plus the conventions the cards rely on: a shebang, an executable bit
-# on anything a card documents as a command, and no CRLF line endings.
+# parser plus the conventions the skills rely on: a shebang, an executable bit
+# on anything a skill documents as a command, and no CRLF line endings.
 # When shellcheck *is* present it is run as an extra, never as a requirement.
 #
 # Keep the tool's name off the front of a comment line. A comment whose first
@@ -30,7 +30,7 @@ test_case "the shell file walks actually read something"
 assert_contains "$shell_file_list" "$REPO_ROOT/tests/lib/harness.sh" \
   "shell_files includes its known harness anchor"
 assert_contains "$script_file_list" "$REPO_ROOT/src/skills/sift-init/scripts/sift-init.sh" \
-  "the card-script walk includes its known initializer anchor"
+  "the skill-script walk includes its known initializer anchor"
 assert_contains "$test_file_list" "$REPO_ROOT/tests/static/shell-lint.test.sh" \
   "the test-file walk includes its known shell-lint anchor"
 
@@ -61,7 +61,7 @@ done
 for f in "$REPO_ROOT/tests/run.sh" $test_file_list; do
   [ -x "$f" ] || echo "${f#"$REPO_ROOT/"} is not executable"
 done)"
-assert_eq "" "$not_executable" "every card script and test file is runnable"
+assert_eq "" "$not_executable" "every skill script and test file is runnable"
 
 test_case "no CRLF line endings"
 crlf="$(for f in $shell_file_list "$README"; do

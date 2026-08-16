@@ -154,7 +154,7 @@ assert_eq "MYPR" "$R_OUT" "strips punctuation, uppercases, first four characters
 for base in 'a' '...' '9lives'; do
   suggest "$base"
   if [ "$R_STATUS" -eq 1 ] && [ -z "$R_OUT" ]
-  then t_ok "'$base' yields nothing usable: exit 1, no output, so the card must ask"
+  then t_ok "'$base' yields nothing usable: exit 1, no output, so the skill must ask"
   else t_fail "'$base' is refused" "status=$R_STATUS" "stdout=$R_OUT"; fi
 done
 

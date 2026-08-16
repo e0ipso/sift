@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # sift-gate: resolve the sift project root and report the tree's state. Reads only.
 #
-# Every sift card runs this before it does anything else. It never writes, never
+# Every sift skill runs this before it does anything else. It never writes, never
 # creates, and never asks — it answers one question deterministically: "where is this
 # repository's sift tree, and is it usable?"
 #

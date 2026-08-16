@@ -1,4 +1,4 @@
-# kenkeep Index: cross-card
+# kenkeep Index: cross-skill
 
 ↑ Parent: [kenkeep](../index.md)
 
@@ -10,9 +10,9 @@
 _None._
 
 ## Conventions (how we build)
-- Open [**A cross-card rule is inventoried in AGENTS.md with its own guard test**](practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test.md) to learn about: Two rules live once per card; AGENTS.md lists every copy, each rule carries an agreement test, and a third rule arrives with its own. #sift #convention #sift-drain #sift-prime #testing
+- Open [**A cross-skill rule is inventoried in AGENTS.md with its own guard test**](practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md) to learn about: Two rules live once per skill; AGENTS.md lists every copy, each rule carries an agreement test, and a third rule arrives with its own. #sift #convention #sift-drain #sift-prime #testing
 - Open [**Match a sift ticket ID as a whole token, never as a substring**](practice-match-a-sift-ticket-id-as-a-whole-token.md) to learn about: A recipe that looks a ticket up by ID must reject a longer ID sharing the leading digits: anchor grep with (\[^0-9\]|$) and find with --. #sift #tickets #convention #cookbook
-- Open [**A roadmap row is its first ticket cell, not any mention of the ID**](practice-a-roadmap-row-is-its-first-ticket-cell.md) to learn about: Only a table line's leftmost whole-token ID cell owns the row; a Needs, Title or prose mention is not one, and both cards must agree. #sift #roadmap #tickets #convention
+- Open [**A roadmap row is its first ticket cell, not any mention of the ID**](practice-a-roadmap-row-is-its-first-ticket-cell.md) to learn about: Only a table line's leftmost whole-token ID cell owns the row; a Needs, Title or prose mention is not one, and both skills must agree. #sift #roadmap #tickets #convention
 
 ## Components (what exists)
 _None yet._
@@ -29,7 +29,7 @@ _None yet._
 - Open [**Mutation probe a branch a later broader check would catch anyway**](../testing/assertions/practice-mutation-probe-a-branch-a-later-broader-check-would-catch-anyway.md) — A guard shadowed by a downstream check reads as covered because every driven input is caught later; delete the branch in a copy and match on the not ok line.
 ### #tickets
 - Open [**Never renumber, reuse, or delete a ticket ID**](../tickets/practice-never-renumber-or-reuse-a-ticket-id.md) — Ticket IDs are immutable and globally unique across both buckets; a wrong ticket is archived as wontfix, never removed.
-- Open [**Keep tickets atomic and evidence-based, drafted against the type's schema**](../tickets/practice-write-atomic-evidence-based-tickets.md) — One file is one ticket, claims about code cite file:line, and non-trivial tickets are drafted into a scratch XSD-shaped file first.
+- Open [**One problem per ticket, evidence-based, drafted against the type's schema**](../tickets/practice-write-atomic-evidence-based-tickets.md) — One file is one ticket, claims about code cite file:line, and non-trivial tickets are drafted into a scratch XSD-shaped file first.
 - Open [**Sift ticket bodies: four canonical sections plus type extensions**](../tickets/map-sift-ticket-body-sections.md) — Problem, Evidence, Direction, Acceptance criteria — extended for type: bug and type: feature; headings are parsed by agents.
 ### #cookbook
 - Open [**Scope a front-matter rewrite to the fence, not just to the line start**](../shell/awk/practice-scope-front-matter-rewrites-to-the-fence.md) — A ^key: anchor still matches body prose, and sed's 1,/^---$/ range runs to EOF on a fence-less file: walk the fence in awk with an in_fm flag instead.
@@ -37,7 +37,7 @@ _None yet._
 - Open [**Guard a recipe before its first write, not before its last**](../shell/writes/practice-guard-a-recipe-before-its-first-write-not-its-last.md) — A cookbook guard placed before mv still lets mkdir -p run; put every existence check ahead of the first command that touches the tree.
 ### #roadmap
 - Open [**Keep ROADMAP.md in sync in the same change (rule 9)**](../tickets/practice-keep-roadmap-in-sync-same-change.md) — Creating, archiving, or re-wiring a ticket updates its roadmap row in the same change; depends_on wins when the two disagree.
-- Open [**A roadmap row is its first ticket cell, not any mention of the ID**](practice-a-roadmap-row-is-its-first-ticket-cell.md) — Only a table line's leftmost whole-token ID cell owns the row; a Needs, Title or prose mention is not one, and both cards must agree.
+- Open [**A roadmap row is its first ticket cell, not any mention of the ID**](practice-a-roadmap-row-is-its-first-ticket-cell.md) — Only a table line's leftmost whole-token ID cell owns the row; a Needs, Title or prose mention is not one, and both skills must agree.
 - Open [**Tighten the selector with the pattern, or the loop keeps the wrong cell**](../shell/awk/practice-tighten-the-selector-with-the-pattern-or-the-loop-keeps-the-wrong-cell.md) — Picking a field by the bare pattern survives every tightening of that pattern; select on the validated result instead.
 ### #sift-drain
 - Open [**Sub-agent autonomy is the contract in a sift drain**](../sift-drain/practice-sift-drain-sub-agents-decide-for-themselves.md) — Workers decide ordinary judgment calls themselves. The exception is another worker changing their work: they stop and check back with the orchestrator.

@@ -84,7 +84,7 @@ test_case "the prompt names its bounded read in a form this suite can read"
 # vacuously and reports agreement on a prompt that names nothing at all — the
 # same shape as SFT-0010, where "nothing to compare" passed as "compared and
 # equal" in the validation recipes.
-assert_file "$PROMPT" "the canonical ticket-agent prompt is where the card says"
+assert_file "$PROMPT" "the canonical ticket-agent prompt is where the skill says"
 assert_ne 0 "$COUNT" "at least one $MARKER line was extracted"
 # grep rather than assert_contains: a failure here would otherwise print the
 # whole prompt as the haystack and bury every other finding in the run.
@@ -116,7 +116,7 @@ fi
 
 test_case "the named set covers rule 9, the front matter and the body"
 # Three sections the prompt cannot drop without starving the agent of something
-# the card requires of it. Named positively so a well-meaning trim of the list
+# the skill requires of it. Named positively so a well-meaning trim of the list
 # fails here rather than silently narrowing what a sub-agent reads.
 assert_contains "$SECTIONS" '## Rules for agents' "rule 9 lives here"
 assert_contains "$SECTIONS" '## Front-matter schema' "the required keys live here"

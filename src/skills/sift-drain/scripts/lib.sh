@@ -108,13 +108,13 @@ roadmap_rows() {
     # ACME-00011 stay distinct rows in either order. This is byte-for-byte the
     # ROW_ID_PAT that roadmap-append.sh in sift-prime matches a ticket cell
     # with, and that second copy is a recorded decision rather than an accident:
-    # AGENTS.md under "Duplication between cards" (SFT-0038) holds that the cards
+    # AGENTS.md under "Duplication between skills" (SFT-0038) holds that the skills
     # install independently and neither directory may source a file from the
-    # other, so the rule is written out once per card and a drift between them is
+    # other, so the rule is written out once per skill and a drift between them is
     # caught by a test rather than by a tree that is already wrong. The test is
     # "the reader and the writer classify every cell of one table alike" in
     # tests/scripts/prime-backlog.test.sh, which drives one fixture table through
-    # both cards — change this rule and roadmap-append.sh in the same commit, and
+    # both skills — change this rule and roadmap-append.sh in the same commit, and
     # run that test to prove they still agree.
     BEGIN { pat = prefix "-[0-9][0-9][0-9][0-9][0-9]*" }
     # The ID a cell holds, or "" when it holds none. Whole-token on the left so a
@@ -134,10 +134,10 @@ roadmap_rows() {
     #
     # This is cell_id from roadmap-append.sh in sift-prime, restated by the same
     # recorded decision as the pattern above: AGENTS.md under "Duplication
-    # between cards" (SFT-0038) keeps one copy of the rule per card and pays for
+    # between skills" (SFT-0038) keeps one copy of the rule per skill and pays for
     # it with the agreement test, "the reader and the writer classify every cell
     # of one table alike" in tests/scripts/prime-backlog.test.sh, which drives one
-    # fixture table through both cards. Change this copy and the sift-prime one in
+    # fixture table through both skills. Change this copy and the sift-prime one in
     # the same commit, and run that test to prove they still agree. Only the
     # parameter is renamed here, so it does not shadow the struck-flag array s
     # below.
@@ -266,7 +266,7 @@ label_is_kebab() {
 # The read goes through fm_value's fence walk and never through a `^cluster:`
 # grep, because a body line reading "cluster: caching" matches that anchor
 # exactly as a front-matter line does — the defect SFT-0016 and SFT-0020 fixed
-# elsewhere on this card.
+# elsewhere on this skill.
 ticket_cluster() {
   local value
   value="$(fm_value "$1" cluster)"

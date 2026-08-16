@@ -15,13 +15,13 @@ kk_derived_from: []
 kk_relates_to:
   - practice-a-one-way-set-comparison-never-sees-a-withdrawal
   - practice-never-edit-the-tree-while-the-suite-is-running
-  - practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test
+  - practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test
 kk_depends_on: []
 kk_confidence: high
 ---
 Three lists in this repository narrow what a check promises: `DIGEST_EXCLUDE` in
 `tests/static/suite-contract.test.sh`, `LAYOUT_EXCUSED` and `LAYOUT_UNDOCUMENTED` in
-`tests/scripts/sift-init-tree.test.sh`, and the `@CARD-COPY:` inventory in AGENTS.md. None
+`tests/scripts/sift-init-tree.test.sh`, and the `@SKILL-COPY:` inventory in AGENTS.md. None
 of them is a suppression. Each entry is a claim about the world and the list as a whole is a
 claim that nothing else needs excusing, so a reason written beside each entry is not enough —
 the list needs a case that fails when the claim stops being true.
@@ -38,7 +38,7 @@ Compare as an equality, not a subset. `sift-init-tree` asserts the extra paths a
 the ones its undocumented list names, so an entry that stops being extra while its excuse
 still stands fails as loudly as a new extra does; a case beside it asserts every excused
 entry is still one the spec documents, without which the list is a hiding place for a
-withdrawn path. The consequence is that closing such a gap is a multi-file atomic commit:
+withdrawn path. The consequence is that closing such a gap takes both edits in one commit:
 SFT-0061 drew `config/` into README's directory-layout block and emptied
 `LAYOUT_UNDOCUMENTED` in the same change, because either edit alone is red.
 
@@ -52,5 +52,5 @@ nobody thinks to re-add.
 
 - Related: [practice-a-one-way-set-comparison-never-sees-a-withdrawal](/testing/practice-a-one-way-set-comparison-never-sees-a-withdrawal.md)
 - Related: [practice-never-edit-the-tree-while-the-suite-is-running](/testing/practice-never-edit-the-tree-while-the-suite-is-running.md)
-- Related: [practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test](/cross-card/practice-a-cross-card-rule-is-inventoried-in-agents-md-with-its-guard-test.md)
+- Related: [practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test](/cross-skill/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md)
 <!-- kk:related:end -->

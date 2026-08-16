@@ -27,7 +27,7 @@ obey that convention itself. Each test is a shell script that prints TAP-ish
 lines plus one `# SUMMARY tests=… assertions=… failures=… skipped=…` line the
 runner adds up; `tests/lib/harness.sh` supplies the assertions and a `mktemp -d`
 that is cleaned on exit. Four groups: `cookbook/` (README recipes), `scripts/`
-(shipped card scripts through their real command lines), `static/` (the
+(shipped skill scripts through their real command lines), `static/` (the
 portability bans, shell lint, XSD schemas, and the suite's own contract),
 `e2e/` (one gate → init → allocate → archive → roadmap-check lifecycle).
 `tests/run.sh <group>` runs one of them. Both recipe-owning groups are organised

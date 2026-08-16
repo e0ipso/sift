@@ -2,7 +2,7 @@
 type: map
 title: 'sift-prime: the skill that fills a sift backlog'
 description: >-
-  Middle card at src/skills/sift-prime/ — goal-gap analysis, chat negotiation,
+  Middle skill at src/skills/sift-prime/ — goal-gap analysis, chat negotiation,
   then batch ticket + roadmap writes for sift-drain.
 tags:
   - sift-prime

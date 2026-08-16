@@ -162,7 +162,7 @@ run_cmd() {
 # assert_marker_is_inert <label> <workdir> <command…> — the bare-versus-`--`
 # equivalence, in one place (SFT-0076).
 #
-# SFT-0024 and SFT-0033 gave every card script one spelling of `--`, so several
+# SFT-0024 and SFT-0033 gave every skill script one spelling of `--`, so several
 # of them make the identical claim: a lone marker with nothing behind it is
 # accepted and changes nothing. That claim used to be restated word for word per
 # script, which reads as three permutations of one case rather than as one rule

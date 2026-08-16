@@ -18,13 +18,13 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-`sift-init.sh`'s drift check compares the card's `assets/schemas/*.xsd` against the
+`sift-init.sh`'s drift check compares the skill's `assets/schemas/*.xsd` against the
 installed copies by looping over the *shipped* set. That domain decides what the check can
 possibly find: a file whose bytes changed, and a file that went missing. It can never find
-an extra one, so an installed `.ai/sift/schemas/*.xsd` the card had stopped shipping went
+an extra one, so an installed `.ai/sift/schemas/*.xsd` the skill had stopped shipping went
 unmentioned on every run. The documented `cp` refresh is blind the same way — it overwrites
 what still ships and steps straight over the rest — so a withdrawn schema survived every
-refresh an operator ran. `sync-assets.sh` had already learned this on the card's side of the
+refresh an operator ran. `sync-assets.sh` had already learned this on the skill's side of the
 same copy, where a second loop over the destination set removes an asset schema whose root
 counterpart is gone; the consuming side had no equivalent until SFT-0035.
 

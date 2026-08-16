@@ -19,7 +19,7 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-Every sift card resolves the project root with one upward walk from a canonicalized `pwd -P`, recording the nearest hit for each tier independently, then deciding by tier precedence — never by proximity.
+Every sift skill resolves the project root with one upward walk from a canonicalized `pwd -P`, recording the nearest hit for each tier independently, then deciding by tier precedence — never by proximity.
 
 - **Tier A:** `-d $dir/.ai/sift` — already initialized; adopt. Wins even over a nearer descendant `.git`, so a second tree cannot split the globally unique ID space.
 - **Tier B:** `-e $dir/.git` — repository root (file or directory; worktrees and submodules write a `.git` *file*). Auto-initialize when uninitialized.

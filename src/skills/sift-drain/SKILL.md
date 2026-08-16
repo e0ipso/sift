@@ -15,13 +15,13 @@ A worker is handed a **sitting** of the current wave's work, not the next ticket
 file. Several workers per wave is normal. Ticket files remain the record of what
 closed.
 
-**Pinned claims.** This card states things about files it does not carry, and every one of
+**Pinned claims.** This skill states things about files it does not carry, and every one of
 those claims is tagged beside the prose that makes it, on a line of the form
-`@PIN: <repo-root-relative file> <verbatim construct>`. A target ending in `/` is a card
+`@PIN: <repo-root-relative file> <verbatim construct>`. A target ending in `/` is a skill
 directory instead, and the construct is the front-matter line that directory's `SKILL.md`
-has to hold. Those lines are machine-read: `tests/static/card-prose-pins.test.sh` extracts
+has to hold. Those lines are machine-read: `tests/static/skill-prose-pins.test.sh` extracts
 every one of them, resolves the target against the repository root, and fails when the
-named construct is no longer there — so a rename cannot leave this card confidently naming
+named construct is no longer there — so a rename cannot leave this skill confidently naming
 something that has moved. State a new claim about another file, tag it the same way.
 
 ```text
@@ -31,7 +31,7 @@ something that has moved. State a new claim about another file, tag it the same 
 ## Gate: is sift initialized?
 
 Before anything else — before reading `ROADMAP.md`, before the first dispatch — run the
-`sift-init` card's `scripts/sift-gate.sh`. It reads only, and its exit code decides:
+`sift-init` skill's `scripts/sift-gate.sh`. It reads only, and its exit code decides:
 
 - **0 (`READY`)** — continue below.
 - **3, 4 or 6** — there is no usable tree yet. Hand off to `sift-init` and follow its
@@ -40,7 +40,7 @@ Before anything else — before reading `ROADMAP.md`, before the first dispatch 
 - **5 (`UNRESOLVED`)** — no project root found. Report the `$PWD` it walked from and stop.
 
 Never resolve the root by eye and never initialize the tree yourself: the gate is one
-script precisely so every card agrees on where `.ai/sift` lives.
+script precisely so every skill agrees on where `.ai/sift` lives.
 
 The state names above are the gate's own, restated here; the exit codes they pair with are
 held to the script by `tests/scripts/sift-gate.test.sh`.
@@ -113,7 +113,7 @@ reports the lookup's own state as `result: found` or `result: none` — never as
 which in that report is always the chosen ticket's own front-matter value, so every key
 means exactly one thing.
 Every script here honours `--` as the end-of-options marker, and it means one thing across
-the card: the option list ends there and everything behind it is positional. So
+the skill: the option list ends there and everything behind it is positional. So
 `tickets-by-label.sh -- <label>` looks the label up even when it came out of a variable,
 while `list-labels.sh`, `next-ticket.sh`, `wave-status.sh` and `roadmap-check.sh` take no
 positional at all — they accept the marker and refuse anything behind it rather than

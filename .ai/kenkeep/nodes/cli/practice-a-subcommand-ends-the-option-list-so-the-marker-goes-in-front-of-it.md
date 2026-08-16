@@ -17,7 +17,7 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-Most of the sift-drain card takes options first and positionals after, so `--` sits in the
+Most of the sift-drain skill takes options first and positionals after, so `--` sits in the
 option loop and a second loop re-reads what is left. `drain-log.sh` is shaped the other way
 round: its first argument is a subcommand (`dispatch`, `return`, `report`) and each mode has
 a fixed arity. There the option list ends at the subcommand whether or not the marker is
@@ -29,7 +29,7 @@ mode.
 Behind the subcommand there is no option list left to end, so every argument there is one of
 that subcommand's operands rather than a marker. `dispatch -- SFT-0001` is a two-operand
 dispatch and a usage error, not a marked-up one-operand one. Reading it the other way would
-mean inventing a per-subcommand marker grammar the card does not have, and it would leave
+mean inventing a per-subcommand marker grammar the skill does not have, and it would leave
 `dispatch --` writing a run-log row whose ticket cell is the marker.
 
 Nothing is stranded by that reading, because a sift ticket ID is `<PREFIX>-<NNNN>` and can
@@ -42,7 +42,7 @@ That check sits *behind* the subcommand, which is what makes the two slots diffe
 hyphen-leading word in an operand position is a ticket argument `require_ticket_id` refuses
 by name; the same word in the subcommand slot is an unknown mode the case arms reject
 before any validation runs — not an option, and not a rejected ID. Only the operand
-position is comparable with `sift-prime`'s ID check, and the cross-card agreement test says
+position is comparable with `sift-prime`'s ID check, and the cross-skill agreement test says
 so explicitly.
 
 The shape is one option loop whose `*)` arm is a bare `break`, leaving the subcommand in

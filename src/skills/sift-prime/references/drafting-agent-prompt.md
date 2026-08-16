@@ -30,7 +30,7 @@ convention's, copied from README's templates — both restate something that liv
 and a rename on the other side would starve the drafting agent of the very rule this prompt
 is trying to hand it. Each restatement is tagged on a line of the form
 `@PIN: <repo-root-relative file> <verbatim construct>`, and
-`tests/static/card-prose-pins.test.sh` extracts every one, resolving it against the
+`tests/static/skill-prose-pins.test.sh` extracts every one, resolving it against the
 repository root. The tags sit here rather than beside the sentences below because the
 template is a fenced block dispatched to a sub-agent verbatim; nothing is added to the text
 that agent receives.

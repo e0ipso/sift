@@ -19,7 +19,7 @@ kk_depends_on: []
 kk_confidence: high
 ---
 `tests/scripts/root-resolution.test.sh` says in its header that every case is swept across
-the card scripts, and until SFT-0050 that sentence claimed more than the sweep delivered:
+the skill scripts, and until SFT-0050 that sentence claimed more than the sweep delivered:
 the two scripts that write were excluded, for reasons that were real and written down
 nowhere. A header like that is an assertion with no test behind it, and it does damage a
 plain gap does not — the next agent reads it as coverage and stops looking.

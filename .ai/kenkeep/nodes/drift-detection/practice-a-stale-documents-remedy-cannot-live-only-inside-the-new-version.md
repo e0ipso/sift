@@ -31,7 +31,7 @@ refreshing X cannot be reachable only from a current X.
 
 So the detector carries the remedy. `sift-init.sh` compares each shipped asset against its
 installed copy with `cmp -s` on every run, prints a `stale` line per differing file, and
-prints the exact `cp` commands with both paths already resolved. The card is always current —
+prints the exact `cp` commands with both paths already resolved. The skill is always current —
 it is the thing that shipped the new bytes — so the report is a channel the stale copy cannot
 poison. The cookbook entry is still written, for the operator who is not mid-run; it is the
 redundant path, not the only one.

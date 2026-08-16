@@ -7,17 +7,17 @@ description: This skill should be used when the user asks to "prime the backlog"
 
 Turn a repository into sift tickets: measure what the project's own documents say it is
 against what is actually on disk, propose the gaps to the user, and on their agreement
-write the tickets and the `ROADMAP.md` rows behind them. This card sits between
+write the tickets and the `ROADMAP.md` rows behind them. This skill sits between
 `sift-init`, which creates the tree, and `sift-drain`, which empties it. Filling it is this
-card's job.
+skill's job.
 
-**Pinned claims.** This card states things about files it does not carry, and every one of
+**Pinned claims.** This skill states things about files it does not carry, and every one of
 those claims is tagged beside the prose that makes it, on a line of the form
-`@PIN: <repo-root-relative file> <verbatim construct>`. A target ending in `/` is a card
+`@PIN: <repo-root-relative file> <verbatim construct>`. A target ending in `/` is a skill
 directory instead, and the construct is the front-matter line that directory's `SKILL.md`
-has to hold. Those lines are machine-read: `tests/static/card-prose-pins.test.sh` extracts
+has to hold. Those lines are machine-read: `tests/static/skill-prose-pins.test.sh` extracts
 every one of them, resolves the target against the repository root, and fails when the
-named construct is no longer there — so a rename cannot leave this card confidently naming
+named construct is no longer there — so a rename cannot leave this skill confidently naming
 something that has moved. State a new claim about another file, tag it the same way.
 
 ```text
@@ -27,7 +27,7 @@ something that has moved. State a new claim about another file, tag it the same 
 ## Gate: is sift initialized?
 
 Before anything else — before the first sweep agent, before reading a line of the
-repository — run the `sift-init` card's `scripts/sift-gate.sh`. It reads only, and its
+repository — run the `sift-init` skill's `scripts/sift-gate.sh`. It reads only, and its
 exit code decides:
 
 - **0 (`READY`)** — continue below.
@@ -37,7 +37,7 @@ exit code decides:
 - **5 (`UNRESOLVED`)** — no project root found. Report the `$PWD` it walked from and stop.
 
 Never resolve the root by eye and never initialize the tree yourself: the gate is one
-script precisely so every card agrees on where `.ai/sift` lives.
+script precisely so every skill agrees on where `.ai/sift` lives.
 
 The state names above are the gate's own, restated here; the exit codes they pair with are
 held to the script by `tests/scripts/sift-gate.test.sh`.
@@ -120,8 +120,8 @@ the code, invents a `## Direction` that `sift-drain` then hands to an implemente
 **Dedupe against both buckets before the user sees anything.** `existing-work.sh` prints
 every ticket under `open/` and `archive/` with its `resolution`, and that last column is
 what separates "already filed" from "already decided against". **Re-proposing work already
-archived `wontfix` is the failure that ends the user's trust in this card** — they spent
-the decision once and wrote the reason down; handing it back says the card did not read
+archived `wontfix` is the failure that ends the user's trust in this skill** — they spent
+the decision once and wrote the reason down; handing it back says the skill did not read
 it, and a slate they have to re-reject is a slate they stop reading. Match on subject
 matter, not title strings, and when an archived `resolution` kills a candidate, quote that
 line back to the user verbatim.

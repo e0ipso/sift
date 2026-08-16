@@ -9,8 +9,8 @@ okf_version: '0.1'
 
 ## Subfolders
 - Load [`cli/`](cli/index.md) for more information on the shipped scripts' CLI grammar — the -- end-of-options marker, subcommand slots and report-key collisions; read when adding an option, a subcommand or a report key to a script.
-- Load [`convention/`](convention/index.md) for more information on cross-cutting project conventions including the file-based tracker premise and commit-message rules; read when changing standing repo conventions outside a single skill card.
-- Load [`cross-card/`](cross-card/index.md) for more information on the rules sift-drain and sift-prime must classify alike — what a roadmap row is and what a ticket ID is — and how every copy is inventoried and guarded; read when touching either card's row reader or ID check.
+- Load [`convention/`](convention/index.md) for more information on cross-cutting project conventions including the file-based tracker premise and commit-message rules; read when changing standing repo conventions outside a single skill.
+- Load [`cross-skill/`](cross-skill/index.md) for more information on the rules sift-drain and sift-prime must classify alike — what a roadmap row is and what a ticket ID is — and how every copy is inventoried and guarded; read when touching either skill's row reader or ID check.
 - Load [`drift-detection/`](drift-detection/index.md) for more information on the repo's own static scanners and drift detectors — what the shellcheck and collated-range scans do and do not flag, and the rule that a detector prints its own remedy; read when adding a check under tests/static/ or working around a scan finding.
 - Load [`portability/`](portability/index.md) for more information on GNU/BSD recipe portability and no-installable-binary rules; read when writing cookbook recipes or shell helpers that must run on macOS and Linux.
 - Load [`shell/`](shell/index.md) for more information on portable shell and awk recipe rules — quoting, globs, grep exit codes, fence-scoped rewrites and atomic publication; read when writing or editing a shell helper or a cookbook recipe.

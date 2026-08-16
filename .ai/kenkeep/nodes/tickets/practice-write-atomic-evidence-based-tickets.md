@@ -1,6 +1,6 @@
 ---
 type: practice
-title: 'Keep tickets atomic and evidence-based, drafted against the type''s schema'
+title: 'One problem per ticket, evidence-based, drafted against the type''s schema'
 description: >-
   One file is one ticket, claims about code cite file:line, and non-trivial
   tickets are drafted into a scratch XSD-shaped file first.

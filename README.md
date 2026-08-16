@@ -118,7 +118,7 @@ Two questions look alike and are settled by different tests. Answering one with 
 test is exactly how `cluster` gets assigned wrongly.
 
 **Merging findings into ONE ticket is the strict bar, and it belongs to drafting time —
-the `sift-prime` card owns it: several sites become one ticket only when one `## Direction`,
+the `sift-prime` skill owns it: several sites become one ticket only when one `## Direction`,
 a single statement of approach, holds unchanged at every one of them.** A candidate needing
 an "and at the third site, instead …" states two Directions, so it is two tickets.
 
@@ -363,7 +363,7 @@ the integer and never parse a date back into a number, which is exactly where GN
    ticket, update `milestone`/`status` front-matter in the same change, and vice versa.
 4. **Archiving = edit + mv.** Set `status`, `resolution`, `updated`, then `mv` the file
    to the mirrored path under `archive/` (`mkdir -p` the target first).
-5. **Keep tickets atomic and evidence-based.** Claims about code cite `file:line`.
+5. **One problem per ticket, and evidence-based.** Claims about code cite `file:line`.
 6. **Bump `updated`** whenever you change anything meaningful.
 7. Cross-reference tickets inline as `<PREFIX>-XXXX` — plain text, greppable.
 8. New milestone or category folders are allowed, but document new milestones in
@@ -879,11 +879,11 @@ naming each file whose bytes no longer match the shipped one,
 followed by the two commands below with the paths already resolved:
 
 ```sh
-cp "$CARD/assets/README.md" .ai/sift/README.md
-cp "$CARD"/assets/schemas/*.xsd .ai/sift/schemas/
+cp "$SKILL/assets/README.md" .ai/sift/README.md
+cp "$SKILL"/assets/schemas/*.xsd .ai/sift/schemas/
 ```
 
-`$CARD` is the `sift-init` card's own directory; run `sift-init.sh` and paste the lines it
+`$SKILL` is the `sift-init` skill's own directory; run `sift-init.sh` and paste the lines it
 prints rather than guessing at the path. It reports and stops there on purpose: these two
 files are also the only place a repository can annotate the convention for itself, so `diff`
 them first if you have written anything into either. A tree whose copy is current gets no
@@ -893,4 +893,4 @@ The refresh copies, so it cannot remove: a schema the convention has since withd
 every refresh. The initializer reports that separately, as an `orphan` line naming the file
 followed by the `rm` that answers it — a command to run, not an action it takes, because
 nothing on disk distinguishes a withdrawn schema from one this repository added for itself.
-The card's `assets/schemas/` is the list of names that still ship.
+The skill's `assets/schemas/` is the list of names that still ship.

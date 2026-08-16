@@ -18,7 +18,7 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-`drain-log.sh` is the one sift-drain card script that writes, and its ticket
+`drain-log.sh` is the one sift-drain skill script that writes, and its ticket
 argument is the column `report` pairs a `return` against its `dispatch` with. A
 typo there is permanent, so the argument has to be checked — but the check stops
 at SHAPE: the configured prefix, a hyphen, and a greedy run of at least four

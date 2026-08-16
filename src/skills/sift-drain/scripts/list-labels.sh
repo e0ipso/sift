@@ -9,7 +9,7 @@
 #   scripts/list-labels.sh --open       # open/ bucket only
 #   scripts/list-labels.sh --counts --  # -- ends the options, as in tickets-by-label.sh
 #
-# `--` means one thing across the card: the option list ends here and everything
+# `--` means one thing across the skill: the option list ends here and everything
 # behind it is positional. This script has no positional to take, so the marker
 # is accepted and anything following it is a usage error.
 #

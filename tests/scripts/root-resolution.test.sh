@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# lib.sh — the root and prefix resolution every card script shares (SFT-0008).
+# lib.sh — the root and prefix resolution every skill script shares (SFT-0008).
 #
 # sift-drain and sift-prime each carry a lib.sh, and the top half of the two is
 # the same block: resolve the project root, insist on a ROADMAP.md, resolve the
-# prefix. Every case below is swept across scripts from BOTH cards, because two
+# prefix. Every case below is swept across scripts from BOTH skills, because two
 # copies of a contract that drift apart is the failure this file exists to catch
-# — a card that resolves a different root than its sibling allocates IDs into a
-# tree the other one cannot see. The sweep runs per SCRIPT rather than per card:
-# the block is one file per card, but each script has to propagate its refusal,
-# and a script that swallowed the exit would be invisible to a per-card check.
+# — a skill that resolves a different root than its sibling allocates IDs into a
+# tree the other one cannot see. The sweep runs per SCRIPT rather than per skill:
+# the block is one file per skill, but each script has to propagate its refusal,
+# and a script that swallowed the exit would be invisible to a per-skill check.
 #
 # Sandboxing: SIFT_ROOT always points into TMPROOT, and where the upward walk is
 # the thing under test, $PWD does. The first case proves no .ai/sift exists above
@@ -25,7 +25,7 @@ PRIME="$REPO_ROOT/src/skills/sift-prime/scripts"
 
 # Every script that sources a lib.sh and can be run without writing, with the
 # minimum arguments that get it past its own usage check — so the failure under
-# test is always the shared block. Both cards' scripts are here; the two that
+# test is always the shared block. Both skills' scripts are here; the two that
 # write are named in tests/README.md with the reason they cannot join, because a
 # sweep asserting a SUCCESSFUL resolution would have to run them for real.
 SCRIPTS="$DRAIN/next-ticket.sh:
@@ -40,8 +40,8 @@ $PRIME/existing-work.sh:"
 # the caller-supplied check() function, which sees R_STATUS/R_OUT/R_ERR.
 #
 # SWEEP_SCRIPT carries the full path of the script that produced them, so a check
-# can branch on which CARD it came from: the block is shared, but not every line
-# of its output is, and an assertion that ignores the difference passes on a card
+# can branch on which SKILL it came from: the block is shared, but not every line
+# of its output is, and an assertion that ignores the difference passes on a skill
 # that never emits the message it claims to require (SFT-0050).
 SWEEP_SCRIPT=''
 sweep() {  # sweep <workdir> <check-fn> [env assignments…]
@@ -81,8 +81,8 @@ test_case "a SIFT_ROOT with no tree under it is refused by every script"
 # The one place the two copies of the block deliberately differ: sift-prime sends
 # the operator to sift-init, because priming an uninitialized repository is a
 # thing people try, and sift-drain does not, because a drain with no tree has no
-# roadmap to have been draining. So the hint is asserted PRESENT on one card and
-# ABSENT on the other — required of both, it would be satisfied by neither card
+# roadmap to have been draining. So the hint is asserted PRESENT on one skill and
+# ABSENT on the other — required of both, it would be satisfied by neither skill
 # emitting it; required of neither, the one message that tells the two apart
 # would be unguarded (SFT-0050).
 check_no_tree() {
@@ -96,7 +96,7 @@ check_no_tree() {
   if [ "$has_hint" = "$want_hint" ]; then
     if [ "$want_hint" = 1 ]
     then t_ok "$1 sends the operator to sift-init, as only sift-prime does"
-    else t_ok "$1 emits no priming hint: that message belongs to the other card"; fi
+    else t_ok "$1 emits no priming hint: that message belongs to the other skill"; fi
   else
     t_fail "$1 gets the sift-init hint exactly when it is a sift-prime script" \
       "want_hint=$want_hint" "has_hint=$has_hint" "stderr=$R_ERR"
@@ -189,7 +189,7 @@ assert_contains "$R_OUT" 'OK: 0 roadmap rows / 0 ticket files' \
   "the ACME row and the ACME file both stop counting"
 run_cmd "$root" env SIFT_ROOT="$root" SIFT_PREFIX=ZZZZ "$PRIME/reserve-ids.sh" 1
 assert_eq 0 "$R_STATUS" "reserve-ids.sh exits 0"
-assert_eq "ZZZZ-0001" "$R_OUT" "and allocates under the overridden prefix, from both cards' lib.sh"
+assert_eq "ZZZZ-0001" "$R_OUT" "and allocates under the overridden prefix, from both skills' lib.sh"
 
 test_case "with no config the prefix is inferred from the ticket filenames"
 rm "$root/.ai/sift/config/config.yaml"

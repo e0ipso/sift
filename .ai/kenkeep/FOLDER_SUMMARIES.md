@@ -8,11 +8,11 @@ summaries:
   convention: >-
     cross-cutting project conventions including the file-based tracker premise
     and commit-message rules; read when changing standing repo conventions
-    outside a single skill card
-  cross-card: >-
+    outside a single skill
+  cross-skill: >-
     the rules sift-drain and sift-prime must classify alike — what a roadmap row
     is and what a ticket ID is — and how every copy is inventoried and guarded;
-    read when touching either card's row reader or ID check
+    read when touching either skill's row reader or ID check
   drift-detection: >-
     the repo's own static scanners and drift detectors — what the shellcheck and
     collated-range scans do and do not flag, and the rule that a detector prints
@@ -76,8 +76,8 @@ summaries:
 # kenkeep Folder Summaries
 
 - `cli`: the shipped scripts' CLI grammar — the -- end-of-options marker, subcommand slots and report-key collisions; read when adding an option, a subcommand or a report key to a script
-- `convention`: cross-cutting project conventions including the file-based tracker premise and commit-message rules; read when changing standing repo conventions outside a single skill card
-- `cross-card`: the rules sift-drain and sift-prime must classify alike — what a roadmap row is and what a ticket ID is — and how every copy is inventoried and guarded; read when touching either card's row reader or ID check
+- `convention`: cross-cutting project conventions including the file-based tracker premise and commit-message rules; read when changing standing repo conventions outside a single skill
+- `cross-skill`: the rules sift-drain and sift-prime must classify alike — what a roadmap row is and what a ticket ID is — and how every copy is inventoried and guarded; read when touching either skill's row reader or ID check
 - `drift-detection`: the repo's own static scanners and drift detectors — what the shellcheck and collated-range scans do and do not flag, and the rule that a detector prints its own remedy; read when adding a check under tests/static/ or working around a scan finding
 - `portability`: GNU/BSD recipe portability and no-installable-binary rules; read when writing cookbook recipes or shell helpers that must run on macOS and Linux
 - `shell`: portable shell and awk recipe rules — quoting, globs, grep exit codes, fence-scoped rewrites and atomic publication; read when writing or editing a shell helper or a cookbook recipe

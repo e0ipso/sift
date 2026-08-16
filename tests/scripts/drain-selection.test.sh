@@ -273,7 +273,7 @@ assert_eq "" "$R_OUT" "even alongside the flag that is understood"
 
 test_case "-- ends the options here too, and nothing may follow it (SFT-0033)"
 # SFT-0024 made `--` mean one thing across the two label scripts; SFT-0033 gave
-# the rest of the card the same spelling, so a caller who learned it from
+# the rest of the skill the same spelling, so a caller who learned it from
 # tickets-by-label.sh no longer meets a usage error at the script beside it.
 #
 # The second half is the half worth pinning. A `--) shift; break` arm with no
@@ -390,7 +390,7 @@ assert_eq "$grouped_out" "$R_OUT" "and the grouped report is byte for byte the s
 test_case "a lead with no cluster is a group of one, and body prose is not front matter"
 # The cluster is read through fm_value's fence walk. A `^cluster:` grep would
 # match the line in the body below and batch two tickets that never opted in —
-# the defect SFT-0016 and SFT-0020 fixed elsewhere in this card.
+# the defect SFT-0016 and SFT-0020 fixed elsewhere in this skill.
 d="$(newdir)"; make_tree "$d" ACME
 lead="$(ticket "$d" open backlog/bug ACME-0001 one 'One')"
 printf '\ncluster: end-of-options-marker\n' >> "$lead"
@@ -773,7 +773,7 @@ assert_contains "$R_ERR" 'usage: wave-status.sh' "with the same one-line usage"
 
 test_case "wave-status.sh accepts -- and still refuses what follows it (SFT-0033)"
 # Same marker, same meaning, one script over: the whole point of SFT-0033 is
-# that a caller cannot tell the card's scripts apart by which spelling they take.
+# that a caller cannot tell the skill's scripts apart by which spelling they take.
 # The refusal above is what makes the acceptance safe — the marker must not
 # become a way to smuggle `--wave 1` past the parser and read a full-roadmap
 # table as the answer to a narrower question.

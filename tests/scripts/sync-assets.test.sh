@@ -10,7 +10,7 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 . "$DIR/../lib/recipes.sh"
 . "$DIR/../lib/fixtures.sh"
 
-REAL_CARD="$REPO_ROOT/src/skills/sift-init"
+REAL_SKILL="$REPO_ROOT/src/skills/sift-init"
 
 # A minimal repository with the skill's shape: the script resolves its paths from
 # its own location, so the copy must keep src/skills/sift-init/scripts/.
@@ -19,7 +19,7 @@ fake_repo() {
   t="$(newdir)"
   skill="$t/src/skills/sift-init"
   mkdir -p "$skill/scripts" "$skill/assets/schemas" "$t/schemas"
-  cp "$REAL_CARD/scripts/sync-assets.sh" "$skill/scripts/"
+  cp "$REAL_SKILL/scripts/sync-assets.sh" "$skill/scripts/"
   printf '# normative spec\n' > "$t/README.md"
   printf '<xsd>one</xsd>\n' > "$t/schemas/one.xsd"
   printf '<xsd>two</xsd>\n' > "$t/schemas/two.xsd"
@@ -39,13 +39,13 @@ relocated_repo() {
   t="$(newdir)"
   skill="$t/nested/skills/sift-init"
   mkdir -p "$skill/scripts" "$skill/assets/schemas" "$t/schemas"
-  cp "$REAL_CARD/scripts/sync-assets.sh" "$skill/scripts/"
+  cp "$REAL_SKILL/scripts/sync-assets.sh" "$skill/scripts/"
   printf '# some other tree spec\n' > "$t/README.md"
   printf '<xsd>one</xsd>\n' > "$t/schemas/one.xsd"
   printf '%s\n' "$t"
 }
 
-relocated_card() { printf '%s' "$1/nested/skills/sift-init"; }
+relocated_skill() { printf '%s' "$1/nested/skills/sift-init"; }
 
 # A PATH prepend whose cp and rm report success without doing anything. It is
 # the fault the verification block is written against — an incomplete copy with
@@ -206,7 +206,7 @@ test_case "a relocated skill is copied into once the root guard is removed"
 # The positive control tests/README.md requires under "Destructive and
 # concurrent sequences": without it, a guard that never ran looks exactly like
 # one that held, because the assertion below is "nothing was written".
-t="$(relocated_repo)"; skill="$(relocated_card "$t")"
+t="$(relocated_repo)"; skill="$(relocated_skill "$t")"
 grep -v 'lacks src/skills/sift-init' "$skill/scripts/sync-assets.sh" > "$skill/scripts/unguarded.sh"
 run_cmd "$t" bash "$skill/scripts/unguarded.sh"
 assert_eq 0 "$R_STATUS" "the copy without the guard runs to completion"
@@ -214,7 +214,7 @@ assert_same "$t/README.md" "$skill/assets/README.md" \
   "and writes the foreign root's README over the skill's assets"
 
 test_case "a relocated skill refuses the root it resolved"
-t="$(relocated_repo)"; skill="$(relocated_card "$t")"; rt="$(cd "$t" && pwd -P)"
+t="$(relocated_repo)"; skill="$(relocated_skill "$t")"; rt="$(cd "$t" && pwd -P)"
 before="$(tree_digest "$t")"
 run_cmd "$t" bash "$skill/scripts/sync-assets.sh"
 assert_eq 2 "$R_STATUS" "exits 2"
@@ -252,11 +252,11 @@ assert_contains "$R_ERR" 'sync-assets: FAIL — 2 mismatch(es); assets are incom
   "one missing README and one missing schema make two, not four"
 
 test_case "the skill documents one command and no hand-copying"
-skill_md="$(cat "$REAL_CARD/SKILL.md")"
+skill_md="$(cat "$REAL_SKILL/SKILL.md")"
 assert_contains "$skill_md" 'src/skills/sift-init/scripts/sync-assets.sh' \
   "SKILL.md names the script"
 assert_contains "$skill_md" 'Do not hand-copy' "…and rules out doing it by hand"
-maint="$(awk '/^## Maintaining this skill/ { m = 1 } m' "$REAL_CARD/SKILL.md")"
+maint="$(awk '/^## Maintaining this skill/ { m = 1 } m' "$REAL_SKILL/SKILL.md")"
 assert_eq 1 "$(printf '%s\n' "$maint" | grep -c 'sync-assets.sh')" \
   "the maintenance section points at exactly one command"
 assert_eq 0 "$(printf '%s\n' "$maint" | grep -cE '^[[:space:]]*(cp|diff) ')" \

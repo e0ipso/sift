@@ -131,9 +131,9 @@ tree_pair_differences() {
     "$(excused_entries "$FIXTURE_ONLY_EXCUSED")"
 }
 
-# card_prefix <lib> <root> — ask a skill's real shared-library parser for the
+# skill_prefix <lib> <root> — ask a skill's real shared-library parser for the
 # prefix; do not restate its sed expression in the test.
-card_prefix() {
+skill_prefix() {
   (
     SIFT_ROOT="$2"
     # shellcheck disable=SC1090 -- both paths are repository constants above.
@@ -197,9 +197,9 @@ done
 
 for lib in "$DRAIN_LIB" "$PRIME_LIB"; do
   skill="$(basename "$(dirname "$(dirname "$lib")")")"
-  assert_eq ACME "$(card_prefix "$lib" "$initialized")" \
+  assert_eq ACME "$(skill_prefix "$lib" "$initialized")" \
     "$skill parses the initialized prefix"
-  assert_eq ACME "$(card_prefix "$lib" "$fixture")" \
+  assert_eq ACME "$(skill_prefix "$lib" "$fixture")" \
     "$skill parses the fixture prefix"
 done
 

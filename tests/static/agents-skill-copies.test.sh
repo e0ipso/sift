@@ -41,10 +41,10 @@ MARKER='@SKILL-COPY:'
 
 TAB="$(printf '\t')"
 
-# card_copies <agents-file> — one "<path><TAB><construct>" per entry, in the
+# skill_copies <agents-file> — one "<path><TAB><construct>" per entry, in the
 # order the record lists them. Only inside the named section: a marker quoted
 # elsewhere in the document is prose about the record, not part of it.
-card_copies() {
+skill_copies() {
   awk -v tag="$MARKER" -v sec="$SECTION" '
     { line = $0; sub(/[[:space:]]+$/, "", line) }
     /^##[[:space:]]/ { insec = (line == sec); next }
@@ -77,7 +77,7 @@ code_of() {
 # the tree that already passes is not proven at all.
 unresolved() {
   local agents="$1" root="$2" path anchor
-  card_copies "$agents" | while IFS="$TAB" read -r path anchor; do
+  skill_copies "$agents" | while IFS="$TAB" read -r path anchor; do
     if [ ! -f "$root/$path" ]; then
       printf '%s :: %s (no such file)\n' "$path" "$anchor"
     elif ! code_of "$root/$path" | grep -Fq -e "$anchor"; then
@@ -86,7 +86,7 @@ unresolved() {
   done
 }
 
-ENTRIES="$(card_copies "$AGENTS")"
+ENTRIES="$(skill_copies "$AGENTS")"
 COUNT="$(printf '%s' "$ENTRIES" | grep -c '' || [ $? -eq 1 ])"
 : "${COUNT:=0}"
 
@@ -166,7 +166,7 @@ awk -v tag="$MARKER" -v repl="$MARKER $bogus $VICTIM_ANCHOR" '
   { print }
 ' "$AGENTS" > "$damaged"
 assert_eq "$bogus $VICTIM_ANCHOR" \
-  "$(card_copies "$damaged" | head -n 1 | tr "$TAB" ' ')" \
+  "$(skill_copies "$damaged" | head -n 1 | tr "$TAB" ' ')" \
   "the damaged record cites the missing file"
 assert_eq "$bogus :: $VICTIM_ANCHOR (no such file)" \
   "$(unresolved "$damaged" "$REPO_ROOT")" \

@@ -53,15 +53,15 @@ MARKER='@PIN:'
 SELF="tests/static/$(basename "$0")"
 TAB="$(printf '\t')"
 
-# card_docs — every skill document that could carry a marker. Discovered rather
+# skill_docs — every skill document that could carry a marker. Discovered rather
 # than listed: a new skill, or a new reference file inside one, is in scope the
 # moment it exists, and a list here would be one more place to forget.
-card_docs() {
+skill_docs() {
   find "$REPO_ROOT/src/skills" -name '*.md' | LC_ALL=C sort
 }
 
-# card_dirs — one repo-relative path per installable skill directory.
-card_dirs() {
+# skill_dirs — one repo-relative path per installable skill directory.
+skill_dirs() {
   find "$REPO_ROOT/src/skills" -mindepth 1 -maxdepth 1 -type d | LC_ALL=C sort \
     | while IFS= read -r d; do printf '%s\n' "${d#"$REPO_ROOT/"}"; done
 }
@@ -95,12 +95,12 @@ pins_of() {
 # all_pins — every marker in every skill document, deduplicated. Two skills pin the
 # gate's state names identically on purpose, and one shared claim is one claim.
 all_pins() {
-  card_docs | while IFS= read -r f; do pins_of "$f"; done | LC_ALL=C sort -u
+  skill_docs | while IFS= read -r f; do pins_of "$f"; done | LC_ALL=C sort -u
 }
 
 # pinning_docs — the repo-relative documents that carry at least one marker.
 pinning_docs() {
-  card_docs | while IFS= read -r f; do
+  skill_docs | while IFS= read -r f; do
     [ -n "$(pins_of "$f")" ] && printf '%s\n' "${f#"$REPO_ROOT/"}"
   done
 }
@@ -199,7 +199,7 @@ test_case "every skill pins its own installable identity"
 # disk rather than per name written here, so a skill whose marker was dropped
 # fails instead of silently narrowing the check.
 DIR_TARGETS="$(printf '%s\n' "$PINS" | cut -f1 | grep '/$' || [ $? -eq 1 ])"
-skills="$(card_dirs)"
+skills="$(skill_dirs)"
 assert_ne "" "$skills" "there are skill directories to check"
 missing="$(printf '%s\n' "$skills" | while IFS= read -r c; do
   [ -n "$c" ] || continue

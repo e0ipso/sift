@@ -11,7 +11,7 @@
 #   cookbook  README.md recipes run against throwaway trees
 #   scripts   the shipped workflow scripts through their command-line interfaces
 #   static    portability bans and shell lint (the repository's static analysis)
-#   e2e       one full init → allocate → archive → roadmap-check lifecycle
+#   e2e       full lifecycles: init → allocate → archive → roadmap-check, and the drain loop
 #
 # Exit codes: 0 all green | 1 failures.
 

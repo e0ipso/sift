@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:088e6ff0a72d21ae52b9ac1a3ae305476102e7df6fd73285abd0b2ebdcddcfff'
-node_count: 91
+nodes_hash: 'sha256:a53e25c87a955ad1e52f1a4b994f3dde2843314aa4f11cb93ee9aa1abf804bdb'
+node_count: 94
 ---
 # kenkeep Graph
 
-Total nodes: 91
+Total nodes: 94
 
 ## map-runlog-md-the-drain-s-append-only-run-log
 
@@ -22,7 +22,7 @@ Total nodes: 91
 - **title:** sift-drain: the skill that works a sift roadmap to completion
 - **path:** sift-drain/map-sift-drain-skill.md
 - **tags:** sift-drain, orchestration, skills
-- **relates_to:** map-sift-readme-normative-spec, map-runlog-md-the-drain-s-append-only-run-log
+- **relates_to:** map-sift-readme-normative-spec, map-runlog-md-the-drain-s-append-only-run-log, practice-the-drain-orchestrator-builds-a-wave-graph, practice-the-drain-orchestrator-owns-tracker-writes
 - **derived_from:** 7dcf0144-592c-4853-a5c2-57b8ad8ad350:map:1
 
 ## map-sift-file-based-issue-tracker
@@ -233,6 +233,14 @@ Total nodes: 91
 - **tags:** sift, tickets, convention
 - **relates_to:** practice-write-atomic-evidence-based-tickets, practice-keep-roadmap-in-sync-same-change
 - **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:11
+
+## practice-a-worker-checks-back-when-another-has-changed-its-work
+
+- **kind:** practice
+- **title:** A worker checks back when another has changed its work
+- **path:** sift-drain/practice-a-worker-checks-back-when-another-has-changed-its-work.md
+- **tags:** sift-drain, orchestration, agents, concurrency
+- **relates_to:** practice-sift-drain-sub-agents-decide-for-themselves, practice-the-drain-orchestrator-builds-a-wave-graph
 
 ## practice-account-for-ai-sift-being-gitignored
 
@@ -530,7 +538,7 @@ Total nodes: 91
 - **title:** When draining sift, orchestrate and never implement
 - **path:** sift-drain/practice-orchestrate-sift-drain-never-implement.md
 - **tags:** sift-drain, orchestration, agents
-- **relates_to:** map-sift-drain-skill
+- **relates_to:** map-sift-drain-skill, practice-the-drain-orchestrator-stays-the-same-agent-across-waves, practice-the-drain-orchestrator-builds-a-wave-graph, practice-the-drain-orchestrator-owns-tracker-writes
 
 ## practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts
 
@@ -632,22 +640,13 @@ Total nodes: 91
 - **tags:** sift, shell, gotcha, cookbook, convention
 - **relates_to:** practice-never-write-data-through-a-sed-replacement-text, practice-move-tickets-and-edit-front-matter-together
 
-## practice-sift-drain-dispatches-ticket-agents-strictly-sequentially
-
-- **kind:** practice
-- **title:** Sift-drain dispatches ticket agents strictly sequentially
-- **path:** sift-drain/practice-sift-drain-dispatches-ticket-agents-strictly-sequentially.md
-- **tags:** sift-drain, orchestration, concurrency, rationale
-- **relates_to:** map-sift-drain-skill, practice-account-for-ai-sift-being-gitignored, practice-keep-roadmap-in-sync-same-change
-- **derived_from:** 697a19a7-5357-4590-bdc4-0feb3fddbfe3:practice:0
-
 ## practice-sift-drain-sub-agents-decide-for-themselves
 
 - **kind:** practice
 - **title:** Sub-agent autonomy is the contract in a sift drain
 - **path:** sift-drain/practice-sift-drain-sub-agents-decide-for-themselves.md
 - **tags:** sift-drain, agents, orchestration
-- **relates_to:** practice-orchestrate-sift-drain-never-implement
+- **relates_to:** practice-orchestrate-sift-drain-never-implement, practice-a-worker-checks-back-when-another-has-changed-its-work
 
 ## practice-sift-prime-creates-a-slate-of-tickets-not-a-single-ticket
 
@@ -689,6 +688,30 @@ Total nodes: 91
 - **path:** drift-detection/practice-the-collated-range-scan-targets-globs-not-usage-strings.md
 - **tags:** portability, shell, testing, gotcha, sift
 - **relates_to:** practice-never-write-a-z-glob-ranges-in-shell-validation, map-sift-test-suite-runs-the-readme-recipes-themselves
+
+## practice-the-drain-orchestrator-builds-a-wave-graph
+
+- **kind:** practice
+- **title:** The drain orchestrator builds a wave graph of workers
+- **path:** sift-drain/practice-the-drain-orchestrator-builds-a-wave-graph.md
+- **tags:** sift-drain, orchestration, concurrency, agents
+- **relates_to:** map-sift-drain-skill, practice-orchestrate-sift-drain-never-implement, practice-the-drain-orchestrator-owns-tracker-writes
+
+## practice-the-drain-orchestrator-owns-tracker-writes
+
+- **kind:** practice
+- **title:** The drain orchestrator owns tracker writes and merges
+- **path:** sift-drain/practice-the-drain-orchestrator-owns-tracker-writes.md
+- **tags:** sift-drain, orchestration, git, tickets
+- **relates_to:** practice-keep-roadmap-in-sync-same-change, practice-orchestrate-sift-drain-never-implement, practice-the-drain-orchestrator-builds-a-wave-graph
+
+## practice-the-drain-orchestrator-stays-the-same-agent-across-waves
+
+- **kind:** practice
+- **title:** The drain orchestrator stays the same agent across waves
+- **path:** sift-drain/practice-the-drain-orchestrator-stays-the-same-agent-across-waves.md
+- **tags:** sift-drain, orchestration, agents, context
+- **relates_to:** practice-orchestrate-sift-drain-never-implement, map-sift-drain-skill
 
 ## practice-tighten-the-selector-with-the-pattern-or-the-loop-keeps-the-wrong-cell
 

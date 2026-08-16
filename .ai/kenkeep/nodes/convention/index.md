@@ -13,7 +13,7 @@ _None._
 - Open [**Probe in a copied tree, and never restore a probe with git checkout**](practice-probe-in-a-copied-tree-never-restore-with-git-checkout.md) to learn about: git checkout <file> discards uncommitted work on it; a probe belongs in a copy of the tree, and .claude/skills is the same file. #convention #testing #gotcha #git #sift
 - Open [**Git does not protect an ignored file from a checkout or a merge**](practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge.md) to learn about: An ignored path is overwritten by a checkout and deleted by a merge, silently; take a cksum around every ref move and recover with git show. #git #sift #gotcha #convention
 - Open [**A branch scoped ref audit misses the refs that arm an ignored path**](practice-a-branch-scoped-ref-audit-misses-the-refs-that-arm-an-ignored-path.md) to learn about: Stash entries, tool-written ref namespaces, tags, detached commits and second worktrees all lay down trees, so refs/heads is not the hazard's scope. #git #sift #gotcha #testing
-- Open [**Do not add AI attribution trailers to commit messages**](practice-do-not-add-ai-attribution-trailers-to-commit-messages.md) to learn about: No Co-Authored-By AI trailer on new commits; the harness default adds one, so the existing history is mixed and is left that way. #git #commits #convention
+- Open [**Do not add AI attribution trailers to commit messages**](practice-do-not-add-ai-attribution-trailers-to-commit-messages.md) to learn about: No Co-Authored-By AI trailer on any commit; the harness default adds one, so strip it — the history was rewritten once to clear the ones that escaped. #git #commits #convention
 - Open [**Never force add a file under this repository's own sift tree**](practice-never-force-add-a-file-under-this-repository-s-own-sift-tree.md) to learn about: Exactly .ai/sift/.gitignore is tracked and a static test asserts that as an equality, so git add -f under .ai/sift re-creates a half-tracked tree. #sift #git #convention #testing
 
 ## Components (what exists)
@@ -46,7 +46,7 @@ _None._
 ### #architecture
 - Open [**Sift: an AI-first issue tracker that lives in the working tree**](map-sift-file-based-issue-tracker.md) — Sift's entire state is markdown files on disk; there is no database, daemon, or CLI, and git is the audit log.
 ### #commits
-- Open [**Do not add AI attribution trailers to commit messages**](practice-do-not-add-ai-attribution-trailers-to-commit-messages.md) — No Co-Authored-By AI trailer on new commits; the harness default adds one, so the existing history is mixed and is left that way.
+- Open [**Do not add AI attribution trailers to commit messages**](practice-do-not-add-ai-attribution-trailers-to-commit-messages.md) — No Co-Authored-By AI trailer on any commit; the harness default adds one, so strip it — the history was rewritten once to clear the ones that escaped.
 ### #portability
 - Open [**The collated-range scan targets globs, not every bracket in the text**](../drift-detection/practice-the-collated-range-scan-targets-globs-not-usage-strings.md) — portability.test.sh's range ban excludes regex-tool lines and \[--long-option\] usage strings on purpose; a single leading hyphen stays covered.
 - Open [**Probe a locale by running it, under a known-strict shell**](../portability/practice-probe-a-locale-by-running-it-under-a-known-strict-shell.md) — A missing locale is not a missing binary: libc falls back to C behind a warning, and dash never reports one, so probe through bash.

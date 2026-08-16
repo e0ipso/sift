@@ -132,7 +132,7 @@ Two obligations come with keeping the copies, and they apply to every rule on th
 
 `.ai/sift/.gitignore` is `*` with a single `!.gitignore` exception, and that is the whole
 answer: `git ls-files .ai/sift` returns that one file and nothing else. The choice was settled
-in SFT-0082, after commit `eda5051` force-added the roadmap and one archived ticket and left
+in SFT-0082, after commit `ef166d8` force-added the roadmap and one archived ticket and left
 the tree half in and half out, and it follows from the premise at the top of this file — sift
 state is a working-tree artifact, recoverable by reading the files themselves, so it needs no
 second copy in the history, and `git` is the audit log of the implementation each ticket
@@ -161,10 +161,10 @@ root by deleting the eleven already-merged branches whose trees still carried
 `.ai/sift/ROADMAP.md`, so no branch under `refs/heads` wrote that path on checkout any more.
 Nothing enforces that, and SFT-0086 decided it stays unenforced — deliberately, on two
 measurements, so read this as a decision rather than as an omission. It is a fact about the
-refs of one day, not a rule: a branch cut from a commit older than `468be0a` arms it again.
+refs of one day, not a rule: a branch cut from a commit older than `e557ab2` arms it again.
 The first measurement is that `refs/heads` is not the hazard's scope. Anything whose tree git
 can lay down is, and on the machine that took the decision all 80 branches were clean while
-thirteen other refs were not — a `refs/stash` entry cut before `468be0a`, and twelve per-turn
+thirteen other refs were not — a `refs/stash` entry cut before `e557ab2`, and twelve per-turn
 checkpoint refs an agent harness writes on its own. A guard scoped to branches would have
 called that repository safe while a loaded tree sat one `git stash branch` away, which is
 worse than the prose it replaced, because prose does not certify. The second is that widening

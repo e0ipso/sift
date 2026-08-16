@@ -106,12 +106,11 @@ ticket shares with others. It draws on the same namespace as `labels:` and is he
 same shape — lowercase letters and digits, single hyphens between them.
 
 The key is **advisory, and nothing more**. No consistency check reads it, no ticket state
-depends on it, and no recipe in this file requires it. Its one reader is `sift-drain`,
-which uses it to hand several tickets to one sub-agent in a single dispatch. A ticket
-carrying no `cluster` is dispatched on its own, and so is one whose value is not
-well-formed kebab-case. The key widens a dispatch and never authorises one, so a missing,
-misspelled or wrongly assigned value costs the batching and nothing else — it can never
-fail a run.
+depends on it, and no recipe in this file requires it. `sift-drain`'s orchestrator may use
+it as a relatedness hint when building the current wave's worker graph. A ticket carrying
+no `cluster`, or whose value is not well-formed kebab-case, simply offers no hint. The key
+never authorises a worker and never reorders a wave, so a missing, misspelled or wrongly
+assigned value costs the hint and nothing else — it can never fail a run.
 
 ### Two bars, and which is which
 
@@ -123,31 +122,35 @@ the `sift-prime` card owns it: several sites become one ticket only when one `##
 a single statement of approach, holds unchanged at every one of them.** A candidate needing
 an "and at the third site, instead …" states two Directions, so it is two tickets.
 
-**Carrying the same `cluster` value so a drain BATCHES tickets into one dispatch is the
-looser bar, and it belongs to dispatch time: tickets share a value when one agent's
-orientation serves all of them — same root cause, overlapping files — and their fixes may
-differ.** A group is still several tickets: each keeps its own `## Direction`, and each is
-archived and struck from `ROADMAP.md` in its own change under rule 9. Nothing is merged.
+**Carrying the same `cluster` value so drain's orchestrator can treat tickets as related
+is the looser bar, and it belongs to dispatch time: tickets share a value when one
+worker's orientation serves all of them — same root cause — and their fixes may differ.**
+They are still several tickets: each keeps its own `## Direction`, and each is archived
+and struck from `ROADMAP.md` in its own change under rule 9. Write-scope overlap (the
+same product files) is a sequential edge in the orchestrator's graph, whether or not the
+tickets share a `cluster`.
 
-Everything that clears the merge bar would also batch, but not the reverse. Judge `cluster`
-by the merge bar and related tickets never group, so the key does nothing. Judge a merge by
-the batching bar and the result is one ticket whose `## Direction` cannot cover its own
-sites — which a drafting agent will not report; it will invent something plausible, and the
-implementing agent reads that invention as its brief.
+Everything that clears the merge bar would also be related, but not the reverse. Judge
+`cluster` by the merge bar and related tickets never share a hint, so the key does
+nothing. Judge a merge by the relatedness bar and the result is one ticket whose
+`## Direction` cannot cover its own sites — which a drafting agent will not report; it
+will invent something plausible, and the implementing worker reads that invention as its
+brief.
 
 *Worked example.* Five tickets shared one root cause — a ticket ID read as a substring
 instead of a whole token — but needed five unrelated fixes: a recipe's digit count, another
 recipe's `grep` anchor, an XSD pattern facet, a library's row pattern, and the loop *around*
 that pattern. No one statement of approach covers all five, so they stay five tickets. They
-still batch, since two pairs share a file and the fifth rides on the shared rule.
+still share a `cluster`, and pairs that share a file get a sequential edge.
 
-### The bounds a group is formed under
+### The bounds a helper group is formed under
 
-The drain picks the lead ticket exactly as it always has — roadmap wave order, then row
-order within the wave — and only then walks forward for tickets carrying the lead's
-`cluster` value. Every member must be dispatchable on its own account: struck rows,
-archived tickets and `status: blocked` are never pulled into a group. `cluster` widens a
-dispatch; it never reorders one.
+`next-ticket.sh --group` is a helper, not the drain loop. The drain orchestrator loads
+the current wave and builds a worker graph; it may consult this walk when partitioning a
+sitting. The helper picks a lead — roadmap wave order, then row order within the wave —
+and only then walks forward for tickets carrying the lead's `cluster` value. Every member
+must be dispatchable on its own account: struck rows, archived tickets and
+`status: blocked` are never pulled in. `cluster` never reorders a wave.
 
 A group holds **at most 4 tickets** and **at most 8 combined effort weight**:
 

@@ -1,37 +1,31 @@
-# Canonical sub-agent prompt for one dispatch group
+# Canonical sub-agent prompt for one worker sitting
 
 Copy the template and substitute the placeholders. Do not trim the process requirements —
 every clause is a hard-won constraint.
 
-One dispatch hands one sub-agent a GROUP of tickets: the whole of what
-`next-ticket.sh --group` reported, lead first. A group of one is the ordinary case and needs
-no special form — the template reads correctly with a single stanza in `{{TICKET_BLOCK}}`,
-and every per-ticket instruction in it simply runs once.
+One dispatch hands one worker a SITTING of tickets: the set the orchestrator's wave graph
+assigned to this node, listed in the order they must be worked. A sitting of one is the
+ordinary small case and needs no special form — the template reads correctly with a single
+stanza in `{{TICKET_BLOCK}}`, and every per-ticket instruction in it simply runs once.
+
+You implement. You do not strike `ROADMAP.md`, you do not archive, and you do not merge.
+The orchestrator lands those writes after you return.
 
 | Placeholder | Source |
 |---|---|
-| `{{GROUP_SIZE}}` | `group_size:` from `next-ticket.sh --group` |
-| `{{GROUP_TICKETS}}` | `group_tickets:` — space-separated IDs, lead first. This is also the ORDER the agent works them in |
-| `{{TICKET_BLOCK}}` | one stanza per ticket in that order: id, title, the absolute path from the `group_files:` block, `type`/`priority`/`effort` read from that ticket's own front matter, and one or two sentences of summary you write after reading it |
-| `{{LEAD_ID}}` / `{{LEAD_ID_LOWER}}` | the first ID in `group_tickets:`; the lowercase form names the shared branch |
+| `{{GROUP_SIZE}}` | how many tickets this sitting carries |
+| `{{GROUP_TICKETS}}` | space-separated IDs, sitting order. This is also the ORDER you work them in |
+| `{{TICKET_BLOCK}}` | one stanza per ticket in that order: id, title, the absolute path, `type`/`priority`/`effort` from that ticket's own front matter, and one or two sentences of summary the orchestrator wrote after reading it |
+| `{{LEAD_ID}}` / `{{LEAD_ID_LOWER}}` | the first ID in `{{GROUP_TICKETS}}`; the lowercase form names the shared branch |
 | `{{PROJECT_ROOT}}` | absolute path the agent works in |
-| `{{BRANCH}}` | ONE branch for the whole group, e.g. `feature/{{LEAD_ID_LOWER}}--{{slug}}` |
+| `{{BRANCH}}` | ONE branch for the whole sitting, e.g. `feature/{{LEAD_ID_LOWER}}--{{slug}}` |
 | `{{BASE_BRANCH}}` | local integration branch, normally `main` |
-| `{{TEST_SCOPE_HINT}}` | test files you expect to be relevant across the group, or "agent's judgment" |
+| `{{TEST_SCOPE_HINT}}` | test files you expect to be relevant across the sitting, or "agent's judgment" |
 | `{{SCRIPTS_DIR}}` | absolute path of this skill's `scripts/` directory |
-
-`next-ticket.sh` states whether it found anything under `result:` — `result: found` at
-exit 0, `result: none` at exit 1 when the roadmap is drained and there is nothing to
-substitute here. The `status:` line in that report is always the LEAD ticket's own
-front-matter value, so read the two keys for the two different questions. Every front-matter
-key the report echoes describes the lead alone; `--group` adds `group_size:`,
-`group_tickets:` and a `group_files:` block and nothing else. The per-ticket `type`,
-`priority` and `effort` in `{{TICKET_BLOCK}}` are therefore read from each member's own
-file, not from the report.
 
 ## The bounded spec read
 
-STEP 1 names the `README.md` sections the sub-agent reads, rather than sending it through
+STEP 1 names the `README.md` sections the worker reads, rather than sending it through
 the whole file. Each name sits on its own line behind the `@README-SECTION:` tag, spelled
 exactly as the heading is spelled in the spec, with the reason to read it on the line
 beneath.
@@ -49,25 +43,34 @@ point: an agent reading a named subset can otherwise be starved by a rename it n
 ## Template
 
 ```
-You own a dispatch GROUP of {{GROUP_SIZE}} sift ticket(s) end to end in {{PROJECT_ROOT}}:
+You own a sitting of {{GROUP_SIZE}} sift ticket(s) in {{PROJECT_ROOT}}:
 {{GROUP_TICKETS}}
-Work autonomously: the orchestrator will not answer questions mid-task — a question you ask
-may never reach it. If you are about to stop and ask, decide it yourself, apply that
-ticket's Direction as written, note the judgment call in your report, and continue. Report a
+Work autonomously on ordinary judgment calls: the orchestrator will not answer those
+mid-task. If you are about to stop and ask, decide it yourself, apply that ticket's
+Direction as written, note the judgment call in your report, and continue. Report a
 ticket as `blocked` with the full question only if it is genuinely unresolvable without the
 user.
 
-THE GROUP IS A BATCH, NOT A MERGER. These tickets share a root cause, one orientation and
-one branch. They do not share a commit and nothing here is merged into anything else: each
-ticket keeps its own `## Direction`, gets its OWN commit carrying its implementation, its
-archive move and its ROADMAP.md strike together, and is worked STRICTLY ONE AT A TIME in the
-order listed above — one finished completely before the next is opened.
+THE EXCEPTION IS INTERFERENCE. If you notice another worker has changed files you are
+responsible for, STOP. Do not overwrite them. Set `tamper:` in your report to what you
+saw and which sitting it implicates, keep your own unfinished edits uncommitted, and
+return. The orchestrator coordinates a solution that covers both. Workers do not fight
+by overwriting each other.
 
-PARTIAL SUCCESS IS A REAL OUTCOME. A ticket you cannot finish does not fail the group. Land
-the ones that work, report a status for EACH ticket separately, and leave the rest for
-redispatch. Never abandon finished work because a later ticket went wrong.
+YOU DO NOT WRITE THE TRACKER. You do not strike ROADMAP.md, you do not archive a ticket,
+and you do not merge onto {{BASE_BRANCH}}. You implement on {{BRANCH}} and return. The
+orchestrator lands rule 9 after you.
 
-TICKETS — in dispatch order
+THE SITTING IS NOT A MERGER. These tickets share an orientation and one branch. They do
+not share a commit: each ticket keeps its own `## Direction`, gets its OWN implementation
+commit, and is worked STRICTLY ONE AT A TIME in the order listed above — one finished
+completely before the next is opened.
+
+PARTIAL SUCCESS IS A REAL OUTCOME. A ticket you cannot finish does not fail the sitting.
+Commit the ones that work, report a status for EACH ticket separately, and leave the rest
+uncommitted for redispatch. Never abandon finished work because a later ticket went wrong.
+
+TICKETS — in sitting order
 {{TICKET_BLOCK}}
 
 SHELL DISCIPLINE — applies to every step below
@@ -92,24 +95,25 @@ exemption and it is the whole point: a stamp folded in with the work it is timin
 the moment the phase ENDED, and four stamps batched together at the end record four
 identical epochs and measure nothing at all. Never write a row into RUNLOG.md by hand; the
 script is the only writer.
-The four mark the DISPATCH's boundaries, not each ticket's, so there are four of them
-whether the group carries one ticket or four:
+The four mark the SITTING's boundaries, not each ticket's, so there are four of them
+whether the sitting carries one ticket or four:
   orient    — STEP 1 and STEP 2: everything before you change a file.
   implement — STEP 3, the per-ticket loop: each ticket's baseline, change, scoped checks,
-              archive and commit.
-  verify    — STEP 4, the group-wide check that follows the loop.
-  bookkeep  — STEP 5, the merge and the report.
+              and implementation commit.
+  verify    — STEP 4, the sitting-wide check that follows the loop.
+  bookkeep  — STEP 5, the report. Not a merge. Not an archive. Not a roadmap strike.
 Four calls against a floor measured in minutes is a rounding error. A stamp per command
 would not be, which is exactly why there are four.
 
-STEP 1 — ORIENT (ONCE FOR THE WHOLE GROUP)
+STEP 1 — ORIENT (ONCE FOR THE WHOLE SITTING)
 Stamp `phase orient` first. Read every ticket file listed above in full.
 Then read these sections of .ai/sift/README.md — these, not the file:
   @README-SECTION: ## Rules for agents
-    Rule 9 above all: a ticket and its roadmap row move in the same change.
+    Rule 9 above all: a ticket and its roadmap row move in the same change — the
+    orchestrator lands that change after you return. You still need the rule so you
+    do not write the tracker yourself.
   @README-SECTION: ## Front-matter schema
-    The required keys and their allowed values — for the archive edit, and for any ticket
-    you file yourself.
+    The required keys and their allowed values — for any ticket you file yourself.
   @README-SECTION: ## Ticket body
     The four canonical body sections, and the extra ones a `bug` or a `feature` adds.
 Read one of these as well, only when its condition holds:
@@ -118,7 +122,7 @@ Read one of these as well, only when its condition holds:
     without reading it is guessing at the thing it was sent to repair.
   @README-SECTION: ## Dispatch groups and the cluster key
     When you file a follow-up sharing a root cause with another ticket, so its `cluster` is
-    judged by the batching bar and not by the stricter merge bar.
+    judged as relatedness for the orchestrator's graph and not by the stricter merge bar.
   @README-SECTION: ## Run log
     When a ticket's own subject is RUNLOG.md or the script that writes it.
 Anything else in the spec you read only because a ticket sent you there. The read is bounded
@@ -134,16 +138,19 @@ and verify every path you are told about against the live tree.
 `.ai/sift` is usually gitignored, so ignore-aware search silently skips it: use `find`
 plus `command grep` there.
 
-CHECK FOR STALE STATE FIRST, FOR EVERY TICKET IN THE GROUP AT ONCE. A ticket reading
+CHECK FOR STALE STATE FIRST, FOR EVERY TICKET IN THE SITTING AT ONCE. A ticket reading
 `status: in-progress` may be finished-but-unarchived from an interrupted run. Look for all
 of {{GROUP_TICKETS}} in `git log --oneline -30` and `git branch --list` in ONE call, and
 verify the behaviour live BEFORE implementing anything. Where the work is already in the
-tree, do that ticket's bookkeeping (3d) instead of redoing it, and say so.
+tree, say so in the report and leave bookkeeping to the orchestrator — do not redo it.
 
-STEP 2 — BRANCH (ONCE FOR THE WHOLE GROUP)
+CHECK FOR TAMPERING whenever you return to a file you already edited. If the tree does
+not match what you left, stop. That is the interference exception above.
+
+STEP 2 — BRANCH (ONCE FOR THE WHOLE SITTING)
   git checkout {{BASE_BRANCH}} && git checkout -b {{BRANCH}}
-One branch carries every ticket in the group; there is no second checkout and no second
-branch. NEVER `git push`. Nothing leaves this machine.
+One branch carries every ticket in the sitting; there is no second checkout and no second
+branch. NEVER `git push`. Nothing leaves this machine. NEVER merge onto {{BASE_BRANCH}}.
 
 STEP 3 — THE PER-TICKET LOOP
 Stamp `phase implement` before you touch the first ticket. Then, for each ticket in
@@ -161,19 +168,21 @@ observation — never silently skip it.
 Implement directly, following the project's conventions. Explicitly NOT in scope:
   - No planning-skill or workflow detours. No TDD RED/GREEN/REFACTOR cycle.
   - NO NEW TESTS. Test authoring is batched at the wave gate. If an acceptance criterion
-    asks for tests, that criterion is WAIVED — record the waiver in the ticket's
-    `resolution` (3d), stated precisely enough for the gate to turn it into coverage.
-    THREE EXCEPTIONS: (1) this ticket's `type` is `test`, so tests ARE the deliverable;
-    (2) the ticket itself asks for a canary/pin test; (3) EXISTING tests whose assertions
-    pin behaviour this ticket intentionally changes — update them minimally and un-skip
-    any spec staged for this fix. Explain every such edit in your report.
-    Existing tests your change breaks are yours to fix.
+    asks for tests, that criterion is WAIVED — put the waiver in that ticket's
+    `resolution:` line in your report, stated precisely enough for the gate to turn it
+    into coverage. THREE EXCEPTIONS: (1) this ticket's `type` is `test`, so tests ARE
+    the deliverable; (2) the ticket itself asks for a canary/pin test; (3) EXISTING tests
+    whose assertions pin behaviour this ticket intentionally changes — update them
+    minimally and un-skip any spec staged for this fix. Explain every such edit in your
+    report. Existing tests your change breaks are yours to fix.
   - NOTHING GOES UPSTREAM. Never file, comment on, or patch anything on an external
     tracker. An upstream fix you believe is warranted becomes a `type: dx` sift ticket
     here (STEP 6); the human files it.
   - Do not edit the sift-drain skill's own files — a maintenance agent may be running.
-  - Nothing from a later ticket in the group. Each commit contains one ticket's work, and a
-    change you make "while you are in there" for the next ticket lands under the wrong ID.
+  - Do not strike ROADMAP.md. Do not move a ticket into archive/. Do not merge.
+  - Nothing from a later ticket in the sitting. Each commit contains one ticket's
+    implementation, and a change you make "while you are in there" for the next ticket
+    lands under the wrong ID.
 
 3c SCOPED VERIFICATION (the speed-critical step)
 Run ONLY what THIS ticket's change touches, using the project's own commands:
@@ -195,51 +204,39 @@ Run ONLY what THIS ticket's change touches, using the project's own commands:
     Genuinely destructive sequences belong in the wave gate's integration tests — say so in
     your report so the batch agent picks them up.
 
-3d ARCHIVE AND COMMIT THIS TICKET (rule 9, ONE change)
-In the SAME commit as this ticket's implementation:
-  - Set `status: done`, a non-empty one-line `resolution`, and `updated:` to today. The
-    resolution MUST name every waived or deferred criterion (test coverage you did not
-    write, a destructive sequence you could not run) specifically enough to be turned into
-    a test: the gate builds its coverage list from these resolutions, and anything
-    unrecorded is lost.
-  - `mkdir -p` the mirrored path under .ai/sift/archive/<milestone>/<category>/ and `mv`
-    the ticket file there.
-  - Strike the ticket's ROADMAP.md row with ~~strikethrough~~ plus the resolution status,
-    matching the rows already struck. Never delete a row, never renumber.
-Verify with {{SCRIPTS_DIR}}/roadmap-check.sh (must exit 0), then commit.
-ONE COMMIT PER TICKET. Never squash the group into a single commit and never let one
-commit carry two tickets' archives. A squashed group breaks rule 9 for every ticket but the
-first, and roadmap-check.sh will NOT catch it: the bookkeeping stays internally consistent
-while the history that was supposed to record each ticket's change no longer does.
+3d COMMIT THIS TICKET'S IMPLEMENTATION
+Commit the product-code (and allowed test) edits for THIS ticket only. One commit per
+ticket. Put the one-line resolution — including every waived criterion — in the report
+under `resolution:`, not in an archive edit you do not make.
+Never squash the sitting into a single commit and never let one commit carry two tickets'
+implementations.
 
-STEP 4 — GROUP VERIFICATION
+STEP 4 — SITTING VERIFICATION
 Stamp `phase verify` first. The tickets share files, so the last one may have broken the
-first one's scoped checks — that is the risk a batch adds and a single dispatch never had,
+first one's scoped checks — that is the risk a sitting adds and a single ticket never had,
 and it is why this step exists. Re-run the union of the 3c test files ONCE against the
-finished branch, plus lint and static analysis over every file the group touched, plus
-{{SCRIPTS_DIR}}/roadmap-check.sh (must exit 0). Still never the full suite; that remains the
-wave gate's job. Fix any failure here on this branch, amended into the commit of the ticket
-that caused it — or, when you cannot attribute it, as its own commit named in your report.
+finished branch, plus lint and static analysis over every file the sitting touched.
+Still never the full suite; that remains the wave gate's job. Do not run
+roadmap-check.sh — you were not allowed to write the tracker, so a green check would
+be someone else's bookkeeping. Fix any failure here on this branch, amended into the
+commit of the ticket that caused it — or, when you cannot attribute it, as its own commit
+named in your report.
 
-STEP 5 — MERGE AND CLOSE
-Stamp `phase bookkeep` first, then:
-  git checkout {{BASE_BRANCH}} && git merge --no-ff {{BRANCH}}
-ONE merge for the whole group. Capture the merge commit hash. Do NOT push.
-A ticket you could not finish contributes NOTHING to that merge: leave its edits
-uncommitted and undo them before merging, so what lands is whole tickets only. Its file
-stays in .ai/sift/open/ and its ROADMAP.md row stays unstruck.
+STEP 5 — REPORT, DO NOT MERGE
+Stamp `phase bookkeep` first. Do not check out {{BASE_BRANCH}}. Do not merge. A ticket
+you could not finish contributes NOTHING: leave its edits uncommitted and undo them, so
+the branch holds whole tickets only. Its file stays in .ai/sift/open/.
 
 STEP 6 — FILE FOLLOW-UPS IF WARRANTED
-Out-of-scope bugs, deferred improvements, gaps you cannot address: file them as new sift
-tickets per .ai/sift/README.md, including the ROADMAP.md placement rule 9 requires. A
-follow-up that belongs to one ticket goes in that ticket's commit; one that belongs to the
-group as a whole gets its own commit. Use the body template for the ticket's `type` — a
-`bug` needs its `## Expected behaviour`, a `feature` its motivation under `## Problem`.
-Draft against the matching `.ai/sift/schemas/*.xsd` first if the ticket is non-trivial:
-filling the structure is what stops you skipping the field you have not thought through. The
-draft is scratch — render it to markdown, write only the markdown into `.ai/sift/`, and
-delete the draft. Never invoke `xmllint`; the schema is a checklist to read, and nothing
-here depends on it being installed.
+Out-of-scope bugs, deferred improvements, gaps you cannot address: write them as new sift
+ticket files under .ai/sift/open/<milestone>/<category>/ per .ai/sift/README.md. Do NOT
+touch ROADMAP.md — the orchestrator slots the row after you return. Use the body template
+for the ticket's `type` — a `bug` needs its `## Expected behaviour`, a `feature` its
+motivation under `## Problem`. Draft against the matching `.ai/sift/schemas/*.xsd` first
+if the ticket is non-trivial: filling the structure is what stops you skipping the field
+you have not thought through. The draft is scratch — render it to markdown, write only
+the markdown into `.ai/sift/open/`, and delete the draft. Never invoke `xmllint`; the
+schema is a checklist to read, and nothing here depends on it being installed.
 Every self-filed ticket ID must appear in your report — the user requires visibility of
 everything entering the backlog.
 
@@ -255,70 +252,84 @@ with the whole wave in front of it.
 REPORT — return EXACTLY this and nothing else. No diffs, no file listings, no code, no
 narration of the steps.
 
-  status: ONE LINE PER TICKET, in dispatch order, every ticket present:
+  status: ONE LINE PER TICKET, in sitting order, every ticket present:
             <TICKET-ID>: done | blocked | not started
-  merge commit: <hash> | none
-  commits: <TICKET-ID> <hash> — one per ticket that landed
+  branch: {{BRANCH}}
+  commits: <TICKET-ID> <hash> — one per ticket that implemented
+  resolution: <TICKET-ID>: <one line, including waivers> — one per ticket reported done
   summary: ONE PARAGRAPH PER TICKET: what changed and why it resolves that ticket
   verification: PER TICKET — tests <N tests, M assertions> over <files run>; lint
                 <clean|details>; static analysis <clean|details>; e2e <spec: N passed> | n/a
-  group verification: the STEP 4 re-run — <N tests, M assertions> over the union of the
-                      scoped files; lint <clean|details>; roadmap-check <exit 0>
+  sitting verification: the STEP 4 re-run — <N tests, M assertions> over the union of the
+                      scoped files; lint <clean|details>
   live check: PER TICKET — <pre-fix observation> -> <post-fix observation>;
               fixtures cleaned up: yes
   test edits: <existing tests changed and why> | none
   deferred to the wave gate: <waived criteria, destructive sequences, and durable knowledge
                              worth capturing> | none
   tickets filed: <IDs> | none
+  tamper: none | <what changed under you, and which other sitting it implicates>
 
-DO NOT COLLAPSE THE GROUP INTO ONE PARAGRAPH. The exact test and assertion counts and the
+DO NOT COLLAPSE THE SITTING INTO ONE PARAGRAPH. The exact test and assertion counts and the
 before/after live observations are the ONLY evidence the orchestrator ever sees that
 behaviour changed, and they are per ticket. Four tickets summarised as one vague paragraph
 are four unverified tickets, and the temptation to write it that way grows with the size of
-the group.
+the sitting.
 
 If a ticket is blocked, name its blocker on its own summary line, keep its work off the
-branch, and carry on with the next ticket. Never stall the group on one ticket.
+branch, and carry on with the next ticket. Never stall the sitting on one ticket.
 ```
 
 ---
 
 ## Redispatch on failure
 
-Failure is per ticket, never per group. A dispatch that landed two tickets and blocked a
-third succeeded twice: those two are merged, archived and struck, and nothing redispatches
-them. Read the report's per-ticket `status:` lines and act only on the ones that are not
-`done`.
+Failure is per ticket, never per sitting. Tickets the orchestrator already landed are
+merged, archived and struck; nothing redispatches them. Read the report's per-ticket
+`status:` lines and act only on the ones that are not `done`.
 
 | Placeholder | Source |
 |---|---|
 | `{{FAILED_TICKETS}}` | the IDs whose `status:` line came back other than `done` |
-| `{{FAILURE_REPORT}}` / `{{FAILURE_REPORTS}}` | the failing agent's report(s), verbatim |
-| `{{TICKET_ID}}` / `{{TICKET_PATH}}` | the one still-failing ticket handed to the blocked-marking agent below |
+| `{{FAILURE_REPORT}}` / `{{FAILURE_REPORTS}}` | the failing worker's report(s), verbatim |
+| `{{TICKET_ID}}` / `{{TICKET_PATH}}` | the one still-failing ticket handed to the blocked-marking path below |
 
 First failure: re-dispatch the same template with `{{GROUP_TICKETS}}`, `{{GROUP_SIZE}}` and
 `{{TICKET_BLOCK}}` narrowed to `{{FAILED_TICKETS}}` alone, appending:
 
 ```
-PRIOR ATTEMPT FAILED for {{FAILED_TICKETS}}. Context from the previous agent:
+PRIOR ATTEMPT FAILED for {{FAILED_TICKETS}}. Context from the previous worker:
 {{FAILURE_REPORT}}
 Diagnose the root cause before changing anything; do not repeat the same approach. Any
-ticket of that dispatch not named above is already merged and archived — leave it alone.
+ticket of that sitting not named above is already landed — leave it alone.
 ```
 
-Second failure: dispatch a small agent per still-failing ticket to mark it blocked instead
-of re-attempting:
+Second failure: the orchestrator marks the ticket blocked itself (file stays in
+`.ai/sift/open/`, roadmap row UNSTRUCK). It may dispatch a small worker only if it
+needs a `## Blocked` body section written without reading the product:
 
 ```
 Sift ticket {{TICKET_ID}} at {{TICKET_PATH}} failed two implementation attempts. Read the
-`## Rules for agents` and `## Front-matter schema` sections of .ai/sift/README.md first. Set
-`status: blocked`, bump `updated:`, and append a "## Blocked" section to the body recording
-both failure reasons:
+`## Rules for agents` and `## Front-matter schema` sections of .ai/sift/README.md first.
+Append a "## Blocked" section to the body recording both failure reasons:
 {{FAILURE_REPORTS}}
-Leave the file in .ai/sift/open/ and its ROADMAP.md row UNSTRUCK — blocked is not terminal.
-Commit on {{BASE_BRANCH}}; do not push. Run {{SCRIPTS_DIR}}/roadmap-check.sh (must exit 0).
+Do not change status, do not archive, do not touch ROADMAP.md. The orchestrator sets
+`status: blocked`. Commit the body edit on {{BASE_BRANCH}}; do not push.
 Report: status, commit hash, one-paragraph reason.
 ```
 
-Then report the blockage and continue with the next group. Never stall the run on one
-ticket.
+Then report the blockage and continue the wave. Never stall the run on one ticket.
+
+## Tamper check-back
+
+When a worker returns `tamper:` other than `none`, do not land either sitting's remaining
+work. Resume or dispatch with:
+
+```
+COORDINATION — another sitting changed files you also touch.
+What you reported: {{TAMPER}}
+What the other sitting reported: {{OTHER_REPORT}}
+Do not overwrite. Propose a split of remaining work that leaves each sitting a disjoint
+write scope, or name the sequential order. The orchestrator will rewire the graph.
+Return the same report shape; set tamper: none once the split is agreed in this reply.
+```

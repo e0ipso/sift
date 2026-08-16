@@ -1,7 +1,7 @@
 # Wave gate
 
-The gate runs after the last ticket of a wave merges and before the first ticket of the
-next wave is dispatched. It is the **only** place full suites execute.
+The gate runs after the last ticket of a wave is landed and before any worker of the
+next wave is dispatched. Wave workers do not continue into the gate. It is the **only** place full suites execute.
 
 Order: e2e specialist first (it exercises the real product and surfaces the integration
 fallout unit-level tests miss), then batch coverage, then fix agents, then the wave's one

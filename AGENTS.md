@@ -37,17 +37,20 @@ Because the layout and front-matter are the public API, edits to README.md are A
 
 Each skill installs on its own — `sift-drain` may be present without `sift-prime`, and neither
 directory may source a file from the other — so a rule both skills need is written out twice.
-Two rules are in that position today, and every copy of both is listed here. Adding a third
-rule to the list means adding its guard test in the same change.
+Two rules are in that position today — the row rule and the ID rule — and every copy of both is
+listed here. They are named rather than numbered because README's "Rules for agents" list
+already owns the numbers, and a cross-skill rule called "rule 2" would collide with the
+ID-reuse rule that number already means there. Adding a third rule to the list means adding its
+guard test in the same change.
 
-**Rule 1 — what a roadmap row is.** A row is a markdown table line, and within it the first
+**The row rule — what a roadmap row is.** A row is a markdown table line, and within it the first
 cell holding a whole-token `<PREFIX>-NNNN`. Sift-drain reads by that rule in `roadmap_rows`,
 whose `BEGIN` pattern and `cell_id` are the whole of that skill's copy; sift-prime writes by it
 through `ROW_ID_PAT` and the `cell_id` inside `ROW_CELL_ID_AWK`, which the duplicate guard and
 the append hop share. The two copies drifted apart three times (SFT-0022, SFT-0025, SFT-0031),
 each silently, each surfacing only once a tree was already wrong.
 
-**Rule 2 — what a well-formed ticket ID is.** `<PREFIX>`, a hyphen, and four-or-more digits
+**The ID rule — what a well-formed ticket ID is.** `<PREFIX>`, a hyphen, and four-or-more digits
 and nothing else — greedy, because `%04d` is a minimum width and IDs widen past 9999.
 Sift-prime holds it in the `case "$ID" in` argument check `roadmap-append.sh` runs before it
 writes anything; sift-drain holds it in `require_ticket_id`. A divergence here surfaces the
@@ -86,15 +89,15 @@ line number whenever a reader wants one. The cost of the choice is recorded too:
 that merely moves within its own file is not drift this list can detect, and does not need to
 be.
 
-**The decision (SFT-0038, widened to rule 2 by SFT-0042): keep one copy per skill, and pay for
-it with a test that fails when the two classify one input differently.** Both tests live in
+**The decision (SFT-0038, widened to the ID rule by SFT-0042): keep one copy per skill, and pay
+for it with a test that fails when the two classify one input differently.** Both tests live in
 `tests/scripts/prime-backlog.test.sh`, beside each other:
 
-- Rule 1 is covered by "the reader and the writer classify every cell of one table alike",
+- The row rule is covered by "the reader and the writer classify every cell of one table alike",
   which drives one fixture table through both skills: a plain cell, a cell glued to a longer
   word, a glued cell shadowing a real one beside it, a struck cell, a five-digit ID, a `Needs`
   mention, trailing junk, and a line of prose. All three past divergences fail it.
-- Rule 2 is covered by "the two skills classify every ID of one list alike (SFT-0042)", which
+- The ID rule is covered by "the two skills classify every ID of one list alike (SFT-0042)", which
   drives one fixture list through `roadmap-append.sh`'s argument check and `drain-log.sh`'s
   `require_ticket_id`: four digits, five digits, too few digits, a bare prefix, a prefix with
   an empty tail, a non-digit tail, a second hyphenated group, the wrong case, an ID glued
@@ -116,9 +119,9 @@ the ten-line `cell_id` is genuinely common — the reader emits five TSV fields 
 writer only asks whether one ID owns a row, so the loops around it differ for good reasons — and
 it adds a third source of truth, a sync step to forget, and a new failure mode where a skill that
 lost the file cannot read a roadmap at all. Letting `sift-prime` require `sift-drain` to be
-installed contradicts the skill model outright. The argument was made about rule 1, where the
-shared surface is largest; it only gets weaker for rule 2, whose whole copy is six lines of
-`case`.
+installed contradicts the skill model outright. The argument was made about the row rule, where
+the shared surface is largest; it only gets weaker for the ID rule, whose whole copy is six
+lines of `case`.
 
 Two obligations come with keeping the copies, and they apply to every rule on the list:
 
@@ -137,9 +140,10 @@ the tree half in and half out, and it follows from the premise at the top of thi
 state is a working-tree artifact, recoverable by reading the files themselves, so it needs no
 second copy in the history, and `git` is the audit log of the implementation each ticket
 carried rather than of the bookkeeping that dispatched it. The price is named rather than
-hidden, because a convention that conceals its own cost is not one this repo writes: rule 9 —
-a ticket's archive move and its roadmap strike are one change — can never be checked by code
-review, since neither half of that pairing appears in a diff, so it holds only by convention
+hidden, because a convention that conceals its own cost is not one this repo writes: README's
+"keep `ROADMAP.md` in sync — in the same change", under which a ticket's archive move and its
+roadmap strike are one change, can never be checked by code review, since neither half of that
+pairing appears in a diff, so it holds only by convention
 and by `src/skills/sift-drain/scripts/roadmap-check.sh`, which is why that check runs before a
 ticket commit instead of after it. One trap comes with the decision and is what produced
 SFT-0082 in the first place: `git add -f` on anything under `.ai/sift` bypasses the ignore rule

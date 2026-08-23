@@ -1121,13 +1121,13 @@ assert_eq 0 "$R_STATUS" "report resolves the same tree"
 assert_eq "ACME-0001 -" "$(group_field 1 tickets)" "and reads back what dispatch wrote"
 
 test_case "an initialised tree missing its roadmap reports that specifically"
-# A rule-9 problem to repair, not a "there is no project here" — conflating the
+# A bookkeeping problem to repair, not a "there is no project here" — conflating the
 # two sends the operator to init.
 rm "$root/.ai/sift/ROADMAP.md"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch ACME-0002
 assert_eq 2 "$R_STATUS" "exits 2"
 assert_contains "$R_ERR" 'has no ROADMAP.md' "naming the missing file"
-assert_contains "$R_ERR" 'rule 9' "and the rule behind it"
+assert_contains "$R_ERR" 'every ticket needs a roadmap row' "and the rule behind it"
 
 test_case "a prefix that cannot be determined at all is an error, not a guess"
 root="$(newdir)"

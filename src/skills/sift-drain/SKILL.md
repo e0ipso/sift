@@ -74,13 +74,14 @@ resolve it; do not edit the product yourself.
 
 | Path | Role |
 |---|---|
-| `.ai/sift/README.md` | Ticket convention. Rule 9 is load-bearing. |
+| `.ai/sift/README.md` | Ticket convention. Its roadmap-sync rule is load-bearing. |
 | `.ai/sift/ROADMAP.md` | Wave ordering. `~~struck~~` rows are done. You are its only writer during a drain. |
 | `.ai/sift/open/**` | Actionable tickets (`open`, `in-progress`, `blocked`). Workers may create files here. |
 | `.ai/sift/archive/**` | Terminal tickets (`done`, `wontfix`, `superseded`). Only you move files here. |
 
-**Rule 9:** archiving a ticket and striking its roadmap row is ONE change, in the same
-commit as the implementation. You land that change. The worker does not.
+**Keep the roadmap in sync:** archiving a ticket and striking its roadmap row is ONE
+change, in the same commit as the implementation. You land that change. The worker does
+not.
 
 **Re-read `ROADMAP.md` before every dispatch.** Workers file tickets mid-run, and the
 tree is commonly gitignored — so the user or a parallel session can reorganise it with no
@@ -131,7 +132,8 @@ without ever calling the mode yourself.
 before each dispatch, the phase breakdown, and the runtime divided by the tickets the group
 actually **resolved**, and flags incomplete, orphaned and unusually slow records.
 Run `roadmap-check.sh` after **your** bookkeeping for a returned worker — not against a
-worker who was forbidden to write the tracker. Non-zero means you broke rule 9.
+worker who was forbidden to write the tracker. Non-zero means a ticket and its roadmap
+row have gone out of sync.
 
 ## Wave graph
 
@@ -209,7 +211,7 @@ Loop, until the current wave has no remaining dispatchable tickets:
       ticket with the `status:` its report gave **for that ticket**.
     - For each ticket reported `done`, land **one** commit on the integration
       branch that contains that ticket's implementation, its archive move, and its
-      roadmap strike (rule 9). Cherry-pick `-n` the worker's commit for that
+      roadmap strike — all one change. Cherry-pick `-n` the worker's commit for that
       ticket, archive, strike, then commit. Never land two tickets in one commit.
     - For each ID under `tickets filed:`, slot a `ROADMAP.md` row if it belongs in
       this wave (or the correct later wave) and hang it on the graph.

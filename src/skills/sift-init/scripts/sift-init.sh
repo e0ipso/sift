@@ -392,7 +392,7 @@ Advisory resolution order. When this file and a ticket's `depends_on` disagree,
 `depends_on` wins and this file is the thing that gets corrected.
 
 A `~~struck~~` row is finished. Striking the row and archiving the ticket are ONE
-change, in the same commit as the implementation (README.md, rule 9).
+change, in the same commit as the implementation (README.md — keep ROADMAP.md in sync).
 
 ## Wave 1
 

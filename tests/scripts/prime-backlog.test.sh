@@ -184,7 +184,8 @@ mkdir -p "$d/.ai/sift"
 run_cmd "$d" env SIFT_ROOT="$d" "$APPEND" 1 ACME-0001 'One' ''
 assert_eq 2 "$R_STATUS" "a tree with no ROADMAP.md exits 2"
 assert_contains "$R_ERR" 'has no ROADMAP.md' "naming the file it would have appended to"
-assert_contains "$R_ERR" 'rule 9' "and the rule that makes the file mandatory"
+assert_contains "$R_ERR" 'every ticket needs a roadmap row' \
+  "and the rule that makes the file mandatory"
 assert_eq "" "$(find "$d" -name 'ROADMAP.md')" \
   "a writer that could not resolve a tree created no roadmap anywhere under the workdir"
 
@@ -408,7 +409,7 @@ before="$(snapshot "$d")"
 append "$d" 1 ACME-0001 'One again' ''
 assert_eq 1 "$R_STATUS" "exit 1"
 assert_contains "$R_ERR" 'error: ACME-0001 already has a row' "naming the ID"
-assert_contains "$R_ERR" 'README rule 9' "and the rule behind the refusal"
+assert_contains "$R_ERR" 'exactly one roadmap row' "and the rule behind the refusal"
 assert_eq "" "$R_OUT" "nothing is reported as appended"
 assert_same "$before" "$(roadmap "$d")" "and the roadmap is byte-identical"
 
@@ -617,7 +618,7 @@ assert_contains "$(printf '%s\n' "$R_OUT" | tr -s ' ')" \
   ' 1 ACME-0001 [p2/m/open] Cache \t tenant lookups' \
   "and recovers the whole title, with the backslash-t intact"
 
-# --- Rule 1 of 2 across the skills: what a roadmap row is ---------------------
+# --- The row rule, one of two across the skills: what a roadmap row is -------
 
 # reader_rows <root> — every ID the sift-drain reader reports as a row. Driven
 # through roadmap-check.sh rather than by sourcing lib.sh, so the reader is
@@ -694,7 +695,7 @@ assert_eq "| 2 | ACME-0003 | Three |  |" \
 assert_eq 0 "$(removed_lines "$before" "$d")" \
   "and the glued line is left exactly as it was found, not renumbered"
 
-# --- Rule 2 of 2 across the skills: what a ticket ID is -----------------------
+# --- The ID rule, the other one: what a well-formed ticket ID is -------------
 
 # writer_id_accepts <root> <ID…> — every candidate roadmap-append.sh's ID-shape
 # argument check lets past. Keyed on the message rather than on the exit status,
@@ -804,7 +805,7 @@ assert_not_contains "$R_ERR" 'not a ticket ID' "it ends an option list, it does 
 assert_no_file "$d/.ai/sift/RUNLOG.md" "no refusal on either skill created a run log"
 assert_same "$before" "$(roadmap "$d")" "and the roadmap is byte-identical after all four"
 
-# --- The premise both copies of rule 2 rest on: one tree, one prefix ---------
+# --- The premise both copies of the ID rule rest on: one tree, one prefix ----
 
 # drain_id_accepts_as <root> <prefix> <ID…> — the drain probe with the prefix
 # forced through the environment instead of resolved from the tree. Both copies

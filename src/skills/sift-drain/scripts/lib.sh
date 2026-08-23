@@ -56,7 +56,7 @@ ROADMAP="$SIFT/ROADMAP.md"
 
 if [ ! -f "$ROADMAP" ]; then
   echo "error: sift tree at $SIFT has no ROADMAP.md" >&2
-  echo "hint: rule 9 requires every ticket to have a roadmap row — create it first" >&2
+  echo "hint: every ticket needs a roadmap row — create ROADMAP.md first" >&2
   exit 2
 fi
 

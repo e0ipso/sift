@@ -95,8 +95,8 @@ dispatching. Four of its rules are load-bearing enough to restate here.
 **The evidence bar.** Every candidate carries one of exactly two citations: `file:line`
 for something that exists, `absent: <path>` for something that does not. A candidate that
 can carry neither is dropped, never softened into a vaguer claim that no longer needs
-backing. Rule 5 requires claims about code to cite `file:line`, and the drafting agents
-downstream never saw the code — handed an uncited candidate they can only invent a
+backing. The convention requires claims about code to cite `file:line`, and the drafting
+agents downstream never saw the code — handed an uncited candidate they can only invent a
 citation, which reads authoritative and is worse than the gap it fills.
 
 **The user's optional prompt is a hard scope fence**, never a priority hint and never a
@@ -186,8 +186,8 @@ scripts/reserve-ids.sh <number of agreed slate rows>
 ```
 
 That call is the only allocator in the run, and each drafting agent receives its ID as an
-input. The consequence is the reason: rule 2 makes IDs sequential, immutable and never
-reused, so two agents that each pick "the next ID" collide — and unlike a wrong `priority`
+input. The consequence is the reason: IDs are sequential, immutable and never reused, so
+two agents that each pick "the next ID" collide — and unlike a wrong `priority`
 or a weak `## Direction`, a collision cannot be repaired afterwards by any `find`/`sed`
 migration. The script takes its high-water mark from the ticket filenames *and*
 `ROADMAP.md`, so an ID present in only one of them is still respected.
@@ -196,7 +196,7 @@ migration. The script takes its high-water mark from the ticket filenames *and*
 back to the names that happened to exist before analysis. A `milestone` value not listed
 in `MILESTONES.md` is a convention violation the drafting agent has no authority to fix.
 For every agreed new milestone, write its heading and outcome description into
-`MILESTONES.md` and create its `open/<milestone>/` folder in the same change (rule 8) —
+`MILESTONES.md` and create its `open/<milestone>/` folder in the same change —
 before dispatching anything into it. Retain `backlog` for genuinely unclassified work,
 not as the bootstrap default.
 
@@ -220,9 +220,10 @@ ascending wave order** — a new wave's section lands at the end of the file and
 inserts Wave 3 between Wave 2 and Wave 4, so appending out of order leaves the sections
 out of order. This is the
 orchestrator's job and not the agents' for one reason: a dozen agents appending to one
-file is the shared-mutable-file shape this project avoids, and rule 9's consistency check
-is what would then report the interleaved result as broken. Rule 9 makes the ticket and
-its roadmap row **one change**, so the batch is not finished until every row is appended.
+file is the shared-mutable-file shape this project avoids, and the roadmap consistency
+check is what would then report the interleaved result as broken. The convention makes a
+ticket and its roadmap row **one change**, so the batch is not finished until every row
+is appended.
 An agent that returns blocked twice gets no row; its reserved ID simply goes unused, which
 costs nothing.
 
@@ -233,7 +234,7 @@ convention as it shipped into this repository, so take the recipes from it rathe
 from memory:
 
 - **Roadmap consistency check** — every ticket file appears in `ROADMAP.md`, and every
-  roadmap ID resolves to a file. Anything it prints is a rule 9 violation to fix now,
+  roadmap ID resolves to a file. Anything it prints is a roadmap/ticket desync to fix now,
   before the report.
 - **Validate front-matter across the tree** — the nine required keys, present on
   everything this run wrote.

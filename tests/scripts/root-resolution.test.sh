@@ -142,7 +142,7 @@ assert_eq 0 "$R_STATUS" "roadmap-check.sh still resolves the parent tree"
 assert_contains "$R_OUT" 'OK: 1 roadmap rows / 1 ticket files' "and reads it"
 
 test_case "a tree with no ROADMAP.md reports that specifically"
-# An initialised tree missing its roadmap is a rule-9 problem to repair, not a
+# An initialised tree missing its roadmap is a bookkeeping problem to repair, not a
 # "there is no project here" — conflating the two sends the operator to init.
 root="$(newdir)"
 make_tree "$root" ACME
@@ -150,7 +150,7 @@ rm "$root/.ai/sift/ROADMAP.md"
 check_no_roadmap() {
   if [ "$R_STATUS" -eq 2 ] &&
      case "$R_ERR" in *'has no ROADMAP.md'*) true ;; *) false ;; esac &&
-     case "$R_ERR" in *'rule 9'*) true ;; *) false ;; esac
+     case "$R_ERR" in *'every ticket needs a roadmap row'*) true ;; *) false ;; esac
   then t_ok "$1 exits 2 naming the missing roadmap and the rule behind it"
   else t_fail "$1 names the missing roadmap" "status=$R_STATUS" "stderr=$R_ERR"; fi
 }

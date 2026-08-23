@@ -195,9 +195,9 @@ test_case "the uniqueness half of the obligation, and why it is not counted here
 # Where the obligation IS guarded is behaviour, because that is where a
 # paraphrase shows: "the append hop counts exactly the rows the duplicate guard
 # counts (SFT-0038)" in tests/scripts/prime-backlog.test.sh holds the two hops
-# of rule 1 inside sift-prime to one answer, and drain-log.sh's dispatch and
-# return positions are held to one refusal set through the same check in
-# tests/scripts/drain-log.test.sh for rule 2.
+# of the row rule inside sift-prime to one answer, and drain-log.sh's dispatch
+# and return positions are held to one refusal set through the same check in
+# tests/scripts/drain-log.test.sh for the ID rule.
 skip "one-copy-per-skill as a textual count over the recorded constructs" \
   "blind to the paraphrase that was the real bug, and needs a ROW_ID_PAT= exemption"
 

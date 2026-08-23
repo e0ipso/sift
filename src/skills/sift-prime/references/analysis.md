@@ -28,10 +28,11 @@ are what the evidence bar exists to keep out of the slate.
 
 ## The evidence bar
 
-The numbered citations in this section carry an `@RULE: <repo-root-relative file> <N>
-<verbatim rule substring>` marker in a fence beside the sentence making the claim.
-`tests/static/readme-rule-citations.test.sh` extracts each marker and resolves the cited
-ordinal against README's bounded `## Rules for agents` list.
+Where this section restates a rule of the convention, an `@RULE: <repo-root-relative
+file> <N> <verbatim rule substring>` marker sits in a fence beside the sentence making
+the claim — that marker is where the ordinal lives, so the sentence itself can say what
+the rule requires. `tests/static/readme-rule-citations.test.sh` extracts each marker and
+resolves the cited ordinal against README's bounded `## Rules for agents` list.
 
 Every candidate carries one of exactly two citations:
 
@@ -41,16 +42,15 @@ Every candidate carries one of exactly two citations:
 A candidate that can carry neither is **dropped**, not softened. Not reworded into a
 vaguer form that no longer needs backing, not demoted to `p4` and kept: dropped.
 
-Two things make that bar load-bearing rather than fussy. The convention already sets it —
-rule 5 requires claims about code to cite `file:line`, and `## Evidence` is a required
-body section.
+Two things make that bar load-bearing rather than fussy. The convention already sets it:
+claims about code cite `file:line`, and `## Evidence` is a required body section.
 
 ```text
 @RULE: README.md 5 Claims about code cite
 ```
 
 And the drafting agents downstream never saw the code: an agent handed a candidate with
-no citation must either invent one or ship a body that fails rule 5, and an invented
+no citation must either invent one or ship a body with no evidence at all, and an invented
 citation is worse than a missing one because it reads authoritative.
 
 ```text

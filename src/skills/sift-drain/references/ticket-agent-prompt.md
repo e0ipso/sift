@@ -59,7 +59,7 @@ by overwriting each other.
 
 YOU DO NOT WRITE THE TRACKER. You do not strike ROADMAP.md, you do not archive a ticket,
 and you do not merge onto {{BASE_BRANCH}}. You implement on {{BRANCH}} and return. The
-orchestrator lands rule 9 after you.
+orchestrator lands the tracker change after you.
 
 THE SITTING IS NOT A MERGER. These tickets share an orientation and one branch. They do
 not share a commit: each ticket keeps its own `## Direction`, gets its OWN implementation
@@ -109,9 +109,9 @@ STEP 1 — ORIENT (ONCE FOR THE WHOLE SITTING)
 Stamp `phase orient` first. Read every ticket file listed above in full.
 Then read these sections of .ai/sift/README.md — these, not the file:
   @README-SECTION: ## Rules for agents
-    Rule 9 above all: a ticket and its roadmap row move in the same change — the
-    orchestrator lands that change after you return. You still need the rule so you
-    do not write the tracker yourself.
+    Above all, keep ROADMAP.md in sync: a ticket and its roadmap row move in the
+    same change — the orchestrator lands that change after you return. You still
+    need the rule so you do not write the tracker yourself.
   @README-SECTION: ## Front-matter schema
     The required keys and their allowed values — for any ticket you file yourself.
   @README-SECTION: ## Ticket body

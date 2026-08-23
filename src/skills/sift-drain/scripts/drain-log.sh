@@ -121,7 +121,7 @@ require_ticket_id() {
       ;;
   esac
   echo "error: not a ticket ID: $1" >&2
-  echo "hint: rule 2 makes a ticket ID $PREFIX- followed by at least four digits, e.g. $PREFIX-0001" >&2
+  echo "hint: a ticket ID is $PREFIX- followed by at least four digits, e.g. $PREFIX-0001" >&2
   exit 2
 }
 

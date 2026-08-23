@@ -3,8 +3,8 @@
 #
 # The only sift-prime script that writes. It adds exactly one row and creates the
 # "## Wave <n>" section when it is missing; it never renumbers an existing row,
-# never rewrites a row it did not add, and never reorders sections. README rule 9
-# makes ticket creation and roadmap slotting one change, so this is the write half
+# never rewrites a row it did not add, and never reorders sections. The README makes
+# ticket creation and roadmap slotting one change, so this is the write half
 # of creating a ticket — run it in the same change as the ticket file.
 #
 # New sections are appended at the end of the file. Waves are created in ascending
@@ -146,8 +146,8 @@ ROW_CELL_ID_AWK='
 
 # --- Duplicate ID -----------------------------------------------------------
 
-# Rule 2 makes IDs immutable and never reused, so a second row for an ID already
-# in the file means the caller lost track of what it wrote. Fail loudly: silently
+# IDs are immutable and never reused, so a second row for an ID already in the
+# file means the caller lost track of what it wrote. Fail loudly: silently
 # skipping would leave the caller believing a row exists in a wave where it does
 # not.
 #
@@ -155,8 +155,8 @@ ROW_CELL_ID_AWK='
 # markdown table lines count, and within a line only the FIRST cell holding an ID
 # is the ticket cell. An ID named in a Needs cell, quoted in a Title or written
 # in the prose around the table belongs to somebody else's row and must never
-# block its own. A struck row does count for its own ID — rule 2 makes an ID
-# unreusable whether or not the work finished, and ~~ delimiters are not
+# block its own. A struck row does count for its own ID — an ID is unreusable
+# whether or not the work finished, and ~~ delimiters are not
 # identifier characters, so it falls out of the same whole-token rule rather than
 # needing a case of its own.
 #
@@ -182,7 +182,7 @@ if ROW_ID_PAT="$ROW_ID_PAT" RA_ID="$ID" awk -F'|' "$ROW_CELL_ID_AWK"'
     END { exit (found ? 0 : 1) }
   ' "$ROADMAP"; then
   echo "error: $ID already has a row in $ROADMAP" >&2
-  echo "hint: IDs are never reused and a ticket gets exactly one row (README rule 9)" >&2
+  echo "hint: IDs are never reused and README gives a ticket exactly one roadmap row" >&2
   exit 1
 fi
 

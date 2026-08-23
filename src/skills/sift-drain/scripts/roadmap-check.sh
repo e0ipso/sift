@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# roadmap-check.sh — enforce sift README rule 9 (roadmap/ticket consistency).
+# roadmap-check.sh — enforce the sift README's roadmap/ticket consistency rule.
 #
 # Checks, in both directions:
 #   - every ticket file (open/ or archive/) has a roadmap row

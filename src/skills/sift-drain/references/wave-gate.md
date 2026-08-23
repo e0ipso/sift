@@ -64,8 +64,8 @@ setup so the fixture environment still builds.
 Iterate on a single e2e test file while developing; the deliverable is a GREEN FULL e2e run.
 
 If a genuine product bug blocks green, do NOT paper over it: file a sift ticket per
-.ai/sift/README.md (including its ROADMAP.md placement, rule 9), skip the e2e test with an
-explicit fixme referencing the ticket ID, and report the ticket.
+.ai/sift/README.md (including its ROADMAP.md placement, in the same change), skip the
+e2e test with an explicit fixme referencing the ticket ID, and report the ticket.
 
 Branch off local {{BASE_BRANCH}}, commit, merge back locally. NEVER `git push`.
 

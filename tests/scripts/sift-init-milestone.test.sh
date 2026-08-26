@@ -64,6 +64,7 @@ test_case "an uppercase milestone is rejected under a UTF-8 locale with collated
 # rows ('', -lead, trail-, a--b) are rejected before the character class; the
 # remaining rows contain /, ., space, newline or *, all outside a collated
 # a-z in every locale the suite drives.
+: "${matrix_locales:?recipes.sh did not define matrix_locales}"
 for loc in $matrix_locales; do
   locale_available "$loc" || continue
 

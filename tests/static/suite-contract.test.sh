@@ -749,9 +749,7 @@ assert_eq "" "$LEG_ERR" "and no leg's stderr carries a setlocale warning"
 # The positive control. Without it "no warning reached a leg" is satisfied just as
 # well by a probe that never runs anything, and the skipped locale above would be
 # proof of nothing: this is the output the axis produces when the guard is absent.
-R_LOCALE="$BOGUS_LOCALE"
-run_recipe "$leg_dir" 'printf "%s\n" "a b"'
-R_LOCALE=C
+R_LOCALE="$BOGUS_LOCALE" run_recipe "$leg_dir" 'printf "%s\n" "a b"'
 assert_contains "$R_ERR" 'setlocale' \
   "a leg really entered on that name would have warned, which is what the guard prevents"
 

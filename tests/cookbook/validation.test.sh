@@ -247,7 +247,7 @@ done
 
 test_case "a recorded resolution is not a finding, and a clean tree is silent"
 d="$(newdir)"; make_tree "$d"
-ticket "$d" archive backlog/bug SFT-0001 done 'Done' 'status: done' \
+ticket "$d" archive backlog/bug SFT-0001 'done' 'Done' 'status: done' \
   'resolution: "Fixed in commit abc1234"' > /dev/null
 ticket "$d" archive backlog/bug SFT-0002 wont 'Wontfix' 'status: wontfix' \
   "resolution: 'Not a bug'" > /dev/null
@@ -325,7 +325,7 @@ test_case "the audit only reads"
 # against real trees by whoever is about to trust the archive.
 d="$(newdir)"; make_tree "$d"
 ticket "$d" archive backlog/bug SFT-0001 absent 'Key absent' 'status: done' > /dev/null
-ticket "$d" archive backlog/bug SFT-0002 done 'Done' 'status: done' \
+ticket "$d" archive backlog/bug SFT-0002 'done' 'Done' 'status: done' \
   'resolution: "Fixed"' > /dev/null
 before="$(tree_digest "$d")"
 resolutions "$d"

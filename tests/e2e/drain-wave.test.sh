@@ -75,7 +75,7 @@ assert_contains "$(squeeze "$R_OUT")" '4 ACME-0004 [p3/s/open] Filed mid-run' \
   "and the filed ticket joins the current wave's load"
 
 test_case "the sitting returns in one call and the orchestrator lands rule 9 per ticket"
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" return ACME-0001 done ACME-0002 done
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" return ACME-0001 'done' ACME-0002 'done'
 assert_eq 0 "$R_STATUS" "each ticket paired with its own reported status"
 run_recipe "$root" "$(recipe_archive)" \
   PREFIX=ACME ID=ACME-0001 STATUS=done RESOLUTION='Landed by the orchestrator'
@@ -92,7 +92,7 @@ assert_not_contains "$R_OUT" 'ACME-0001' "landed tickets leave the load"
 
 test_case "the wave advances when its last ticket lands"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" dispatch ACME-0004
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" return ACME-0004 done
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" return ACME-0004 'done'
 run_recipe "$root" "$(recipe_archive)" \
   PREFIX=ACME ID=ACME-0004 STATUS=done RESOLUTION='Landed by the orchestrator'
 assert_eq 0 "$R_STATUS" "the tail ticket lands"
@@ -104,7 +104,7 @@ assert_contains "$(squeeze "$R_OUT")" '3 ACME-0003 [p2/m/open] Third thing' \
 
 test_case "the drained roadmap is an exit code, not a judgement call"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" dispatch ACME-0003
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" return ACME-0003 done
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" return ACME-0003 'done'
 run_recipe "$root" "$(recipe_archive)" \
   PREFIX=ACME ID=ACME-0003 STATUS=done RESOLUTION='Landed by the orchestrator'
 assert_eq 0 "$R_STATUS" "the last ticket lands"

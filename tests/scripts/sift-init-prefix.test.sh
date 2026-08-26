@@ -91,6 +91,7 @@ test_case "a lowercase prefix is rejected under a UTF-8 locale with collated ran
 # outside a collated A..Z anywhere. Both verdicts are asserted under the same
 # locale and the same matcher, because a validator that rejected everything
 # would satisfy the refusal half on its own.
+: "${matrix_locales:?recipes.sh did not define matrix_locales}"
 for loc in $matrix_locales; do
   locale_available "$loc" || continue
 

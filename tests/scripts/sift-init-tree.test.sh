@@ -135,9 +135,9 @@ tree_pair_differences() {
 # prefix; do not restate its sed expression in the test.
 skill_prefix() {
   (
-    SIFT_ROOT="$2"
-    # shellcheck disable=SC1090 -- both paths are repository constants above.
-    . "$1"
+    # Both paths passed here are repository constants declared above.
+    # shellcheck disable=SC1090
+    SIFT_ROOT="$2" . "$1"
     printf '%s\n' "$PREFIX"
   )
 }
@@ -145,9 +145,9 @@ skill_prefix() {
 # drain_rows <root> — the real reader's parsed roadmap rows.
 drain_rows() {
   (
-    SIFT_ROOT="$1"
-    # shellcheck disable=SC1090 -- DRAIN_LIB is a repository constant above.
-    . "$DRAIN_LIB"
+    # DRAIN_LIB is a repository constant declared above.
+    # shellcheck disable=SC1090
+    SIFT_ROOT="$1" . "$DRAIN_LIB"
     roadmap_rows
   )
 }

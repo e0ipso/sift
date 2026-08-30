@@ -90,26 +90,19 @@ for an ID the roadmap already carries.
 
 ## Phase 1 — Analyse
 
-The sweep measures one distance: what the project's stated intent claims, against what is
-on disk. **`references/analysis.md` is the method** — the four sources of stated intent,
-the seven sweep dimensions and the `type` each one decides, the finding format sweep agents
-return, the root-cause clustering step, and the dedupe procedure. Read it before
-dispatching. Four of its rules are load-bearing enough to restate here.
+The sweep compares the project's stated intent with what is on disk. Read
+`references/analysis.md` before dispatching, then apply its
+[evidence bar](references/analysis.md#the-evidence-bar),
+[sweep dimensions](references/analysis.md#the-sweep-dimensions),
+[finding format](references/analysis.md#what-a-finding-looks-like-when-it-reaches-the-orchestrator),
+[clustering rules](references/analysis.md#clustering-rules), and
+[dedupe procedure](references/analysis.md#dedupe). The analysis reference owns those
+rules; this phase applies them.
 
-**The evidence bar.** Every candidate carries one of exactly two citations: `file:line`
-for something that exists, `absent: <path>` for something that does not. A candidate that
-can carry neither is dropped, never softened into a vaguer claim that no longer needs
-backing. The convention requires claims about code to cite `file:line`, and the drafting
-agents downstream never saw the code — handed an uncited candidate they can only invent a
-citation, which reads authoritative and is worse than the gap it fills.
-
-**The user's optional prompt is a hard scope fence**, never a priority hint and never a
-theme. A fenced sweep reads and reports only inside the declared fence. Its report may say
-that the run was fenced and name the scope inspected, but every finding and citation comes
-from that scope; it makes no claim about paths it did not inspect. The fence never moves the
-evidence bar, and "there was not much in scope" is not a reason to let an uncitable
-candidate through. An unfenced sweep runs at full breadth across the stated-intent sources
-and all seven dimensions.
+Apply [the scope fence](references/analysis.md#the-scope-fence). Treat the user's optional
+prompt as a hard boundary: a fenced sweep reads and reports only inside it, while an
+unfenced sweep runs at full breadth. The linked rule defines reporting and evidence-bar
+handling at that boundary.
 
 The paired markers below are machine-read by
 `tests/static/prime-scope-contract.test.sh`. The test holds this restatement to the same
@@ -120,26 +113,6 @@ findings from uninspected paths.
 @PRIME-SCOPE: fenced reads-and-reports-inside
 @PRIME-SCOPE: unfenced full-breadth
 ```
-
-**Cluster by root cause before the slate, and only on a shared fix.** A defect at five call
-sites is one candidate carrying five citations, not five carrying one each — you are the
-only reader holding every sweep agent's findings at once, so nobody downstream can do this
-for you. **A cluster is valid only when one `## Direction` covers every member site: shared
-fix shape, not shared symptom.** A candidate that cannot state one such Direction stays
-split, and members forced apart by different milestones or a genuinely different fix stay
-separate tickets carrying the optional kebab-case `cluster` front-matter key instead. The
-clustered candidate keeps one `file:line` per site: dropping one to tidy the list is the
-same failure as inventing one. Get the merge wrong and the drafting agent, which never saw
-the code, invents a `## Direction` that `sift-drain` then hands to an implementer as fact.
-
-**Dedupe against both buckets before the user sees anything.** `existing-work.sh` prints
-every ticket under `open/` and `archive/` with its `resolution`, and that last column is
-what separates "already filed" from "already decided against". **Re-proposing work already
-archived `wontfix` is the failure that ends the user's trust in this skill** — they spent
-the decision once and wrote the reason down; handing it back says the skill did not read
-it, and a slate they have to re-reject is a slate they stop reading. Match on subject
-matter, not title strings, and when an archived `resolution` kills a candidate, quote that
-line back to the user verbatim.
 
 ### Synthesize milestones
 
@@ -168,29 +141,16 @@ Present the survivors as a slate: title, `type`, `priority`, `effort`, milestone
 one-line rationale and the citation behind each row, plus the `depends_on` edges you
 propose between them and the waves those edges imply. Name what dedupe dropped and why.
 
-**A row that clusters one defect found at several sites lists every site, each with its own
-citation** — never a count standing in for the list. Root-cause clustering happened before
-this slate, not after (`references/analysis.md` defines when several findings become one
-row and when they stay separate rows sharing a `cluster` value), and a user cannot strike,
-split or re-merge a site they were never shown.
+For a clustered row, apply the analysis reference's
+[one-citation-per-site rule](references/analysis.md#one-citation-per-site) so the user can
+strike, split or re-merge individual sites.
 Present every new milestone with its short outcome description before the ticket rows. If
 the slate leaves everything in `backlog`, include the milestone planner's explicit
 rationale. Then ask, and change what the user asks you to change.
 
-**The slate lives in the conversation and nowhere else.** No scratch file, no `.prime/`
-directory, no drafts written "pending approval", nothing under `.ai/sift` until the user
-agrees. This is a decision, not an omission, and the trade-off was accepted with it: a
-session interrupted between the sweep and the agreement loses the slate, and the analysis
-is re-run from scratch. That costs one sweep. Persisting it costs a tree full of
-half-agreed artifacts that every later run, every `find` across the backlog, and
-`existing-work.sh` itself would have to read — and `existing-work.sh` would read them as
-already filed.
-
-Converging on a single ticket is the anti-pattern, not the tidy outcome. The dimensions
-were swept independently because they answer different questions, so findings arrive from
-several directions because several directions were looked in. There is no target to hit
-and nothing to count: what the user agrees to is theirs to decide, and a slate they cut
-back hard is a slate that worked.
+Keep negotiation in chat and create no pre-approval files. Follow
+[Chat-only negotiation](references/analysis.md#chat-only-negotiation). Apply
+[Plurality](references/analysis.md#plurality) without steering the user toward a count.
 
 ## Phase 3 — Write
 
@@ -281,10 +241,8 @@ Then report:
 
 ## Additional resources
 
-- **`references/analysis.md`** — the goal-gap sweep: the sources of stated intent, the
-  evidence bar, the scope fence, the seven sweep dimensions, the finding format sweep
-  agents return, the root-cause clustering step and its `cluster` escape hatch, and the
-  dedupe procedure against both buckets.
+- **`references/analysis.md`** — the goal-gap sweep: stated intent, evidence, scope,
+  dimensions, finding format, plurality, clustering, dedupe and chat-only negotiation.
 - **`references/milestone-planner-prompt.md`** — the read-only outcome clustering pass
   that assigns every surviving finding before slate negotiation.
 - **`references/drafting-agent-prompt.md`** — the canonical per-row drafting sub-agent

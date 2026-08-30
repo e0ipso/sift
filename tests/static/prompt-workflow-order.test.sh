@@ -11,8 +11,8 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 . "$DIR/../lib/recipes.sh"
 
 PROMPT="$REPO_ROOT/src/skills/sift-drain/references/ticket-agent-prompt.md"
-FOLLOW_HEADING='STEP 5 — FILE FOLLOW-UPS IF WARRANTED'
-REPORT_HEADING='STEP 6 — REPORT, DO NOT MERGE'
+FOLLOW_HEADING='Step 5: File warranted follow-ups'
+REPORT_HEADING='Step 6: Return one final report'
 ID_REQUIREMENT='final `tickets filed` field.'
 FIELD='tickets filed: <IDs> | none'
 

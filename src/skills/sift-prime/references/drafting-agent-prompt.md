@@ -67,163 +67,111 @@ and resolves them by position against README's bounded `## Rules for agents` lis
 ## Template
 
 ```
-You draft sift ticket {{TICKET_ID}} in {{PROJECT_ROOT}}, and nothing else. Work
-autonomously: the orchestrator will not answer questions mid-task — a question you ask may
-never reach it. If you are about to stop and ask, decide it yourself, record the judgment
-call in your report, and continue. Report `status: blocked` with the full question only if
-it is genuinely unresolvable without the user.
+1. Use these assigned values exactly. Treat the ID as sequential, immutable, and reserved in
+   the orchestrator's single allocation pass. Do not pick an ID, compute a path, change a
+   value, or invent a dependency edge.
 
-GIVEN — decided already, not yours to change
-  id:         {{TICKET_ID}}
-  file:       {{TICKET_PATH}}
-  title:      {{TITLE}}
-  type:       {{TYPE}}   priority: {{PRIORITY}}   effort: {{EFFORT}}
-  milestone:  {{MILESTONE}}
-  depends_on: {{DEPENDS_ON}}
-  evidence:   {{EVIDENCE}}
-  why:        {{WHY}}
-  cluster:    {{CLUSTER}}
-  schema:     {{SCHEMA_PATH}}
-  date:       {{TODAY}}
+     id:         {{TICKET_ID}}
+     file:       {{TICKET_PATH}}
+     title:      {{TITLE}}
+     type:       {{TYPE}}   priority: {{PRIORITY}}   effort: {{EFFORT}}
+     milestone:  {{MILESTONE}}
+     depends_on: {{DEPENDS_ON}}
+     evidence:   {{EVIDENCE}}
+     why:        {{WHY}}
+     cluster:    {{CLUSTER}}
+     schema:     {{SCHEMA_PATH}}
+     date:       {{TODAY}}
 
-You ALLOCATE NOTHING. You do not pick an ID, compute a path, or invent a dependency edge.
-Ticket IDs are sequential, immutable and never reused; the orchestrator reserved
-this whole block in one pass, and an agent that allocates its own creates a collision no
-`find`/`sed` migration can unpick. If a given value looks wrong to you, write the ticket
-exactly as given and say so in your report — the orchestrator can fix a field, but it
-cannot recover a duplicated ID.
+   Draft only {{TICKET_ID}} in {{PROJECT_ROOT}}. Resolve ordinary judgment calls yourself,
+   record them in the report, and continue. Report `status: blocked` with the full question
+   only when the user must answer it. If an assigned value looks wrong, use it and report the
+   concern.
 @RULE: README.md 2 Never renumber, reuse, or delete a ticket ID
 
-STEP 1 — ORIENT
-Read {{PROJECT_ROOT}}/.ai/sift/README.md in full. It is the convention, and four of its
-rules for agents are the ones you are about to apply: front-matter is the source of
-truth and folders are an index; claims about code cite file:line; a ticket and its
-roadmap row move in the same change (see STEP 4 for why the roadmap is not yours); and
-the body follows the template for the ticket's type. Then read
-{{PROJECT_ROOT}}/.ai/sift/MILESTONES.md and confirm {{MILESTONE}} is listed there.
+2. Read {{PROJECT_ROOT}}/.ai/sift/README.md in full. Apply its front-matter, evidence,
+   roadmap-sync, and type-specific body rules. Read
+   {{PROJECT_ROOT}}/.ai/sift/MILESTONES.md and check that it lists {{MILESTONE}}. Use `find`
+   and `command grep` inside `.ai/sift` because ignore-aware search may skip that tree.
 @RULE: README.md 3 Front-matter is the source of truth
 @RULE: README.md 5 Claims about code cite
-@RULE: README.md 9 in sync — in the same change
 @RULE: README.md 10 Use the body template for the ticket's
 
-`.ai/sift` is usually gitignored, so ignore-aware search silently skips it: use `find`
-plus `command grep` when you look inside the tree.
+3. Read {{SCHEMA_PATH}}. Use `bug-ticket` for `type: bug`, `feature-ticket` for
+   `type: feature`, and `task-ticket` for hardening, test, docs, dx, and release. Follow the
+   schema's element order when rendering sections. Fill every required element in an XML
+   scratch file under the system temporary directory, outside `.ai/sift/`. Treat the schema
+   as a checklist. Do not invoke `xmllint` or add XML to the sift tree. Render the markdown
+   by hand, then delete the scratch file.
 
-STEP 2 — DRAFT AGAINST THE SCHEMA
-Read {{SCHEMA_PATH}}. Its root element is the one for {{TYPE}}: `bug-ticket` for
-`type: bug`, `feature-ticket` for `type: feature`, `task-ticket` for hardening, test,
-docs, dx and release. Element order in the schema IS the rendered section order.
+4. Create the directory for {{TICKET_PATH}} and write the finished ticket to that path. The
+   path must have the form
+   `<bucket>/<milestone>/<category>/<ID>--<kebab-slug>.md`, and its category must equal the
+   ticket's type. Write all nine required front-matter keys and the assigned dependency list:
 
-Draft the XML into a scratch file OUTSIDE `.ai/sift/` — a path under the system temp
-directory is the right home for it — fill every element the schema requires, then delete
-the draft once the markdown is written. Filling a structure that names every field is what
-stops you skipping the field you have not thought through: the expected behaviour you have
-not pinned down, the alternative you did not weigh. That is the schema's entire job.
+     id: {{TICKET_ID}}
+     title: {{TITLE}}
+     status: open
+     type: {{TYPE}}
+     milestone: {{MILESTONE}}
+     priority: {{PRIORITY}}
+     effort: {{EFFORT}}
+     created: {{TODAY}}
+     updated: {{TODAY}}
+     depends_on: {{DEPENDS_ON}}
 
-The XML is SCAFFOLDING, NEVER STORAGE. Nothing in sift reads, writes or validates XML on
-the way in or out, and you NEVER invoke `xmllint` — the schema is a checklist you read, and
-nothing here may depend on it being installed. Render the markdown by hand.
+   Add `labels` only for free-form kebab topic tags, without restating type, priority, or
+   status. Add `source` only to identify where the work came from. If {{CLUSTER}} is not
+   `none`, write `cluster: {{CLUSTER}}` exactly. If it is `none`, omit `cluster`.
 
-NEVER write a draft, a scratch file, or any other working file inside `.ai/sift/`. The only
-thing that lands in that tree is the finished ticket at {{TICKET_PATH}}.
-
-STEP 3 — WRITE THE TICKET
-`mkdir -p` the directory of {{TICKET_PATH}}, then write exactly that file. The path is
-<bucket>/<milestone>/<category>/<ID>--<kebab-slug>.md and the category folder IS the
-ticket's type — folders index front-matter, so the two disagreeing is a convention
-violation even though both files parse.
-
-Front-matter — the nine required keys, none omitted, then `depends_on`, which is optional
-in the convention but given to you here, so write it too:
-  id: {{TICKET_ID}}
-  title: {{TITLE}}
-  status: open
-  type: {{TYPE}}
-  milestone: {{MILESTONE}}
-  priority: {{PRIORITY}}
-  effort: {{EFFORT}}
-  created: {{TODAY}}
-  updated: {{TODAY}}
-  depends_on: {{DEPENDS_ON}}
-Add the optional keys where they earn their place: `labels` as free-form kebab topic tags
-(never restating type, priority or status), `source` for where this came from. When
-{{CLUSTER}} is anything but `none`, also write `cluster: {{CLUSTER}}` exactly as given — it
-names a root cause shared with other tickets in this batch and has to match theirs
-character for character, so never reword it, and never invent one when it is `none`.
-
-TWO RULES THE SCHEMA CANNOT CARRY — XSD 1.0 has no cross-field assertions, so check both
-by hand:
-  - A non-empty `resolution` is required once `status` is terminal. This ticket is
-    `status: open` and lands in `open/`, so leave `resolution` out or empty; writing a
-    resolution into a fresh ticket makes it read as already decided.
-  - `milestone` must name a milestone from MILESTONES.md AND match the folder you wrote
-    into. If {{MILESTONE}} is not in that file, do not add it — write the ticket and report
-    it; the orchestrator owns MILESTONES.md.
+   Check the two cross-field rules that XSD 1.0 cannot express. A terminal status requires a
+   non-empty `resolution`; leave it absent or empty because this ticket is open.
+   {{MILESTONE}} must match both MILESTONES.md and the destination folder. If the milestone is
+   absent, write the assigned ticket, report the discrepancy, and do not edit MILESTONES.md.
 @RULE: README.md 8 document new milestones in
 
-Body — the canonical sections for {{TYPE}}, in schema order, under `# {{TITLE}}`. Heading
-text is copied exactly as the convention writes it, because agents parse these headings; a
-renamed section is as breaking as a renamed front-matter key.
-  bug:     ## Problem, ## Expected behaviour, ## Steps to reproduce (optional),
-           ## Evidence, ## Direction, ## Acceptance criteria
-  feature: ## Problem, ## Evidence, ## Direction,
-           ## Alternatives considered (optional), ## Acceptance criteria
-  others:  ## Problem, ## Evidence, ## Direction, ## Acceptance criteria
+   Under `# {{TITLE}}`, copy the canonical headings for {{TYPE}} exactly, in schema order:
 
-`## Evidence` CARRIES {{EVIDENCE}} — one bullet per citation, the paths and line numbers
-verbatim. Do not paraphrase it into prose, do not generalise it, and do not add citations
-you have not opened yourself. You may read the cited files to write a sharper `## Problem`
-and a `## Direction` that survives contact with the code; if a citation does not say what
-it claims, keep the ticket's claim to what you can actually see and record the discrepancy
-as a judgment call.
+     bug:     ## Problem, ## Expected behaviour, ## Steps to reproduce (optional),
+              ## Evidence, ## Direction, ## Acceptance criteria
+     feature: ## Problem, ## Evidence, ## Direction,
+              ## Alternatives considered (optional), ## Acceptance criteria
+     others:  ## Problem, ## Evidence, ## Direction, ## Acceptance criteria
 
-`## Problem` grows from {{WHY}}: what is wrong or missing and who it costs, in 2–6
-sentences. `## Direction` is the approach plus the constraints you found — sift-drain reads
-that section as the implementing agent's brief, so write it for somebody who will never see
-this conversation. `## Acceptance criteria` are `- [ ]` statements that same reader can
-check without asking anyone what was meant.
+   Build `## Problem` from {{WHY}} in two to six sentences that name the gap and who it
+   affects. Write `## Direction` as one implementation approach with its constraints. Write
+   complete `- [ ]` checks under `## Acceptance criteria`.
 
-A MULTI-SITE TICKET — when {{EVIDENCE}} carries more than one citation, it is one defect
-found at several sites, and every section covers all of them:
-  - `## Evidence` gets one bullet per site, all of them, in the order given. A site you
-    leave out is a site outside the ticket: the agent that implements this never saw the
-    analysis and fixes what the ticket cites, so a dropped citation is a site that stays
-    broken. Dropping one to tidy the list is the same failure as inventing one.
-  - `## Direction` is ONE approach that holds at every site. That is why these citations
-    arrived together. If you read the files and find that one site needs a genuinely
-    different fix, do NOT stretch the Direction to cover it and do NOT quietly write for
-    the first site only — write the Direction that covers the sites it does cover, name
-    the odd site and what makes it different, and report that as a judgment call.
-  - `## Acceptance criteria` name every site. A criterion satisfied by fixing the first
-    site alone produces a ticket that reads as done while the rest are untouched, and the
-    per-ticket verification downstream is scoped to this ticket, so nothing else catches it.
+   Copy every citation from {{EVIDENCE}} verbatim into its own `## Evidence` bullet, in the
+   supplied order. Do not paraphrase, generalize, or add a citation you have not opened. You
+   may read cited files to sharpen the ticket. If a citation does not support its claim,
+   narrow the claim to the visible evidence and report the discrepancy.
 
-STEP 4 — STAY IN YOUR LANE
-  - Write no file but {{TICKET_PATH}}, plus the scratch draft outside `.ai/sift/` that you
-    delete. One file is one ticket; you own one file.
-  - Do NOT touch ROADMAP.md. The orchestrator appends every row itself after all drafting
-    agents return. A ticket and its roadmap row stay one change only because one writer
-    owns that file — parallel agents appending to it is the shared-mutable-file shape
-    this convention exists to avoid.
+   When {{EVIDENCE}} contains several citations, cover every cited site in the Problem,
+   Direction, and Acceptance criteria. Use one Direction that applies to all sites. If one
+   site needs a different fix, write the Direction for the sites it covers, identify the odd
+   site and its difference, and report that judgment call. Name every site in the Acceptance
+   criteria so work at only the first site cannot satisfy the ticket.
+
+5. Check the write scope. Leave only {{TICKET_PATH}} in `.ai/sift`; delete the external
+   scratch file. Do not edit ROADMAP.md, MILESTONES.md, config, or another ticket. Do not
+   change product code or tests. Do not create a branch or commit, run `git push`, or use an
+   external tracker.
 @RULE: README.md 9 in sync — in the same change
-  - Do not create or edit MILESTONES.md, config, or any other ticket.
-  - IMPLEMENT NOTHING. You are describing work, not doing it: no product code, no test, no
-    branch, no commit, and never `git push`.
-  - Nothing goes to an external tracker. Ever.
+@RULE: README.md 9 in sync — in the same change
 
-REPORT — return EXACTLY this and nothing else. No file contents, no diffs, no narration of
-the steps. The orchestrator acts on this report without opening your file, so `evidence:`
-must be the citations as you rendered them, not a summary of them.
+6. Return exactly these fields and no other text. Put the citations exactly as rendered in
+   `## Evidence` in the `evidence:` field. Do not return file contents, diffs, or a step log.
 
-  status: written | blocked
-  ticket: <ID>
-  file: <absolute path>
-  type: <type>   priority: <priority>   effort: <effort>
-  evidence: <the citation(s) rendered into ## Evidence — every one of them, not the first>
-  judgment calls: <decisions you made yourself> | none
+     status: written | blocked
+     ticket: <ID>
+     file: <absolute path>
+     type: <type>   priority: <priority>   effort: <effort>
+     evidence: <every citation rendered into ## Evidence>
+     judgment calls: <decisions you made yourself> | none
 
-If you cannot write the ticket, report `status: blocked` with the blocker in place of the
-judgment calls and leave no partial file behind.
+   If you cannot write the ticket, leave no partial file and replace `judgment calls:` with
+   the blocker while reporting `status: blocked`.
 ```
 
 ---

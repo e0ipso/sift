@@ -363,36 +363,31 @@ done
 write_file "config/config.yaml" <<EOF
 # Sift per-repository configuration.
 #
-# The prefix is immutable for the life of the repository: it is baked into every
-# ticket ID, every filename, and every inline PREFIX-XXXX cross-reference. Changing
-# it means renaming every ticket file and rewriting every reference in one change.
+# The prefix is immutable. Changing it requires renaming every ticket file and
+# rewriting every reference in the same change.
 prefix: $prefix
 EOF
 
 write_file "MILESTONES.md" <<EOF
 # Milestones
 
-Milestones in intended order. The set is open: add one here in the same change that
-creates the first ticket in it, and create the matching \`open/<milestone>/\` folder.
+Milestones, in intended order. With a milestone's first ticket, add it here and
+create the matching \`open/<milestone>/\` folder.
 
-A milestone name is both a folder name and a front-matter value, so renaming one means
-moving files and editing \`milestone:\` in the same change.
+Rename a milestone by moving every ticket file and updating its \`milestone:\` in
+the same change.
 
 ## $milestone
 
-Work that has not been assigned to a named milestone yet. Split it into real milestones
-as soon as the work has shape — a single catch-all milestone gives \`ROADMAP.md\` nothing
-to order.
+Initial backlog for work not assigned to a named milestone.
 EOF
 
 write_file "ROADMAP.md" <<'EOF'
 # Roadmap
 
-Advisory resolution order. When this file and a ticket's `depends_on` disagree,
-`depends_on` wins and this file is the thing that gets corrected.
+Advisory order; a ticket's `depends_on` takes precedence.
 
-A `~~struck~~` row is finished. Striking the row and archiving the ticket are ONE
-change, in the same commit as the implementation (README.md — keep ROADMAP.md in sync).
+Strike a finished row and archive its ticket in the same change.
 
 ## Wave 1
 

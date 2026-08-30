@@ -21,6 +21,9 @@ summaries:
   kenkeep: >-
     Kenkeep prompt ownership and knowledge lifecycle contracts; read before
     changing capture, curation, or admission rules
+  knowledge-base: >-
+    Kenkeep admission and curation ownership; read before changing capture or
+    knowledge rules
   portability: >-
     GNU/BSD recipe portability and no-installable-binary rules; read when
     writing cookbook recipes or shell helpers that must run on macOS and Linux
@@ -95,6 +98,7 @@ summaries:
 - `cross-skill`: the rules sift-drain and sift-prime must classify alike — what a roadmap row is and what a ticket ID is — and how every copy is inventoried and guarded; read when touching either skill's row reader or ID check
 - `drift-detection`: the repo's own static scanners and drift detectors — what the shellcheck and collated-range scans do and do not flag, and the rule that a detector prints its own remedy; read when adding a check under tests/static/ or working around a scan finding
 - `kenkeep`: Kenkeep prompt ownership and knowledge lifecycle contracts; read before changing capture, curation, or admission rules
+- `knowledge-base`: Kenkeep admission and curation ownership; read before changing capture or knowledge rules
 - `portability`: GNU/BSD recipe portability and no-installable-binary rules; read when writing cookbook recipes or shell helpers that must run on macOS and Linux
 - `shell`: portable shell and awk recipe rules — quoting, globs, grep exit codes, fence-scoped rewrites and atomic publication; read when writing or editing a shell helper or a cookbook recipe
 - `shell/awk`: awk-specific rules — embedded-program quoting, ENVIRON hand-off, field splitting and fence walking; read when writing or editing an embedded awk program

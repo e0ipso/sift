@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:3c1ce4d19216f3db37868891d2a0a99a60a776ce04eb56baff87e6e92def9522'
+nodes_hash: 'sha256:f7552d3afe8875a7e9b9d85e028a47a44f892e6376f646add25c5a73dc298447'
 node_count: 98
 ---
 # kenkeep
@@ -12,6 +12,7 @@ node_count: 98
 - Load [`convention/`](nodes/convention/index.md) for more information on cross-cutting project conventions including the file-based tracker premise and commit-message rules; read when changing standing repo conventions outside a single skill.
 - Load [`cross-skill/`](nodes/cross-skill/index.md) for more information on the rules sift-drain and sift-prime must classify alike — what a roadmap row is and what a ticket ID is — and how every copy is inventoried and guarded; read when touching either skill's row reader or ID check.
 - Load [`drift-detection/`](nodes/drift-detection/index.md) for more information on the repo's own static scanners and drift detectors — what the shellcheck and collated-range scans do and do not flag, and the rule that a detector prints its own remedy; read when adding a check under tests/static/ or working around a scan finding.
+- Load [`knowledge-base/`](nodes/knowledge-base/index.md) for more information on Kenkeep admission and curation ownership; read before changing capture or knowledge rules.
 - Load [`portability/`](nodes/portability/index.md) for more information on GNU/BSD recipe portability and no-installable-binary rules; read when writing cookbook recipes or shell helpers that must run on macOS and Linux.
 - Load [`shell/`](nodes/shell/index.md) for more information on portable shell and awk recipe rules — quoting, globs, grep exit codes, fence-scoped rewrites and atomic publication; read when writing or editing a shell helper or a cookbook recipe.
 - Load [`sift-drain/`](nodes/sift-drain/index.md) for more information on sift-drain orchestration practices and the drain skill map; read when draining a roadmap, dispatching ticket agents, or changing wave-gate behavior.
@@ -21,6 +22,3 @@ node_count: 98
 - Load [`strikethroo/`](nodes/strikethroo/index.md) for more information on Strikethroo plan and task layout contracts; read before changing IDs, paths, or lifecycle rules.
 - Load [`testing/`](nodes/testing/index.md) for more information on test-design rules for this suite — positive controls, interleaving-invariant assertions, diff-based proofs and document pins; read when adding or changing a case under tests/.
 - Load [`tickets/`](nodes/tickets/index.md) for more information on ticket shape, lifecycle, and bookkeeping rules; read when creating, moving, archiving, or drafting tickets or changing front-matter/body schemas.
-
-## Components (what exists)
-- Open [**Kenkeep knowledge-admission authority**](nodes/map-kenkeep-knowledge-admission-authority.md) to learn about: knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills. #kenkeep #prompts #ownership

@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:3c1ce4d19216f3db37868891d2a0a99a60a776ce04eb56baff87e6e92def9522'
+nodes_hash: 'sha256:f7552d3afe8875a7e9b9d85e028a47a44f892e6376f646add25c5a73dc298447'
 node_count: 98
 ---
 # kenkeep Graph
@@ -11,7 +11,7 @@ Total nodes: 98
 
 - **kind:** map
 - **title:** Kenkeep knowledge-admission authority
-- **path:** map-kenkeep-knowledge-admission-authority.md
+- **path:** knowledge-base/map-kenkeep-knowledge-admission-authority.md
 - **tags:** kenkeep, prompts, ownership
 - **derived_from:** 4039a28c-82f8-4772-9667-404c8aec09cb:map:1
 
@@ -40,7 +40,7 @@ Total nodes: 98
 - **path:** sift-drain/orchestration/map-sift-drain-skill.md
 - **tags:** sift-drain, orchestration, skills
 - **relates_to:** map-sift-readme-normative-spec, map-runlog-md-the-drain-s-append-only-run-log, practice-the-drain-orchestrator-builds-a-wave-graph, practice-the-drain-orchestrator-owns-tracker-writes
-- **derived_from:** 7dcf0144-592c-4853-a5c2-57b8ad8ad350:map:1
+- **derived_from:** 7dcf0144-592c-4853-a5c2-57b8ad8ad350:map:1, 994da13d-7654-4b9e-a1d6-183d89f6fd2a:map:0
 
 ## map-sift-file-based-issue-tracker
 

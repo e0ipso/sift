@@ -20,6 +20,18 @@ FOLLOW_HEADING='Step 5: File warranted follow-ups'
 REPORT_HEADING='Step 6: Return one final report'
 ID_REQUIREMENT='final `tickets filed` field.'
 FIELD='tickets filed: <IDs> | none'
+WORKER_SCHEMA='status
+branch
+commits
+resolution
+summary
+verification
+sitting verification
+live check
+test edits
+deferred to the wave gate
+tickets filed
+tamper'
 PLAN_PHASES='## 1. Load the inputs
 ## 2. Control scope
 ## 3. Allocate the plan ID
@@ -65,6 +77,28 @@ report_error() {
     || printf '%s\n' 'self-filed ID requirement and field are not in the final report'
 }
 
+worker_report_fields() {
+  awk -v report="$REPORT_HEADING" '
+    $0 == report { section = 1; next }
+    section && /^```$/ { exit }
+    section && /^  [[:lower:]][[:lower:] ]*:/ {
+      field = $0
+      sub(/^  /, "", field)
+      sub(/:.*/, "", field)
+      print field
+    }
+  ' "$1"
+}
+
+worker_schema_owners() {
+  # `sitting verification` is unique to the worker report. A second exact
+  # schema would have to copy it, while the gate agents have their own reports.
+  grep -l '^  sitting verification:' \
+    "$REPO_ROOT/src/skills/sift-drain/SKILL.md" \
+    "$REPO_ROOT/src/skills/sift-drain/references/"*.md \
+    | while IFS= read -r f; do printf '%s\n' "${f#"$REPO_ROOT/"}"; done
+}
+
 test_case "the workflow has one follow-up step and one final report"
 assert_file "$PROMPT" "the canonical ticket-agent prompt exists"
 assert_eq 1 "$(count_exact "$PROMPT" "$FOLLOW_HEADING")" "the follow-up heading appears once"
@@ -76,6 +110,22 @@ assert_eq "" "$(ordering_error "$PROMPT")" "the final report runs after follow-u
 test_case "the final report surfaces every self-filed ticket"
 assert_eq "" "$(report_error "$PROMPT")" \
   "the self-filed ID requirement and tickets filed field belong to the final report"
+
+test_case "the canonical prompt owns the exact ordered worker report schema"
+assert_eq "$WORKER_SCHEMA" "$(worker_report_fields "$PROMPT")" \
+  "the final report keeps every top-level field in contract order"
+assert_eq 'src/skills/sift-drain/references/ticket-agent-prompt.md' \
+  "$(worker_schema_owners)" \
+  "the worker-only schema is not copied into orchestration or gate documents"
+
+test_case "removing a worker report field fails the schema check"
+work="$(newdir)"
+damaged="$work/ticket-agent-prompt.md"
+awk '!/^  resolution: <TICKET-ID>:/' "$PROMPT" > "$damaged"
+assert_not_contains "$(worker_report_fields "$damaged")" 'resolution' \
+  "the resolution field is gone from the damaged schema"
+assert_ne "$WORKER_SCHEMA" "$(worker_report_fields "$damaged")" \
+  "the schema comparison rejects the missing field"
 
 test_case "moving follow-up filing after the report fails the order check"
 work="$(newdir)"

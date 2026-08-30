@@ -3,13 +3,13 @@ name: kk-curate
 description: Curate pending session logs into kenkeep nodes by reading sessions in-host, drafting curator actions, then deduping and persisting via the kenkeep primitives. Resolves any surfaced contradictions interactively with the user. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
 ---
 
-<!-- Version: 11 -->
+<!-- Version: 12 -->
 
 # kk-curate
 
 You are the curator. Read pending session logs in this session, decide an action per candidate, run a single dedup pass via the CLI primitive, persist surviving actions via `curate-persist`, regenerate indices, and resolve any surfaced contradictions interactively with the user. There is no sub-agent and no runner — **you** are the LLM doing the curation.
 
-**A no-op run is a correct outcome.** When every candidate is a rephrasing, low-signal, or already covered, the right result is zero writes and the existing nodes left untouched. Never manufacture edits to justify the run; report "no changes; the knowledge base is current" plainly.
+Before classifying any candidate, read `.ai/kenkeep/.config/prompts/knowledge-admission.md` in full. It is the sole definition of admission, the keep test, salvage, modification restraint, and the correct no-op outcome. When that no-op outcome applies, leave existing nodes untouched and report `no changes; the knowledge base is current`.
 
 ## Resolve the project root
 
@@ -127,9 +127,9 @@ Signs an addition is correct:
 - The candidate has unique content (rationale, scope, examples) that isn't elsewhere.
 - Existing related nodes are about adjacent things, not this thing.
 
-The wrapper derives the slug from the title and auto-suffixes (`-2`, `-3`, …) if it would collide on disk — but if you sense a real overlap, prefer **drop** (or, when the candidate refines the existing node, **modify**).
+The wrapper derives the slug from the title and auto-suffixes (`-2`, `-3`, …) if it would collide on disk. That resolves an identifier collision only; it does not override the scope decision above.
 
-An `add` also carries a **home branch**: the existing folder under `nodes/` where the leaf lives. You pick it in the same reasoning pass that sets `kk_relates_to` / `kk_depends_on` (see "Relate and place" below) and record it on the action's `home_folder` field. Leave `home_folder` unset/null/empty to land the leaf at the `nodes/` root (the root fallback).
+An `add` also carries a **home branch**. Choose it through the single "Relate and place" pass below; that section owns the `home_folder` and root-fallback rules.
 
 #### `modify` — refines an existing node
 
@@ -144,9 +144,7 @@ A modification overwrites the existing leaf in place at its current path by id (
 
 **End-state rewrite rule.** The merged body reads as the current state in present tense. Never append "previously…" or "earlier this used to…" paragraphs, and never narrate "the project moved from X to Y" inside the body. When the new candidate's information is a transition narrative, rewrite the existing node body so that only the new end-state claim remains visible. The knowledge base is the project's current state, not its changelog.
 
-**Important:** if the candidate is essentially the same content as the existing node, just rephrased, **drop it** instead. Modifications must add real new information.
-
-**Modification restraint.** Apply the shared modification-restraint criteria in `.ai/kenkeep/.config/prompts/knowledge-admission.md` (the single source for these rules): prefer a minimal in-place edit over a rewrite and never churn an accurate node; every edit must trace to the specific proposal or conflict that caused it (impact-plan style: source change → node affected → edit needed → why); and never make formatting-only edits to an existing node. A `modify` that would only tidy prose is a `drop`.
+Apply the canonical file's `Modification restraint` section. If it rules out a `modify`, emit `drop` instead.
 
 #### `contradict` — negates an existing node
 
@@ -176,7 +174,7 @@ Use when the candidate should not result in any change. Reasons to drop:
 - The candidate captured general programming knowledge, not project-specific.
 - The candidate is internally inconsistent or refers to things that don't exist elsewhere.
 - **Change-oriented framing** — transition narratives, migration stories, rename or removal logs, "we used to do X, now we do Y" wording. Automatic drop regardless of confidence. The knowledge base describes the project's current end state, not its history.
-- **Anything ruled out by the shared knowledge admission criteria** — maintenance/lifecycle actions, project story or history (especially plan/ticket/issue references), and incidental one-off facts dressed up as practices. Apply `.ai/kenkeep/.config/prompts/knowledge-admission.md` (which also carries the six-months keep test and the salvage rule); these are automatic drops.
+- Anything ruled out by the canonical knowledge-admission criteria; these are automatic drops.
 - **Non-productive provenance signals** in the candidate body or description:
   - hedged/tentative wording ("we might", "we could", "potentially", "the idea is to"). Practice nodes describe rules, not hypotheses.
   - references to hypothetical or unrealized entities ("the planned X", "once we add Z"). Map nodes describe what is.
@@ -185,7 +183,9 @@ Use when the candidate should not result in any change. Reasons to drop:
 
   Weigh these together; drop when the combined signature suggests a non-productive session. Single-signal cases do not auto-drop.
 
-**Salvage rule.** Apply the salvage rule and keep test from `.ai/kenkeep/.config/prompts/knowledge-admission.md`: when a candidate narrates a transition, maintenance action, or story but also conveys a clean durable principle or current-state fact, extract that durable part and keep it via `add` or `modify` (rewritten as a standing rule or present-tense fact); when the whole candidate is the journey, drop it.
+Apply the canonical keep test and salvage rule. Use any admitted remainder as an `add` or `modify`; emit `drop` when nothing survives.
+
+A `drop` sets `target_node_id: null` and `proposed_node: null`; it is the only action with a null `proposed_node`.
 
 ### Relate and place
 
@@ -212,7 +212,7 @@ Each action conforms to `CuratorActionSchema`; an array of them is the `curator-
 - `npx --yes kenkeep@latest schema curator-output` prints the JSON Schema (the action object and its nested `proposed_node`).
 - After you assemble `$PROPOSALS`, run `npx --yes kenkeep@latest validate curator-output "$PROPOSALS"`; on a non-zero exit, read the path-referenced errors, fix the offending action(s), and re-validate until it passes.
 
-The operative semantics stay above and are yours to apply: which action to choose (add/modify/contradict/drop), the end-state rewrite rule, tightest-scope contradiction, and `home_folder` placement — only `add` sets `home_folder`; `modify`, `contradict`, and `drop` omit it, and `proposed_node` is `null` only for `drop`. The schema enforces the rest, including rejecting any unknown `proposed_node` key.
+The "Action rules" and "Relate and place" sections above are the sole semantic definitions; do not infer a second set from the schema. The schema enforces the object shape, including rejecting any unknown `proposed_node` key.
 
 ## 3. Write the proposals tmpfile
 
@@ -235,6 +235,8 @@ Invoke `curate-dedup`:
 npx --yes kenkeep@latest curate-dedup \
   --input "$PROPOSALS" --output "$SURVIVORS" --run-id "$RUN_ID"
 ```
+
+Invoke it once per session. The primitive is non-locking and idempotent on a fresh `runId`, but do not re-run the same `$PROPOSALS` with a different `runId`; that would double-stamp consumed sessions and double-write conflict files.
 
 Dedupe ranges over the whole tree: existing leaves are read from every folder under `nodes/` (at any depth), so a duplicate is matched wherever it currently lives. The behavior is unchanged from a flat space; only the search surface is the whole tree. A duplicate updates the existing leaf in place at its current path by id (a `modify`), with no relocation.
 
@@ -275,7 +277,7 @@ npx --yes kenkeep@latest index rebuild
 
 ## 6b. Rebalance (final phase, act-and-fold)
 
-This is the last phase of curate and the only place tree structure changes. It folds in here: no second command, no second nudge. Run it after the leaves are written and the indices rebuilt (Step 6), before reporting.
+This is the structural exception named in "Constraints (apply to every action)". It is the last phase of curate and folds into this run: no second command and no second nudge. Run it after the leaves are written and the indices rebuilt (Step 6), before reporting.
 
 ### 6b.1 Run the deterministic trigger
 
@@ -293,11 +295,11 @@ It prints exactly one JSON line:
 
 **Skip path (zero added cost).** If `actions` is empty (`{"actions":[]}`), the tree is balanced past the hysteresis margin. Do **not** enter the LLM clustering step at all. Record "rebalance: no structural action" for the Step 7 summary and proceed to Step 7. This is the common case; most curate runs trip nothing and end exactly as they do today.
 
-**Act path.** If `actions` is non-empty, continue to 6b.2. Reason only over the branches the trigger named; never widen the scope.
+**Act path.** If `actions` is non-empty, continue to 6b.2. The named branches are the complete reasoning and mutation scope; never widen it.
 
 ### 6b.2 Propose structural operations on the affected branches only
 
-For each entry in `actions`, read only that branch (the named folder's `index.md` and its leaves, or the named leaf for `split-leaf` / `create-branch`) and decide a concrete operation. This is the only non-deterministic step in the whole run; it is quarantined behind the deterministic trigger and the human's commit gate. Do not touch any branch the trigger did not name.
+For each entry admitted by the act path above, read the named folder's `index.md` and its leaves, or the named leaf for `split-leaf` / `create-branch`, and decide a concrete operation. This is the only non-deterministic step in the whole run; it is quarantined behind the deterministic trigger and the human's commit gate.
 
 Map each operation class to a concrete plan entry. For every NEW folder an operation creates, also author a one-line folder `summary`: a noun phrase / sentence fragment that completes `for more information on <summary>` (lowercase start, no trailing period, concise). Make it task-keyed, not just structural: after naming what lives in the folder, append a short `; read when <task pattern>` clause naming the tasks that should trigger descent (e.g. `the five harness adapters and their isolation rules; read before adding a harness or changing hook wiring`). Agents route by matching their task against these summaries, so the trigger clause is what makes descent reliable. The move primitive stamps it into the new folder's folder-summary sidecar, and every later deterministic rebuild self-preserves it; it is what the parent index splices into its `Load …` descent pointer.
 
@@ -333,7 +335,7 @@ Capture it. Do not commit, add, or restore anything: the structural moves and th
 
 Tell the user the headline numbers (`kept`, `conflicts`, `stamped`, `runId`), the count of nodes written, and the count of drops. Also list the **placement decision per written leaf**: for each `add` you persisted, report its id and the folder it landed in (the chosen `home_folder`, or `root fallback` when none was chosen); for each `modify`, note it was updated in place at its current path. This lets the human review placement alongside content.
 
-**No-op is a correct outcome.** When `nodes_written == 0` (every candidate was dropped), the knowledge base was already current — say so plainly ("no changes; the knowledge base is current") rather than apologising for an empty write set. An empty write set is the preferred result when nothing proposed real new information.
+When `nodes_written == 0`, use the canonical no-op outcome named at the start of this skill and print its exact report text.
 
 **Structural summary (rebalance).** Then print the structural summary from the rebalance phase (Step 6b), distinct from and additional to the content summary above so the human gets a legend for the structural diff:
 
@@ -357,6 +359,8 @@ npx --yes kenkeep@latest conflict prepare
 ```
 
 It reads the pending conflict files, sorts/groups them (by `target_node_id` with `null` last, then `proposed_kind`, then `detected_at`; consecutive conflicts sharing a non-null `target_node_id` form a group), computes each conflict's default reply with the diff-ratio rules, and prints `{"count":N,"conflicts":[...]}`. Each conflict carries `id`, `target_node_id`, `proposed_title`, `proposed_confidence`, `rationale`, `proposed_body`, `group_id`, `first_in_group`, the resolved `existing` node (rendered once per group on `first_in_group`), and the recommended `default` (`y`/`n`/`s`). Walk `conflicts` in the given order; the defaults are recommendations, not determinations.
+
+If `count` is zero because the conflict directory is empty or every file is non-pending, there is nothing to resolve; finish with the Step 7 fast-path summary.
 
 ### 7b. Present each conflict
 
@@ -400,10 +404,6 @@ After every conflict in a group is decided, move to the next group.
 
 Tell the user to review the changed nodes and conflict files under `.ai/kenkeep/`. `ENTRY.md` and `GRAPH.md` were refreshed in step 6 (and again by the rebalance move primitive if the rebalance phase acted). Any structural moves from Step 6b sit in the same uncommitted diff; the human accepts everything by `git commit` or rejects just the structural moves with a path-scoped `git restore`.
 
-## Constraints
+## Constraint index
 
-- The reply contract for conflict resolution is strictly `y`/`n`/`s`/`k` (or their long forms / empty for default). Do not accept paraphrased prose as an answer — re-prompt instead.
-- If no session logs are pending, short-circuit at step 1 with the one-line message. Do not invoke any primitive.
-- If `.ai/kenkeep/conflicts/` is empty or every file has `status` other than `pending`, there's nothing to resolve; the fast-path message in step 7 already covers it.
-- Rebalance (Step 6b) runs only as the final phase of curate; it is never a separate command or nudge. When `rebalance trigger` reports `{"actions":[]}`, skip the LLM clustering step entirely (zero added cost) and report no structural action. When it fires, reason only over the branches it names, never widen the scope, and apply moves only through the `rebalance move` primitive. Never relocate files or regenerate indexes by hand, and never `git add`, `git commit`, or `git restore` anything.
-- The dedup primitive is non-locking and idempotent on a fresh `runId` — but do not re-run it with the same `$PROPOSALS` and a different `runId`; that double-stamps consumed sessions and double-writes conflict files. One `curate-dedup` call per session.
+Each lifecycle constraint is defined once at its point of use: the empty-session short circuit in Step 1, action-wide constraints after "Relate and place", dedup call cardinality in Step 4, rebalance branches and mutations in Step 6b, the no-conflict fast path in Step 7/7a, and the conflict reply grammar in Step 7d. Follow those definitions rather than creating parallel variants here.

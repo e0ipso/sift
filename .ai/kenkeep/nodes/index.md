@@ -12,7 +12,6 @@ okf_version: '0.1'
 - Load [`convention/`](convention/index.md) for more information on cross-cutting project conventions including the file-based tracker premise and commit-message rules; read when changing standing repo conventions outside a single skill.
 - Load [`cross-skill/`](cross-skill/index.md) for more information on the rules sift-drain and sift-prime must classify alike — what a roadmap row is and what a ticket ID is — and how every copy is inventoried and guarded; read when touching either skill's row reader or ID check.
 - Load [`drift-detection/`](drift-detection/index.md) for more information on the repo's own static scanners and drift detectors — what the shellcheck and collated-range scans do and do not flag, and the rule that a detector prints its own remedy; read when adding a check under tests/static/ or working around a scan finding.
-- Load [`kenkeep/`](kenkeep/index.md) for more information on Kenkeep prompt ownership and knowledge lifecycle contracts; read before changing capture, curation, or admission rules.
 - Load [`portability/`](portability/index.md) for more information on GNU/BSD recipe portability and no-installable-binary rules; read when writing cookbook recipes or shell helpers that must run on macOS and Linux.
 - Load [`shell/`](shell/index.md) for more information on portable shell and awk recipe rules — quoting, globs, grep exit codes, fence-scoped rewrites and atomic publication; read when writing or editing a shell helper or a cookbook recipe.
 - Load [`sift-drain/`](sift-drain/index.md) for more information on sift-drain orchestration practices and the drain skill map; read when draining a roadmap, dispatching ticket agents, or changing wave-gate behavior.
@@ -27,8 +26,14 @@ okf_version: '0.1'
 _None yet._
 
 ## Components (what exists)
-_None yet._
+- Open [**Kenkeep knowledge-admission authority**](map-kenkeep-knowledge-admission-authority.md) to learn about: knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills. #kenkeep #prompts #ownership
 
 ## By topic
 
-_No tags yet._
+### #kenkeep
+- Open [**Kenkeep knowledge-admission authority**](map-kenkeep-knowledge-admission-authority.md) — knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills.
+### #ownership
+- Open [**Kenkeep knowledge-admission authority**](map-kenkeep-knowledge-admission-authority.md) — knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills.
+### #prompts
+- Open [**Kenkeep knowledge-admission authority**](map-kenkeep-knowledge-admission-authority.md) — knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills.
+- Open [**Platform plan-creator contract**](strikethroo/map-platform-plan-creator-contract.md) — Claude and Cursor use byte-identical ordered plan-creator contracts with the same seven execution phases.

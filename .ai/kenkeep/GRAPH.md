@@ -1,19 +1,28 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:59db430fc2a4195070f1d5d5f8decb2062742f5b9d1bb0fe00da10567c97e62b'
-node_count: 96
+nodes_hash: 'sha256:3c1ce4d19216f3db37868891d2a0a99a60a776ce04eb56baff87e6e92def9522'
+node_count: 98
 ---
 # kenkeep Graph
 
-Total nodes: 96
+Total nodes: 98
 
 ## map-kenkeep-knowledge-admission-authority
 
 - **kind:** map
 - **title:** Kenkeep knowledge-admission authority
-- **path:** kenkeep/map-kenkeep-knowledge-admission-authority.md
+- **path:** map-kenkeep-knowledge-admission-authority.md
 - **tags:** kenkeep, prompts, ownership
 - **derived_from:** 4039a28c-82f8-4772-9667-404c8aec09cb:map:1
+
+## map-platform-plan-creator-contract
+
+- **kind:** map
+- **title:** Platform plan-creator contract
+- **path:** strikethroo/map-platform-plan-creator-contract.md
+- **tags:** strikethroo, agents, prompts
+- **relates_to:** map-strikethroo-identifier-scopes
+- **derived_from:** 3d3ee3a0-eb9a-4543-9e23-39539d9bb26c:map:2
 
 ## map-runlog-md-the-drain-s-append-only-run-log
 
@@ -56,7 +65,7 @@ Total nodes: 96
 - **path:** sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md
 - **tags:** sift-prime, skills, sift
 - **relates_to:** practice-sift-prime-creates-a-slate-of-tickets-not-a-single-ticket, practice-dedupe-sift-prime-proposals-against-open-and-archive, practice-ground-sift-prime-proposals-in-goal-gap-evidence-with-citations, practice-negotiate-the-sift-prime-slate-in-chat-only-reserve-ids-in-one-pass, map-sift-drain-skill, map-sift-init-deterministic-project-root-gate-and-tree-materialization
-- **derived_from:** 5448174b-fef4-4061-9f43-64dad9c0fad7:map:0
+- **derived_from:** 5448174b-fef4-4061-9f43-64dad9c0fad7:map:0, 3d3ee3a0-eb9a-4543-9e23-39539d9bb26c:map:0
 
 ## map-sift-readme-normative-spec
 
@@ -115,6 +124,15 @@ Total nodes: 96
 - **path:** tickets/map-sift-xsd-drafting-schemas.md
 - **tags:** sift, tickets, schemas
 - **relates_to:** map-sift-ticket-body-sections
+
+## map-strikethroo-full-workflow-stage-orchestration
+
+- **kind:** map
+- **title:** Strikethroo full-workflow stage orchestration
+- **path:** strikethroo/map-strikethroo-full-workflow-stage-orchestration.md
+- **tags:** strikethroo, orchestration, skills
+- **relates_to:** map-strikethroo-identifier-scopes
+- **derived_from:** 3d3ee3a0-eb9a-4543-9e23-39539d9bb26c:map:1
 
 ## map-strikethroo-identifier-scopes
 

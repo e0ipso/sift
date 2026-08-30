@@ -24,8 +24,8 @@ none of them; that is what keeps one allocator in the run.
 carries the same `created` date — agents that each resolve "today" independently split a
 batch across midnight and across whatever each of them believes the date to be.
 
-**Two claims the template makes about other files are pinned here.** STEP 2 names the XSD
-root element that belongs to each `type`, and the body headings STEP 3 lists are the
+**Two claims the template makes about other files are pinned here.** STEP 3 names the XSD
+root element that belongs to each `type`, and the body headings STEP 4 lists are the
 convention's, copied from README's templates — both restate something that lives elsewhere,
 and a rename on the other side would starve the drafting agent of the very rule this prompt
 is trying to hand it. Each restatement is tagged on a line of the form
@@ -35,7 +35,7 @@ repository root. The tags sit here rather than beside the sentences below becaus
 template is a fenced block dispatched to a sub-agent verbatim; nothing is added to the text
 that agent receives.
 
-The three root elements STEP 2 names:
+The three root elements STEP 3 names:
 
 ```text
 @PIN: schemas/bug-ticket.xsd <xs:element name="bug-ticket">
@@ -43,7 +43,7 @@ The three root elements STEP 2 names:
 @PIN: schemas/task-ticket.xsd <xs:element name="task-ticket">
 ```
 
-The headings STEP 3 lists, each a section of README's body templates:
+The headings STEP 4 lists, each a section of README's body templates:
 
 ```text
 @PIN: README.md ## Problem
@@ -95,6 +95,7 @@ and resolves them by position against README's bounded `## Rules for agents` lis
    and `command grep` inside `.ai/sift` because ignore-aware search may skip that tree.
 @RULE: README.md 3 Front-matter is the source of truth
 @RULE: README.md 5 Claims about code cite
+@RULE: README.md 9 in sync — in the same change
 @RULE: README.md 10 Use the body template for the ticket's
 
 3. Read {{SCHEMA_PATH}}. Use `bug-ticket` for `type: bug`, `feature-ticket` for
@@ -157,7 +158,6 @@ and resolves them by position against README's bounded `## Rules for agents` lis
    scratch file. Do not edit ROADMAP.md, MILESTONES.md, config, or another ticket. Do not
    change product code or tests. Do not create a branch or commit, run `git push`, or use an
    external tracker.
-@RULE: README.md 9 in sync — in the same change
 @RULE: README.md 9 in sync — in the same change
 
 6. Return exactly these fields and no other text. Put the citations exactly as rendered in

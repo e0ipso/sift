@@ -5,6 +5,11 @@
 # step before the single final report, and keep the report's `tickets filed` field
 # explicit so every new ID reaches the orchestrator.
 #
+# The sift-prime drafting prompt has six numbered steps. Its preamble points the
+# XSD pins at step 3 and the body-heading pins at step 4. Its two rule-9 markers
+# belong to the roadmap-reading instruction in step 2 and the write-scope
+# instruction in step 5, not to one repeated site.
+#
 # The Claude and Cursor plan-creator prompts are two platform entry points for one
 # contract. Keep their bytes equal and their seven phases in the declared order.
 
@@ -14,6 +19,7 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 . "$DIR/../lib/recipes.sh"
 
 PROMPT="$REPO_ROOT/src/skills/sift-drain/references/ticket-agent-prompt.md"
+DRAFTING_PROMPT="$REPO_ROOT/src/skills/sift-prime/references/drafting-agent-prompt.md"
 CLAUDE_PLAN="$REPO_ROOT/.claude/agents/plan-creator.md"
 CURSOR_PLAN="$REPO_ROOT/.cursor/agents/plan-creator.md"
 FOLLOW_HEADING='Step 5: File warranted follow-ups'
@@ -39,6 +45,19 @@ PLAN_PHASES='## 1. Load the inputs
 ## 5. Enforce the content boundary
 ## 6. Write and validate the file
 ## 7. Report the result'
+DRAFTING_STEPS='1
+2
+3
+4
+5
+6'
+DRAFTING_REFERENCES='STEP 3
+STEP 4
+STEP 3
+STEP 4'
+DRAFTING_RULE9='@RULE: README.md 9 in sync — in the same change'
+DRAFTING_RULE9_STEPS='2
+5'
 
 count_exact() {
   awk -v want="$2" '$0 == want { n++ } END { print n + 0 }' "$1"
@@ -54,6 +73,63 @@ line_containing() {
 
 plan_phases() {
   awk '/^## [0-9]+\. / { print }' "$1"
+}
+
+drafting_step_numbers() {
+  awk '
+    $0 == "## Template" { seek_fence = 1; next }
+    seek_fence && $0 == "```" { in_template = 1; seek_fence = 0; next }
+    in_template && $0 == "```" { exit }
+    in_template && /^[0-9][0-9]*\.[[:space:]]/ {
+      step = $0
+      sub(/\..*$/, "", step)
+      print step
+    }
+  ' "$1"
+}
+
+drafting_preamble_references() {
+  awk '
+    $0 == "## Template" { exit }
+    {
+      line = $0
+      while (match(line, /STEP[[:space:]][0-9][0-9]*/)) {
+        print substr(line, RSTART, RLENGTH)
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' "$1"
+}
+
+drafting_rule9_steps() {
+  awk -v marker="$DRAFTING_RULE9" '
+    $0 == "## Template" { seek_fence = 1; next }
+    seek_fence && $0 == "```" { in_template = 1; seek_fence = 0; next }
+    in_template && $0 == "```" { exit }
+    in_template && /^[0-9][0-9]*\.[[:space:]]/ {
+      step = $0
+      sub(/\..*$/, "", step)
+    }
+    in_template {
+      line = $0
+      sub(/^[[:space:]]+/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      if (line == marker) print step
+    }
+  ' "$1"
+}
+
+adjacent_drafting_rule9_markers() {
+  awk -v marker="$DRAFTING_RULE9" '
+    {
+      line = $0
+      sub(/^[[:space:]]+/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      if (line == marker && previous == marker)
+        printf "%d:%d\n", NR - 1, NR
+      previous = line
+    }
+  ' "$1"
 }
 
 ordering_error() {
@@ -147,6 +223,54 @@ awk -v field="$FIELD" '!index($0, field)' "$PROMPT" > "$damaged"
 assert_not_contains "$(cat "$damaged")" "$FIELD" "the report field is gone from the copy"
 assert_eq "tickets filed field missing" "$(report_error "$damaged")" \
   "the report check names the missing field"
+
+test_case "the drafting prompt keeps its six-step reference contract"
+assert_file "$DRAFTING_PROMPT" "the canonical drafting prompt exists"
+assert_eq "$DRAFTING_STEPS" "$(drafting_step_numbers "$DRAFTING_PROMPT")" \
+  "the drafting template exposes exactly six ordered steps"
+assert_eq "$DRAFTING_REFERENCES" "$(drafting_preamble_references "$DRAFTING_PROMPT")" \
+  "the XSD and body-heading pins name their owning steps"
+
+test_case "a stale drafting step reference fails the reference check"
+work="$(newdir)"
+damaged="$work/drafting-agent-prompt.md"
+awk '
+  !changed && index($0, "STEP 3 names the XSD") {
+    sub(/STEP 3/, "STEP 2")
+    changed = 1
+  }
+  { print }
+' "$DRAFTING_PROMPT" > "$damaged"
+assert_contains "$(cat "$damaged")" "STEP 2 names the XSD" \
+  "the copy points the XSD claim at its former step"
+assert_ne "$(drafting_preamble_references "$DRAFTING_PROMPT")" \
+  "$(drafting_preamble_references "$damaged")" \
+  "the stale-reference mutation changed the live contract"
+assert_ne "$DRAFTING_REFERENCES" "$(drafting_preamble_references "$damaged")" \
+  "the reference comparison rejects the stale step number"
+
+test_case "the drafting rule-9 markers pin two owning steps"
+assert_eq "$DRAFTING_RULE9_STEPS" "$(drafting_rule9_steps "$DRAFTING_PROMPT")" \
+  "the roadmap-read and write-scope statements each carry one rule-9 marker"
+assert_eq '' "$(adjacent_drafting_rule9_markers "$DRAFTING_PROMPT")" \
+  "the two rule-9 markers are not adjacent"
+
+test_case "adjacent drafting rule-9 markers fail the placement check"
+work="$(newdir)"
+damaged="$work/drafting-agent-prompt.md"
+awk -v marker="$DRAFTING_RULE9" '
+  $0 == marker && !moved { moved = 1; next }
+  $0 == marker && moved { print; print; moved = 0; next }
+  { print }
+' "$DRAFTING_PROMPT" > "$damaged"
+assert_eq '5
+5' "$(drafting_rule9_steps "$damaged")" \
+  "the copy co-locates both markers at the write-scope statement"
+assert_ne "$(drafting_rule9_steps "$DRAFTING_PROMPT")" \
+  "$(drafting_rule9_steps "$damaged")" \
+  "the adjacent-marker mutation changed the live placement"
+assert_ne '' "$(adjacent_drafting_rule9_markers "$damaged")" \
+  "the placement check rejects adjacent rule-9 markers"
 
 test_case "the plan-creator platforms carry one byte-identical contract"
 assert_file "$CLAUDE_PLAN" "the Claude plan-creator prompt exists"

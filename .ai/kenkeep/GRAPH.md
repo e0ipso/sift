@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:f7552d3afe8875a7e9b9d85e028a47a44f892e6376f646add25c5a73dc298447'
+nodes_hash: 'sha256:c511e3af417a708c7619a886ec532893336b47d6f42b2b6fe81064e85afdd878'
 node_count: 98
 ---
 # kenkeep Graph
@@ -11,7 +11,7 @@ Total nodes: 98
 
 - **kind:** map
 - **title:** Kenkeep knowledge-admission authority
-- **path:** knowledge-base/map-kenkeep-knowledge-admission-authority.md
+- **path:** map-kenkeep-knowledge-admission-authority.md
 - **tags:** kenkeep, prompts, ownership
 - **derived_from:** 4039a28c-82f8-4772-9667-404c8aec09cb:map:1
 
@@ -65,7 +65,7 @@ Total nodes: 98
 - **path:** sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md
 - **tags:** sift-prime, skills, sift
 - **relates_to:** practice-sift-prime-creates-a-slate-of-tickets-not-a-single-ticket, practice-dedupe-sift-prime-proposals-against-open-and-archive, practice-ground-sift-prime-proposals-in-goal-gap-evidence-with-citations, practice-negotiate-the-sift-prime-slate-in-chat-only-reserve-ids-in-one-pass, map-sift-drain-skill, map-sift-init-deterministic-project-root-gate-and-tree-materialization
-- **derived_from:** 5448174b-fef4-4061-9f43-64dad9c0fad7:map:0, 3d3ee3a0-eb9a-4543-9e23-39539d9bb26c:map:0
+- **derived_from:** 5448174b-fef4-4061-9f43-64dad9c0fad7:map:0, 3d3ee3a0-eb9a-4543-9e23-39539d9bb26c:map:0, 50b13f1b-f79a-4eaf-b856-01f5cf742a87:map:0
 
 ## map-sift-readme-normative-spec
 

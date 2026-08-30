@@ -3,6 +3,15 @@
 Copy the template and substitute the placeholders. Do not trim the process requirements —
 every clause is a hard-won constraint.
 
+This file is the sole full worker contract. Its Step 6 block is the sole exact worker report
+schema. The orchestrator skill consumes that schema but does not copy it.
+
+`tests/static/skill-prose-pins.test.sh` reads the authority tags in this file.
+
+```text
+@PIN: src/skills/sift-drain/SKILL.md ## Consume worker reports
+```
+
 One dispatch hands one worker a SITTING of tickets: the set the orchestrator's wave graph
 assigned to this node, listed in the order they must be worked. A sitting of one is the
 ordinary small case and needs no special form — the template reads correctly with a single
@@ -223,11 +232,39 @@ narration of the steps.
 
 ---
 
+## Resume a stalled sitting
+
+Resume the same worker with this template when it pauses on an ordinary judgment call. Do
+not use it for reported tamper; the orchestrator must coordinate the overlapping sittings
+before either worker continues.
+
+| Placeholder | Source |
+|---|---|
+| `{{QUESTION_AS_YOU_UNDERSTAND_IT}}` | the worker's question, restated without adding a new decision |
+
+```
+You stopped to ask: {{QUESTION_AS_YOU_UNDERSTAND_IT}}
+
+Resolve it yourself and finish the sitting; no answer is coming.
+  - For a knowledge-base curation conflict, prefer the live tree and the newest user
+    directives. Zero durable candidates is a valid outcome.
+  - For implementation scope, apply the ticket's Direction as written, record the judgment
+    call in your report, and continue.
+  - If this is interference or tamper, do not overwrite anything. Return with `tamper:`
+    naming what changed and the sitting involved so the orchestrator can coordinate.
+  - Report `status: blocked` with the full question only if the user must answer it.
+```
+
+---
+
 ## Redispatch on failure
 
-Failure is per ticket, never per sitting. Tickets the orchestrator already landed are
-merged, archived and struck; nothing redispatches them. Read the report's per-ticket
-`status:` lines and act only on the ones that are not `done`.
+The failure policy and redispatch decision live in `SKILL.md`. This section holds the exact
+worker messages used when that policy calls for a retry or a blocked-body edit.
+
+```text
+@PIN: src/skills/sift-drain/SKILL.md **Failure policy:**
+```
 
 | Placeholder | Source |
 |---|---|
@@ -235,8 +272,8 @@ merged, archived and struck; nothing redispatches them. Read the report's per-ti
 | `{{FAILURE_REPORT}}` / `{{FAILURE_REPORTS}}` | the failing worker's report(s), verbatim |
 | `{{TICKET_ID}}` / `{{TICKET_PATH}}` | the one still-failing ticket handed to the blocked-marking path below |
 
-First failure: re-dispatch the same template with `{{GROUP_TICKETS}}`, `{{GROUP_SIZE}}` and
-`{{TICKET_BLOCK}}` narrowed to `{{FAILED_TICKETS}}` alone, appending:
+For the retry, narrow `{{GROUP_TICKETS}}`, `{{GROUP_SIZE}}`, and `{{TICKET_BLOCK}}` to
+`{{FAILED_TICKETS}}` and append:
 
 ```
 PRIOR ATTEMPT FAILED for {{FAILED_TICKETS}}. Context from the previous worker:
@@ -245,9 +282,8 @@ Diagnose the root cause before changing anything; do not repeat the same approac
 ticket of that sitting not named above is already landed — leave it alone.
 ```
 
-Second failure: the orchestrator marks the ticket blocked itself (file stays in
-`.ai/sift/open/`, roadmap row UNSTRUCK). It may dispatch a small worker only if it
-needs a `## Blocked` body section written without reading the product:
+For a blocked-body edit requested by the skill's failure policy, dispatch this small worker
+without asking it to read the product:
 
 ```
 Sift ticket {{TICKET_ID}} at {{TICKET_PATH}} failed two implementation attempts. Read the
@@ -259,12 +295,14 @@ Do not change status, do not archive, do not touch ROADMAP.md. The orchestrator 
 Report: status, commit hash, one-paragraph reason.
 ```
 
-Then report the blockage and continue the wave. Never stall the run on one ticket.
-
 ## Tamper check-back
 
-When a worker returns `tamper:` other than `none`, do not land either sitting's remaining
-work. Resume or dispatch with:
+The skill and `run-management.md` own the tamper decision. When that decision needs the
+workers to propose a safe split or ordering, resume or dispatch with:
+
+```text
+@PIN: src/skills/sift-drain/references/run-management.md ## Worker check-back
+```
 
 ```
 COORDINATION — another sitting changed files you also touch.

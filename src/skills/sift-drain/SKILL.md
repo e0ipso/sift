@@ -129,9 +129,14 @@ front of it: `drain-log.sh -- dispatch <TICKET>` records the row `drain-log.sh d
 one row per ticket to `.ai/sift/RUNLOG.md`, which the first dispatch creates and nothing
 ever rewrites. Every row a single call appends shares one timestamp, and that shared
 timestamp is what makes those rows one sitting — so hand the whole sitting to one call.
-`drain-log.sh phase orient|implement|verify|bookkeep` marks where the time went inside a
-sitting; the worker stamps those from within its own run, so you read them in `report`
-without ever calling the mode yourself.
+The sitting phase order is `orient`, `implement`, `verify`, then `bookkeep`.
+`drain-log.sh phase` marks those transitions inside the worker's run, so you read them in
+`report` without calling the mode yourself. The worker prompt owns the exact stamp actions.
+
+```text
+@PIN: src/skills/sift-drain/references/ticket-agent-prompt.md The four phase commands in this contract are the only phase stamps for the sitting.
+```
+
 `drain-log.sh report` reads the log back as a per-group table of agent runtime, the idle gap
 before each dispatch, the phase breakdown, and the runtime divided by the tickets the group
 actually **resolved**, and flags incomplete, orphaned and unusually slow records.
@@ -153,20 +158,14 @@ orientation and whose write scope you have judged. One worker eating the whole w
 is not the design — that fills the worker's context. Several sequential and parallel
 workers per wave is normal.
 
-**Write scope is an edge.** Two tickets whose citations name the same product files
-get a sequential edge: the second worker starts only after the first has returned
-and you have landed it. Tickets whose files do not clash may run at the same time.
-`depends_on` is also an edge. `cluster` is a relatedness hint, not a dispatch
-selector, and it never overrides a write-scope edge. Priority still pulls a p1
-forward inside the wave (`references/run-management.md`).
+Build write-scope and dependency edges with the operating rules in
+`references/run-management.md`. Those rules decide which tickets share a sitting,
+which sittings may run together, and which must wait. You still own the dispatch
+decision and its timing.
 
 ```text
 @PIN: src/skills/sift-drain/references/run-management.md ### Write scope is an edge, not a hope
 ```
-
-**Planned overlap on the same files is rejected.** If a worker notices another has
-changed its work anyway, it stops and checks back. You coordinate a solution that
-covers both. Workers do not fight by overwriting each other.
 
 **You are the only tracker writer and the only merger.** Workers implement on a
 branch and report. They do not strike, archive, or merge.
@@ -185,30 +184,17 @@ Loop, until the current wave has no remaining dispatchable tickets:
    call — as the last thing before each dispatch, so the stamp bounds worker
    runtime rather than your own deliberation.
 4. Dispatch each sitting with `references/ticket-agent-prompt.md` verbatim; do not
-   re-derive it. The worker implements, scoped-verifies, and returns. It does not
-   archive, strike, or merge.
+   supplement or re-derive it. That file is the full worker contract, including
+   phase stamps, implementation, verification, commits, follow-ups, and its exact
+   report schema.
 5. **Model policy.** Default to the session's model tier. Escalate to the strongest
    tier available for `effort: l|xl`, for architecturally sensitive work (public
    API, ADRs, structural hubs), and for wave-gate test batches. Never downgrade to
    a cheap or fast tier to save tokens — a bad merge costs more than the model did.
-6. **Never `git push`** — not you, not any worker. Local branches, local merges.
-7. **No planning-skill detours, no TDD cycle.** The worker implements directly, then
-   verifies.
-8. **No per-ticket test authoring, three exceptions.** Tests are batched at the wave
-   gate; a ticket with test acceptance criteria records the **waiver** in its
-   `resolution` (you copy that into the archive edit), and the gate builds its
-   coverage list from those resolutions. The exceptions: a `type: test` ticket,
-   whose deliverable *is* the tests; a canary/pin test the ticket itself asks for;
-   and minimal edits to **existing** tests whose assertions pin behaviour this
-   ticket intentionally changes. Every such edit is explained in the report.
-9. **Scoped verification only** — the worker runs the project's lint, static
-   analysis and unit/integration commands over **only** what it touched, plus a
-   live pre-fix reproduction where feasible and live acceptance on throwaway
-   fixtures it fully cleans up. Full suites run at the gate, never per sitting.
-10. **Nothing goes to an external tracker.** No agent files, comments on, or patches an
-    upstream project. An upstream fix worth making becomes a local `type: dx` ticket,
-    surfaced to the user, who files it.
-11. The moment a worker returns, before anything else:
+6. Never `git push` or touch an external tracker. The worker and gate prompt templates carry
+   the same boundary for their actors. When a gate agent reports an upstream proposal,
+   create a local `type: dx` ticket so the user can file it.
+7. The moment a worker returns, before anything else:
     - If `tamper:` is not `none`, coordinate; do not let either worker overwrite
       the other (`references/run-management.md`).
     - Run `drain-log.sh return <TICKET> <STATUS>...` in one call, pairing each
@@ -223,9 +209,7 @@ Loop, until the current wave has no remaining dispatchable tickets:
       **Surface every self-filed ticket to the user** — non-negotiable, every time.
     - Rewire. Dispatch newly ready sittings.
 
-**If a worker stalls** waiting for an answer, resume it rather than abandoning the
-sitting (recipe in `references/run-management.md`). Workers never edit this skill's
-own files: a skill-maintenance agent may be running concurrently.
+If a worker stalls, follow the resume procedure in `references/run-management.md`.
 
 **Failure policy:** redispatch once with the failure context attached. On a second
 failure, set `status: blocked` yourself (file stays in `open/`, roadmap row left
@@ -235,42 +219,23 @@ unstruck), report it, and continue the wave. Never stall a run on one ticket.
 `done`. Redispatch only the ones that failed. A sitting is a dispatch, never a
 transaction.
 
-## Worker report format
+## Consume worker reports
 
-Workers return exactly this — no diffs, no file listings, no code:
-
-```
-status: <TICKET-ID>: done | blocked | not started   — one line per ticket, sitting order
-branch: <name>
-commits: <TICKET-ID> <hash> — one per ticket that implemented
-summary: <one paragraph per ticket>
-verification: per ticket — <suite: N tests, M assertions, files run> | <lint: result>
-              | <static analysis: result> | <e2e: spec, N passed | n/a>
-sitting verification: <N tests, M assertions over the union of the scoped files>
-                    | <lint: result>
-live check: per ticket — <pre-fix observation> -> <post-fix observation>; fixtures cleaned up
-test edits: <existing tests touched and why> | none
-deferred to the wave gate: <waived criteria, destructive sequences, and durable knowledge
-                           worth capturing> | none
-tickets filed: <IDs> | none
-tamper: none | <what changed under this worker, and which other sitting it implicates>
-```
-
-`references/ticket-agent-prompt.md` holds the canonical wording; this is the same block, and
-if the two ever read differently the prompt is the one the worker was actually given.
+`references/ticket-agent-prompt.md` is the sole exact report schema. Validate a return
+against that schema before changing tracker state. Ask the same worker for missing or vague
+fields. Do not inspect its diff as a substitute.
 
 ```text
-@PIN: src/skills/sift-drain/references/ticket-agent-prompt.md commits: <TICKET-ID> <hash> — one per ticket that implemented
+@PIN: src/skills/sift-drain/references/ticket-agent-prompt.md Step 6: Return one final report
+@PIN: src/skills/sift-drain/references/ticket-agent-prompt.md resolution: <TICKET-ID>: <one line, including waivers>
 ```
 
-**One `status:` line per ticket**, in sitting order, every ticket present — and `summary:`,
-`verification:` and `live check:` are per ticket too. Partial success is a normal
-outcome. Those status lines are exactly what step 11 feeds to `drain-log.sh return`.
-
-Exact test and assertion counts are mandatory — they make the scope self-evident. So are
-the live pre/post observations: they are the only evidence you ever see that behaviour
-actually changed. A report too vague to act on gets a follow-up question, never a peek at
-the diff.
+Consume the return per ticket. Its status drives `drain-log.sh return`; its commit identifies
+what may be landed; its resolution becomes the archive resolution and supplies waived gate
+coverage; and its verification and live check are the evidence for the progress line.
+Partial success is normal, so land completed tickets and redispatch only the rest. Handle
+tamper before every other return action. Slot every reported follow-up ID and surface it to
+the user.
 
 ## Wave gate
 
@@ -278,41 +243,30 @@ A wave closes only after this, before any ticket of the next wave is dispatched.
 Workers from the wave are done; they do not continue into the gate or the next
 wave. You do.
 
-1. **E2E specialist agent** first: covers only the wave behaviour the project's own e2e
-   layer can reach, deliberately lean, extending existing e2e tests rather than duplicating
-   them, and reporting one line per behaviour covered *and* per behaviour skipped as having
-   no e2e surface. There are two skip cases, and both appear in the wave summary: if the
-   project has no e2e layer, say so; if the layer exists but this wave shipped nothing it can
-   reach, skip the authoring pass and say which behaviours were unreachable and why. Skipping
-   the specialist never skips the full e2e run: whenever a layer exists, the wave close runs
-   it and reports its totals.
-2. **Batch coverage agent** — "write tests, not too many, mostly integration." Its
-   coverage list is the **waived criteria collected from the wave's archived tickets**,
-   folded into existing test classes where natural, plus the destructive sequences a
-   shared dev environment could not run live.
-3. **This is the only place the FULL suites run**, all as the wave-close: full test suite,
-   full lint/static analysis, and full e2e whenever the project has an e2e layer — exact
-   totals reported for each run, or an explicit no-layer status for e2e. One agent may carry
-   the batch coverage and the close.
-4. **One fix agent per root cause** of any fallout — not one per failing test. Test agents
-   never fix product code: they report a ticket-worthy defect to you with the evidence needed
-   to file it. You create the ticket and roadmap row, then dispatch the annotation or fix work
-   that needs the new ID.
-5. The wave closes when all full runs are green — and **not while p1/p2 tickets filed into
-   that wave are still open**. Tickets slotted into an already-closed wave are worked as
-   the current wave's tail; a closed gate is never reopened and their coverage rides the
-   **next** gate.
-6. **One knowledge-capture pass for the whole wave**, over the wave's collected worker
-   reports. Workers no longer capture individually — a single sitting cannot see
-   what the rest of the wave changed under it.
-7. Post a **wave summary**: tickets done/blocked, tickets filed, tests added, suite status.
+1. Decide whether the e2e specialist has a usable layer and reachable wave behaviour. If
+   either is absent, record the applicable skip case for the wave summary. Otherwise dispatch
+   the specialist first and alone. A skip never removes the full e2e run from the close when
+   the project has an e2e layer.
+2. Build the batch coverage input from waived criteria in this wave's archived ticket
+   resolutions and destructive sequences deferred by workers. Dispatch the batch coverage
+   agent after the specialist decision. It may also carry the full-suite close.
+3. Run the full test suite, authoritative lint and static analysis, and full e2e suite when
+   that layer exists. This gate is the only phase that runs full suites. Record exact totals
+   or the explicit no-e2e-layer status.
+4. Group fallout by root cause and dispatch one fix agent per cause. Merge each returned
+   commit, then repeat every full run after the last fix lands. A gate agent reports a
+   ticket-worthy defect; you create its ticket and roadmap row before dispatching work that
+   needs the new ID.
+5. Do not close while a p1 or p2 ticket filed into this wave remains open. Work a ticket
+   slotted into an already-closed wave as the current wave's tail. Its deferred coverage
+   belongs to the next gate; never reopen a closed one.
+6. After the gate is green, run one knowledge-capture pass over the collected worker
+   reports when the project has a capture skill. Then post the wave summary with tickets
+   done or blocked, tickets filed, tests added, and suite status.
 
-Prompt templates: `references/wave-gate.md`.
-
-Gate agents keep the same ownership boundary as ticket workers: they branch, commit their
-scoped work, and report the commit. You merge every returned gate commit, and you alone write
-tracker state. A gate agent reports ticket-worthy defects; it never creates their tickets or
-roadmap rows itself.
+Use `references/wave-gate.md` verbatim for every gate dispatch. Every gate agent branches,
+commits its scoped changes, and reports the commit. You merge those commits and remain the
+only tracker writer.
 
 Then load the next wave and build its graph. No human pause. You are the same
 agent; that is fine because you did not implement.
@@ -322,13 +276,6 @@ agent; that is fine because you did not implement.
 - **`.ai/sift` is usually gitignored**, so ignore-aware search (the Grep tool, `rg`, a
   wrapper `grep` shell function) silently returns nothing there. Use `find` plus
   `command grep`, or the tool's no-ignore flag.
-- **Scoped linters often need absolute paths** when invoked through a package manager from
-  a different working directory; a relative path reads as a broken toolchain when it is
-  just a bad argument. Have workers pass absolute paths.
-- **A shared dev environment is not disposable.** No agent reinstalls it, uninstalls real
-  components, or actually executes a destructive scenario the code's guards exist to
-  prevent — verify the guard, not the destruction. Destructive sequences belong in the
-  gate's integration tests.
 - **`ROADMAP.md` orders the work, but `depends_on` is the authority** when the two
   disagree, and priority pulls tickets forward within it.
 - **Write-scope overlap is not `depends_on`.** Most tickets declare no dependencies
@@ -342,17 +289,25 @@ during the run; the timing table from `drain-log.sh report`.
 
 ## Additional resources
 
-- **`references/ticket-agent-prompt.md`** — the canonical worker-sitting prompt.
-- **`references/wave-gate.md`** — prompt templates for the e2e, batch coverage, fix and
-  knowledge-capture agents.
-- **`references/run-management.md`** — wave intake, write-scope edges, worker check-back,
-  and honest progress reporting.
+- **`references/ticket-agent-prompt.md`** contains the full worker contract and exact report
+  schema.
+- **`references/wave-gate.md`** contains prompt templates for the e2e, batch coverage, fix,
+  and knowledge-capture agents.
+- **`references/run-management.md`** contains detailed wave intake, write-scope edges,
+  check-back, and honest progress reporting.
 
 Each bullet above claims a file exists and says what is inside it, so each is pinned on a
 section that bullet advertises:
 
 ```text
 @PIN: src/skills/sift-drain/references/ticket-agent-prompt.md # Canonical sub-agent prompt for one worker sitting
-@PIN: src/skills/sift-drain/references/wave-gate.md ## 2. Batch coverage agent
+@PIN: src/skills/sift-drain/references/ticket-agent-prompt.md Step 6: Return one final report
+@PIN: src/skills/sift-drain/references/wave-gate.md You are the e2e specialist closing Wave {{WAVE}} of the sift roadmap in {{PROJECT_ROOT}}.
+@PIN: src/skills/sift-drain/references/wave-gate.md You are the batch coverage agent closing Wave {{WAVE}} of the sift roadmap in
+@PIN: src/skills/sift-drain/references/wave-gate.md Fix one root cause of Wave {{WAVE}} gate fallout in {{PROJECT_ROOT}}.
+@PIN: src/skills/sift-drain/references/wave-gate.md You are the knowledge-capture pass closing Wave {{WAVE}} of the sift roadmap in
 @PIN: src/skills/sift-drain/references/run-management.md ## Ticket intake
+@PIN: src/skills/sift-drain/references/run-management.md ### Write scope is an edge, not a hope
+@PIN: src/skills/sift-drain/references/run-management.md ## Worker check-back
+@PIN: src/skills/sift-drain/references/run-management.md ## Reporting to the user
 ```

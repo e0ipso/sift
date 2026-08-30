@@ -22,7 +22,8 @@ contract_errors() {
   for heading in \
     '## 1. E2E specialist agent' \
     '## 2. Batch coverage agent' \
-    '## 3. Fix agents — one per root cause'
+    '## 3. Fix agents — one per root cause' \
+    '## 4. Knowledge capture — once, for the whole wave'
   do
     prompt="$(gate_prompt "$file" "$heading")"
     [ -n "$prompt" ] || { printf '%s: missing prompt\n' "$heading"; continue; }
@@ -43,7 +44,7 @@ contract_errors() {
   done
 }
 
-test_case "all three gate templates commit and report under orchestrator ownership"
+test_case "all four gate templates commit and report under orchestrator ownership"
 errors="$(contract_errors "$repo/src/skills/sift-drain/references/wave-gate.md")"
 assert_eq "" "$errors" "the live gate prompts contain no merge or tracker-write instruction"
 
@@ -52,7 +53,8 @@ assert_eq "" "$errors" "the live gate prompts contain no merge or tracker-write 
 for heading in \
   '## 1. E2E specialist agent' \
   '## 2. Batch coverage agent' \
-  '## 3. Fix agents — one per root cause'
+  '## 3. Fix agents — one per root cause' \
+  '## 4. Knowledge capture — once, for the whole wave'
 do
   for damage in 'Merge the branch before reporting.' 'Write tracker state before reporting.'; do
     test_case "$heading rejects: $damage"

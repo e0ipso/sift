@@ -100,11 +100,22 @@ agents downstream never saw the code — handed an uncited candidate they can on
 citation, which reads authoritative and is worse than the gap it fills.
 
 **The user's optional prompt is a hard scope fence**, never a priority hint and never a
-theme. It moves where the sweep looks; it never moves the evidence bar, and "there was not
-much in scope" is not a reason to let an uncitable candidate through. Findings outside the
-fence become one closing line at the end of the run and are never written up — the user
-drew the fence to decide what enters their backlog, and filing outside it overrides that
-decision while appearing to serve them.
+theme. A fenced sweep reads and reports only inside the declared fence. Its report may say
+that the run was fenced and name the scope inspected, but every finding and citation comes
+from that scope; it makes no claim about paths it did not inspect. The fence never moves the
+evidence bar, and "there was not much in scope" is not a reason to let an uncitable
+candidate through. An unfenced sweep runs at full breadth across the stated-intent sources
+and all seven dimensions.
+
+The paired markers below are machine-read by
+`tests/static/prime-scope-contract.test.sh`. The test holds this restatement to the same
+boundary as `references/analysis.md` and rejects a fenced contract that also asks for
+findings from uninspected paths.
+
+```text
+@PRIME-SCOPE: fenced reads-and-reports-inside
+@PRIME-SCOPE: unfenced full-breadth
+```
 
 **Cluster by root cause before the slate, and only on a shared fix.** A defect at five call
 sites is one candidate carrying five citations, not five carrying one each — you are the
@@ -243,8 +254,8 @@ Then report:
 
 - the IDs written, each with its title, `type` and `priority`, **grouped by wave**;
 - anything a drafting agent reported blocked, with the slate row it came from;
-- when the run was fenced, the **out-of-fence closing line** — the findings named in one
-  line, with nothing written for them;
+- when the run was fenced, that fact and the scope inspected; report findings and citations
+  only from inside that scope, with no claims about paths the sweep did not inspect;
 - that **nothing was committed** and nothing was pushed; the tree is untracked by
   default, so the tickets this run wrote produce no diff and no commit;
 - **`sift-drain` as the next step** — it pulls exactly what this run wrote.

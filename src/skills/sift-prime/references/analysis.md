@@ -66,17 +66,24 @@ reader verifies in one command; "there is no CI" is a claim they have to take on
 ## The scope fence
 
 The user's optional prompt is a **hard scope fence**, never a priority hint and never a
-theme. Fenced, the sweep looks only inside the fence. Unfenced, it runs at full breadth.
-
-**Findings outside the fence become one closing line at the end of the run, never
-tickets.** The user drew the fence to decide what enters their backlog; filing outside it
-overrides that decision while appearing to serve them. The closing line preserves the
-finding — they can re-run the skill unfenced, or fence it there next time — without taking
-the decision away from them.
+theme. Fenced, the sweep reads and reports only inside the declared fence. Its report may
+state that the run was fenced and name the scope inspected, but every finding and citation
+comes from that scope; it makes no claim about paths it did not inspect. Unfenced, the sweep
+runs at full breadth across the stated-intent sources and all seven dimensions.
 
 The fence moves where the analysis looks. It never moves the evidence bar. A narrow fence
 means fewer files read, not a lower standard for what those files have to prove, and
 "there was not much in scope" is never a reason to let an uncitable candidate through.
+
+The paired markers below are machine-read by
+`tests/static/prime-scope-contract.test.sh`. The test holds every restatement to the same
+read-and-report boundary and rejects a fenced contract that also asks for findings from
+uninspected paths.
+
+```text
+@PRIME-SCOPE: fenced reads-and-reports-inside
+@PRIME-SCOPE: unfenced full-breadth
+```
 
 ## The sweep dimensions
 

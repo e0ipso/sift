@@ -18,7 +18,20 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-Analysis compares the project's stated intent (repository README, AGENTS.md/CLAUDE.md, `.ai/sift/MILESTONES.md`, and a shipped knowledge base when present) to what is on disk. Every proposal cites `file:line` or `absent: <path>`; uncitable candidates are dropped, not softened. An optional user prompt is a hard scope fence — it moves where the sweep looks, never the evidence bar — and out-of-fence findings get one closing line, not tickets.
+Analysis compares the project's stated intent (repository README, AGENTS.md/CLAUDE.md,
+`.ai/sift/MILESTONES.md`, and a shipped knowledge base when present) to what is on disk.
+Every proposal cites `file:line` or `absent: <path>`; uncitable candidates are dropped,
+not softened. An optional user prompt is a hard scope fence: a fenced sweep reads and
+reports only inside the declared scope and makes no claim about paths it did not inspect.
+An unfenced sweep still runs at full breadth.
+
+`tests/static/prime-scope-contract.test.sh` reads the paired markers below and rejects a
+fenced contract that also asks for findings from uninspected paths.
+
+```text
+@PRIME-SCOPE: fenced reads-and-reports-inside
+@PRIME-SCOPE: unfenced full-breadth
+```
 
 <!-- kk:related:start -->
 # Related

@@ -31,6 +31,26 @@ run_cmd "$root" env SIFT_ROOT="$root" "$SKILL/sift-gate.sh"
 assert_eq 0 "$R_STATUS" "the gate agrees, on its own"
 assert_contains "$R_OUT" 'prefix=ACME' "and reads back the configured prefix"
 
+test_case "init writes the operating rules into its starter documents"
+config="$(sed 's/^#[[:space:]]*//' "$root/.ai/sift/config/config.yaml" | tr '\n' ' ')"
+milestones="$(tr '\n' ' ' < "$root/.ai/sift/MILESTONES.md")"
+roadmap="$(tr '\n' ' ' < "$root/.ai/sift/ROADMAP.md")"
+assert_contains "$config" \
+  'The prefix is immutable. Changing it requires renaming every ticket file and rewriting every reference in the same change.' \
+  "config records the full cost of changing a prefix"
+assert_contains "$milestones" \
+  "With a milestone's first ticket, add it here and create the matching \`open/<milestone>/\` folder." \
+  "the milestone starter couples documentation and folder creation"
+assert_contains "$milestones" \
+  'Rename a milestone by moving every ticket file and updating its `milestone:` in the same change.' \
+  "and keeps path and front matter together on rename"
+assert_contains "$roadmap" \
+  "Advisory order; a ticket's \`depends_on\` takes precedence." \
+  "the roadmap starter names the dependency source of truth"
+assert_contains "$roadmap" \
+  'Strike a finished row and archive its ticket in the same change.' \
+  "and couples terminal ticket state to its roadmap row"
+
 test_case "the cookbook allocates the first two IDs"
 run_recipe "$root" "$(recipe_allocate)" PREFIX=ACME
 assert_eq "ACME-0001" "$R_OUT" "the first ID on a fresh tree"

@@ -101,7 +101,8 @@ whether the sitting carries one ticket or four:
   implement — STEP 3, the per-ticket loop: each ticket's baseline, change, scoped checks,
               and implementation commit.
   verify    — STEP 4, the sitting-wide check that follows the loop.
-  bookkeep  — STEP 5, the report. Not a merge. Not an archive. Not a roadmap strike.
+  bookkeep  — STEP 5 and STEP 6, follow-up filing and the final report. Not a merge,
+              an archive, or a roadmap strike.
 Four calls against a floor measured in minutes is a rounding error. A stamp per command
 would not be, which is exactly why there are four.
 
@@ -177,7 +178,7 @@ Implement directly, following the project's conventions. Explicitly NOT in scope
     report. Existing tests your change breaks are yours to fix.
   - NOTHING GOES UPSTREAM. Never file, comment on, or patch anything on an external
     tracker. An upstream fix you believe is warranted becomes a `type: dx` sift ticket
-    here (STEP 6); the human files it.
+    here (STEP 5); the human files it.
   - Do not edit the sift-drain skill's own files — a maintenance agent may be running.
   - Do not strike ROADMAP.md. Do not move a ticket into archive/. Do not merge.
   - Nothing from a later ticket in the sitting. Each commit contains one ticket's
@@ -222,12 +223,8 @@ be someone else's bookkeeping. Fix any failure here on this branch, amended into
 commit of the ticket that caused it — or, when you cannot attribute it, as its own commit
 named in your report.
 
-STEP 5 — REPORT, DO NOT MERGE
-Stamp `phase bookkeep` first. Do not check out {{BASE_BRANCH}}. Do not merge. A ticket
-you could not finish contributes NOTHING: leave its edits uncommitted and undo them, so
-the branch holds whole tickets only. Its file stays in .ai/sift/open/.
-
-STEP 6 — FILE FOLLOW-UPS IF WARRANTED
+STEP 5 — FILE FOLLOW-UPS IF WARRANTED
+Stamp `phase bookkeep` first.
 Out-of-scope bugs, deferred improvements, gaps you cannot address: write them as new sift
 ticket files under .ai/sift/open/<milestone>/<category>/ per .ai/sift/README.md. Do NOT
 touch ROADMAP.md — the orchestrator slots the row after you return. Use the body template
@@ -239,6 +236,12 @@ the markdown into `.ai/sift/open/`, and delete the draft. Never invoke `xmllint`
 schema is a checklist to read, and nothing here depends on it being installed.
 Every self-filed ticket ID must appear in your report — the user requires visibility of
 everything entering the backlog.
+
+STEP 6 — REPORT, DO NOT MERGE
+Do not check out {{BASE_BRANCH}}. Do not merge. A ticket you could not finish contributes
+NOTHING: leave its edits uncommitted and undo them, so the branch holds whole tickets only.
+Its file stays in .ai/sift/open/. Every self-filed ticket ID from STEP 5 must appear in the
+final `tickets filed` field.
 
 KNOWLEDGE CAPTURE IS NOT YOURS — IT MOVED TO THE WAVE GATE
 Do not run a knowledge-base capture skill and do not hand-write knowledge-base entries.

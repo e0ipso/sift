@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# roadmap-check.sh — enforce the sift README's roadmap/ticket consistency rule.
+# roadmap-check.sh — check roadmap rows against ticket files in both directions.
 #
-# Checks, in both directions:
+# Checks:
 #   - every ticket file (open/ or archive/) has a roadmap row
 #   - every roadmap ticket row has a ticket file
 #   - archived tickets have a ~~struck~~ roadmap row
@@ -13,12 +13,7 @@
 #
 # Usage:
 #   scripts/roadmap-check.sh
-#   scripts/roadmap-check.sh --   # -- ends the options, as elsewhere on the skill
-#
-# `--` means one thing across the skill: the option list ends here and everything
-# behind it is positional. This script checks the whole tree and has no
-# positional to take, so the marker is accepted and anything following it is a
-# usage error.
+#   scripts/roadmap-check.sh --   # -- ends options
 #
 # Exit codes: 0 consistent | 1 violations found | 2 setup/usage error.
 
@@ -32,10 +27,7 @@ usage() {
   exit 2
 }
 
-# This is the rule-9 gate the drain runs after every ticket agent returns, and
-# its exit code is read as a verdict on the whole tree. An argument it quietly
-# ignored — `roadmap-check.sh open/`, say — would return that verdict for a
-# scope the caller never asked about, so every argument is refused instead.
+# The verdict always covers the whole tree; refuse positional scope arguments.
 while [ $# -gt 0 ]; do
   case "$1" in
     --)

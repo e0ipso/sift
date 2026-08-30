@@ -58,6 +58,21 @@ STEP 4'
 DRAFTING_RULE9='@RULE: README.md 9 in sync — in the same change'
 DRAFTING_RULE9_STEPS='2
 5'
+DRAFTING_STEP_CONTRACT='1 assigned-values
+2 read-convention
+3 read-schema
+4 write-ticket
+5 check-write-scope
+6 return-report'
+DRAFTING_REPORT_SCHEMA='status: written | blocked
+ticket: <ID>
+file: <absolute path>
+type: <type>   priority: <priority>   effort: <effort>
+evidence: <every citation rendered into ## Evidence>
+judgment calls: <decisions you made yourself> | none'
+DRAFTING_EVIDENCE_STEPS='1
+4
+4'
 
 count_exact() {
   awk -v want="$2" '$0 == want { n++ } END { print n + 0 }' "$1"
@@ -130,6 +145,93 @@ adjacent_drafting_rule9_markers() {
       previous = line
     }
   ' "$1"
+}
+
+drafting_template() {
+  awk '
+    $0 == "## Template" { seek_fence = 1; next }
+    seek_fence && $0 == "```" { in_template = 1; seek_fence = 0; next }
+    in_template && $0 == "```" { exit }
+    in_template { print }
+  ' "$1"
+}
+
+drafting_step_contract() {
+  drafting_template "$1" | awk '
+    /^[0-9][0-9]*\.[[:space:]]/ {
+      step = $0
+      sub(/\..*$/, "", step)
+    }
+    index($0, "Use these assigned values exactly.") {
+      print step " assigned-values"
+    }
+    index($0, "Read {{PROJECT_ROOT}}/.ai/sift/README.md in full.") {
+      print step " read-convention"
+    }
+    index($0, "Read {{SCHEMA_PATH}}.") {
+      print step " read-schema"
+    }
+    index($0, "Create the directory for {{TICKET_PATH}} and write the finished ticket") {
+      print step " write-ticket"
+    }
+    index($0, "Check the write scope.") {
+      print step " check-write-scope"
+    }
+    index($0, "Return exactly these fields and no other text.") {
+      print step " return-report"
+    }
+  '
+}
+
+placeholders() {
+  awk '
+    {
+      line = $0
+      while (match(line, /\{\{[^{}][^{}]*\}\}/)) {
+        print substr(line, RSTART, RLENGTH)
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' | LC_ALL=C sort -u
+}
+
+drafting_table_placeholders() {
+  awk '
+    $0 == "| Placeholder | Source |" { in_table = 1 }
+    in_table && $0 == "" { exit }
+    in_table { print }
+  ' "$1" | placeholders
+}
+
+drafting_template_placeholders() {
+  drafting_template "$1" | placeholders
+}
+
+drafting_placeholder_steps() {
+  drafting_template "$1" | awk -v placeholder="$2" '
+    /^[0-9][0-9]*\.[[:space:]]/ {
+      step = $0
+      sub(/\..*$/, "", step)
+    }
+    {
+      line = $0
+      while (index(line, placeholder)) {
+        print step
+        line = substr(line, index(line, placeholder) + length(placeholder))
+      }
+    }
+  '
+}
+
+drafting_report_schema() {
+  drafting_template "$1" | awk '
+    /^6\.[[:space:]]/ { in_report = 1; next }
+    in_report {
+      line = $0
+      sub(/^[[:space:]]+/, "", line)
+      if (line ~ /^[[:lower:]][[:lower:][:space:]]*:/) print line
+    }
+  '
 }
 
 ordering_error() {
@@ -271,6 +373,57 @@ assert_ne "$(drafting_rule9_steps "$DRAFTING_PROMPT")" \
   "the adjacent-marker mutation changed the live placement"
 assert_ne '' "$(adjacent_drafting_rule9_markers "$damaged")" \
   "the placement check rejects adjacent rule-9 markers"
+
+test_case "the drafting steps each own one process requirement"
+assert_eq "$DRAFTING_STEP_CONTRACT" "$(drafting_step_contract "$DRAFTING_PROMPT")" \
+  "the six sole imperatives remain in their declared order"
+
+test_case "moving drafting requirements between steps fails the contract check"
+work="$(newdir)"
+damaged="$work/drafting-agent-prompt.md"
+awk '
+  index($0, "5. Check the write scope.") {
+    sub(/Check the write scope\./, "Return exactly these fields and no other text.")
+    print
+    next
+  }
+  index($0, "6. Return exactly these fields and no other text.") {
+    sub(/Return exactly these fields and no other text\./, "Check the write scope.")
+  }
+  { print }
+' "$DRAFTING_PROMPT" > "$damaged"
+assert_eq "$DRAFTING_STEPS" "$(drafting_step_numbers "$damaged")" \
+  "the damaged copy retains six ordered step numbers"
+assert_ne "$DRAFTING_STEP_CONTRACT" "$(drafting_step_contract "$damaged")" \
+  "the purpose check rejects requirements moved under the wrong numbers"
+
+test_case "the drafting placeholders carry evidence into the exact report"
+assert_eq "$(drafting_table_placeholders "$DRAFTING_PROMPT")" \
+  "$(drafting_template_placeholders "$DRAFTING_PROMPT")" \
+  "the template uses exactly the placeholders declared by its source table"
+assert_eq "$DRAFTING_EVIDENCE_STEPS" \
+  "$(drafting_placeholder_steps "$DRAFTING_PROMPT" '{{EVIDENCE}}')" \
+  "assigned evidence reaches the single-site and multi-site ticket rules"
+assert_eq "$DRAFTING_REPORT_SCHEMA" "$(drafting_report_schema "$DRAFTING_PROMPT")" \
+  "the drafting report keeps every field and value contract in order"
+
+test_case "an undeclared report placeholder fails both handoff checks"
+work="$(newdir)"
+damaged="$work/drafting-agent-prompt.md"
+awk '
+  /^     evidence: <every citation rendered into ## Evidence>$/ {
+    print "     evidence: {{UNDECLARED}}"
+    next
+  }
+  { print }
+' "$DRAFTING_PROMPT" > "$damaged"
+assert_contains "$(drafting_template_placeholders "$damaged")" '{{UNDECLARED}}' \
+  "the copy introduces a placeholder with no source"
+assert_ne "$(drafting_table_placeholders "$damaged")" \
+  "$(drafting_template_placeholders "$damaged")" \
+  "the placeholder comparison rejects the undeclared value"
+assert_ne "$DRAFTING_REPORT_SCHEMA" "$(drafting_report_schema "$damaged")" \
+  "the report comparison rejects the changed evidence value"
 
 test_case "the plan-creator platforms carry one byte-identical contract"
 assert_file "$CLAUDE_PLAN" "the Claude plan-creator prompt exists"

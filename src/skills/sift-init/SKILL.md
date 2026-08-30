@@ -42,6 +42,9 @@ asks nothing, and prints `key=value` lines plus an exit code:
 | 6 | `INCOMPLETE` | tree exists but `missing=` lists required entries | repair (same command as init) |
 | 5 | `UNRESOLVED` | no candidate root | ask the user for an explicit path |
 
+`tests/static/gate-handoff-contract.test.sh` compares the exit 4 and 6 actions in this
+table with the gate script and both consuming skills.
+
 Exit 4 asks because a project with no version control gives the user no undo. Exit 5
 never guesses: report the `$PWD` it walked from and stop.
 

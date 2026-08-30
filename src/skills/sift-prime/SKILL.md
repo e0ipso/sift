@@ -31,10 +31,14 @@ repository — run the `sift-init` skill's `scripts/sift-gate.sh`. It reads only
 exit code decides:
 
 - **0 (`READY`)** — continue below.
-- **3, 4 or 6** — there is no usable tree yet. Hand off to `sift-init` and follow its
-  rules (4 and 6 require asking the user first). There is nowhere to write until it
-  reports `READY`.
+- **3 (`UNINITIALIZED`)** — hand off to `sift-init`; initialize without asking.
+- **4 (`UNINITIALIZED`)** — hand off to `sift-init`; report the resolved path and ask
+  before initialization.
+- **6 (`INCOMPLETE`)** — hand off to `sift-init`; repair without asking.
 - **5 (`UNRESOLVED`)** — no project root found. Report the `$PWD` it walked from and stop.
+
+The exit 4 and 6 actions above are compared with the init skill and gate script by
+`tests/static/gate-handoff-contract.test.sh`.
 
 Never resolve the root by eye and never initialize the tree yourself: the gate is one
 script precisely so every skill agrees on where `.ai/sift` lives.

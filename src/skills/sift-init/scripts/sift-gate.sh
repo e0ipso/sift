@@ -48,6 +48,8 @@
 #   5  UNRESOLVED     no candidate root — ask for an explicit path
 #   6  INCOMPLETE     tree present but missing required entries — repair
 #   2  usage/environment error
+# tests/static/gate-handoff-contract.test.sh compares the exit 4 and 6 action comments
+# above with the init skill and both consuming skills.
 
 set -u
 

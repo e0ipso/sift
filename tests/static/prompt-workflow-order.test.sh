@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Static analysis: follow-up filing precedes the ticket agent's final report.
+# Static analysis: ordered agent-prompt contracts.
 #
 # A worker cannot report a follow-up ID before the ticket exists. Keep the filing
 # step before the single final report, and keep the report's `tickets filed` field
 # explicit so every new ID reaches the orchestrator.
+#
+# The Claude and Cursor plan-creator prompts are two platform entry points for one
+# contract. Keep their bytes equal and their seven phases in the declared order.
 
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
@@ -11,10 +14,19 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 . "$DIR/../lib/recipes.sh"
 
 PROMPT="$REPO_ROOT/src/skills/sift-drain/references/ticket-agent-prompt.md"
+CLAUDE_PLAN="$REPO_ROOT/.claude/agents/plan-creator.md"
+CURSOR_PLAN="$REPO_ROOT/.cursor/agents/plan-creator.md"
 FOLLOW_HEADING='Step 5: File warranted follow-ups'
 REPORT_HEADING='Step 6: Return one final report'
 ID_REQUIREMENT='final `tickets filed` field.'
 FIELD='tickets filed: <IDs> | none'
+PLAN_PHASES='## 1. Load the inputs
+## 2. Control scope
+## 3. Allocate the plan ID
+## 4. Produce the plan document
+## 5. Enforce the content boundary
+## 6. Write and validate the file
+## 7. Report the result'
 
 count_exact() {
   awk -v want="$2" '$0 == want { n++ } END { print n + 0 }' "$1"
@@ -26,6 +38,10 @@ line_exact() {
 
 line_containing() {
   awk -v want="$2" 'index($0, want) { print NR; exit }' "$1"
+}
+
+plan_phases() {
+  awk '/^## [0-9]+\. / { print }' "$1"
 }
 
 ordering_error() {
@@ -81,5 +97,26 @@ awk -v field="$FIELD" '!index($0, field)' "$PROMPT" > "$damaged"
 assert_not_contains "$(cat "$damaged")" "$FIELD" "the report field is gone from the copy"
 assert_eq "tickets filed field missing" "$(report_error "$damaged")" \
   "the report check names the missing field"
+
+test_case "the plan-creator platforms carry one byte-identical contract"
+assert_file "$CLAUDE_PLAN" "the Claude plan-creator prompt exists"
+assert_file "$CURSOR_PLAN" "the Cursor plan-creator prompt exists"
+assert_same "$CLAUDE_PLAN" "$CURSOR_PLAN" \
+  "both platforms receive the same contract byte for byte"
+
+test_case "the plan-creator contract keeps its seven phases in order"
+assert_eq "$PLAN_PHASES" "$(plan_phases "$CLAUDE_PLAN")" \
+  "the shared contract exposes the exact ordered phase sequence"
+
+test_case "moving a plan-creator phase fails the order check"
+work="$(newdir)"
+damaged="$work/plan-creator.md"
+awk '
+  $0 == "## 2. Control scope" { print "## 3. Allocate the plan ID"; next }
+  $0 == "## 3. Allocate the plan ID" { print "## 2. Control scope"; next }
+  { print }
+' "$CLAUDE_PLAN" > "$damaged"
+assert_ne "$PLAN_PHASES" "$(plan_phases "$damaged")" \
+  "the phase-order comparison rejects the swapped headings"
 
 summary

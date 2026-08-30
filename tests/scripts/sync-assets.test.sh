@@ -256,7 +256,7 @@ skill_md="$(cat "$REAL_SKILL/SKILL.md")"
 assert_contains "$skill_md" 'src/skills/sift-init/scripts/sync-assets.sh' \
   "SKILL.md names the script"
 assert_contains "$skill_md" 'Do not hand-copy' "…and rules out doing it by hand"
-maint="$(awk '/^## Maintaining this skill/ { m = 1 } m' "$REAL_SKILL/SKILL.md")"
+maint="$(awk '/^## 6\. Maintain the shipped assets/ { m = 1 } m' "$REAL_SKILL/SKILL.md")"
 assert_eq 1 "$(printf '%s\n' "$maint" | grep -c 'sync-assets.sh')" \
   "the maintenance section points at exactly one command"
 assert_eq 0 "$(printf '%s\n' "$maint" | grep -cE '^[[:space:]]*(cp|diff) ')" \

@@ -21,7 +21,7 @@ on exit, including on failure; nothing in the suite writes inside the repository
 |---|---|
 | `cookbook/` | the recipes in `README.md`, run as written against throwaway trees |
 | `scripts/` | the shipped skill scripts through their real command lines |
-| `static/` | the portability bans, shell lint, the XSD drafting schemas, the claims one repository document makes about another file, the test libraries' own behaviour — `lib/harness.sh`'s assertion arms, its `markers_above` walk, and the ticket shapes `lib/fixtures.sh` produces, `space_the_fence` included — and the suite's own no-dependency / determinism / cleanup contract |
+| `static/` | the portability bans, shell lint, the XSD drafting schemas, the Strikethroo scope hooks, the claims one repository document makes about another file, the test libraries' own behaviour — `lib/harness.sh`'s assertion arms, its `markers_above` walk, and the ticket shapes `lib/fixtures.sh` produces, `space_the_fence` included — and the suite's own no-dependency / determinism / cleanup contract |
 | `e2e/` | full workflows: the gate → init → allocate → archive → roadmap-check lifecycle, and the drain loop's scripted surface over a two-wave roadmap |
 
 `cookbook/` does not paraphrase the recipes: `lib/recipes.sh` extracts the fenced

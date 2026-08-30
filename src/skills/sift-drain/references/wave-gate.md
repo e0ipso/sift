@@ -13,9 +13,9 @@ close; the e2e specialist always runs alone, first.
 State these in each prompt — they are what keep the gate trustworthy:
 
 - **A test agent never fixes product code.** A test failing because the product is
-  genuinely wrong gets a sift ticket plus an annotation naming it (a skip/fixme referencing
-  the ticket ID), so suites stay green-with-known-issues. Test-side problems it fixes
-  itself.
+  genuinely wrong is reported as a ticket-worthy defect with the failing behaviour, evidence,
+  and proposed scope. The orchestrator creates the ticket and roadmap row, then dispatches any
+  annotation that needs its ID. Test-side problems it fixes itself.
 - **Extend, do not duplicate.** Fold new coverage into the existing test files and test
   classes that already drive the relevant surface.
 - **Report what you skipped**, one line per behaviour with the reason. A gate's value comes
@@ -24,6 +24,9 @@ State these in each prompt — they are what keep the gate trustworthy:
   base, or the manifests; verify named paths against the live tree.
 - Never `git push`; never edit the sift-drain skill's files; never file anything on an
   external tracker — an upstream proposal becomes a `type: dx` sift ticket.
+- Commit scoped changes on the assigned branch and report the commit. Never merge it and never
+  write tracker state, including ticket files, archive moves, or roadmap rows; the orchestrator
+  owns those operations.
 - **Do not capture durable knowledge.** Capture happens once per wave, in the pass below,
   and an agent that also runs it fragments the wave into competing entries.
 
@@ -63,20 +66,21 @@ setup so the fixture environment still builds.
 
 Iterate on a single e2e test file while developing; the deliverable is a GREEN FULL e2e run.
 
-If a genuine product bug blocks green, do NOT paper over it: file a sift ticket per
-.ai/sift/README.md (including its ROADMAP.md placement, in the same change), skip the
-e2e test with an explicit fixme referencing the ticket ID, and report the ticket.
+If a genuine product bug blocks green, do NOT paper over it. Report a ticket-worthy defect
+with the failing behaviour, reproduction evidence, and proposed scope. The orchestrator will
+create the ticket and roadmap row, then dispatch any skip/fixme annotation that needs its ID.
 
-Branch off local {{BASE_BRANCH}}, commit, merge back locally. NEVER `git push`.
+Branch off local {{BASE_BRANCH}}, commit your scoped changes, and report the commit. Do not
+merge and NEVER `git push`. Do not write tracker state.
 
 REPORT (only this):
   status: done | blocked
-  merge commit: <hash>
+  commit: <hash>
   summary: <one paragraph>
   verification: e2e <N passed / M failed / K skipped> across <e2e test files>
   behaviours covered: <one line each>
   behaviours skipped (no e2e surface): <one line each, with the reason>
-  tickets filed: <IDs> | none
+  ticket-worthy defects: <one line each with evidence and proposed scope> | none
 ```
 
 ## 2. Batch coverage agent
@@ -118,22 +122,23 @@ whenever the project has an e2e layer, the full e2e suite. Every run must be gre
 exact totals reported for each; if there is no e2e layer, report that status explicitly.
 
 If a full-suite failure is a product bug rather than a test bug, do NOT fix product code
-here — report it precisely so the orchestrator can dispatch a fix agent, file a sift
-ticket, and annotate the assertion with the ticket ID so suites stay green-with-known-
-issues. Test-side problems you fix yourself.
+here — report it precisely as a ticket-worthy defect so the orchestrator can create the
+ticket and roadmap row, then dispatch a fix agent and any assertion annotation that needs
+the ticket ID. Test-side problems you fix yourself.
 
-Branch off local {{BASE_BRANCH}}, commit, merge back locally. NEVER `git push`.
+Branch off local {{BASE_BRANCH}}, commit your scoped changes, and report the commit. Do not
+merge and NEVER `git push`. Do not write tracker state.
 
 REPORT (only this):
   status: done | blocked
-  merge commit: <hash>
+  commit: <hash>
   summary: <one paragraph: what is now covered>
   verification: tests <N tests, M assertions> full suite; lint <result>; static analysis
                 <result>; e2e <N passed / M failed / K skipped> | no e2e layer; tests
                 added: <count and class names>
   deferred criteria: covered <list> | not covered <list and why>
   failures needing a fix agent: <root-cause list> | none
-  tickets filed: <IDs> | none
+  ticket-worthy defects: <one line each with evidence and proposed scope> | none
 ```
 
 ## 3. Fix agents — one per root cause
@@ -152,14 +157,19 @@ test encodes wrong expectations, say so explicitly and justify the change.
 Verify scoped to the affected area first, then re-run whichever full suite this root cause
 touched, plus the authoritative lint run.
 
-Branch off local {{BASE_BRANCH}}, commit, merge back locally. NEVER `git push`.
+If the work exposes a separate ticket-worthy defect, report its failing behaviour, evidence,
+and proposed scope. The orchestrator creates its ticket and roadmap row and dispatches any
+follow-up that needs the new ID.
+
+Branch off local {{BASE_BRANCH}}, commit your scoped changes, and report the commit. Do not
+merge and NEVER `git push`. Do not write tracker state.
 
 REPORT (only this):
   status: done | blocked
-  merge commit: <hash>
+  commit: <hash>
   summary: <one paragraph: the root cause and the fix>
   verification: <exact suite results>
-  tickets filed: <IDs> | none
+  ticket-worthy defects: <one line each with evidence and proposed scope> | none
 ```
 
 ## 4. Knowledge capture — once, for the whole wave

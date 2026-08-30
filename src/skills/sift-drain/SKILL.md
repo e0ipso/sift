@@ -295,8 +295,9 @@ wave. You do.
    totals reported for each run, or an explicit no-layer status for e2e. One agent may carry
    the batch coverage and the close.
 4. **One fix agent per root cause** of any fallout — not one per failing test. Test agents
-   never fix product code: they file a ticket and annotate the test with its ID so suites
-   stay green-with-known-issues.
+   never fix product code: they report a ticket-worthy defect to you with the evidence needed
+   to file it. You create the ticket and roadmap row, then dispatch the annotation or fix work
+   that needs the new ID.
 5. The wave closes when all full runs are green — and **not while p1/p2 tickets filed into
    that wave are still open**. Tickets slotted into an already-closed wave are worked as
    the current wave's tail; a closed gate is never reopened and their coverage rides the
@@ -307,6 +308,11 @@ wave. You do.
 7. Post a **wave summary**: tickets done/blocked, tickets filed, tests added, suite status.
 
 Prompt templates: `references/wave-gate.md`.
+
+Gate agents keep the same ownership boundary as ticket workers: they branch, commit their
+scoped work, and report the commit. You merge every returned gate commit, and you alone write
+tracker state. A gate agent reports ticket-worthy defects; it never creates their tickets or
+roadmap rows itself.
 
 Then load the next wave and build its graph. No human pause. You are the same
 agent; that is fine because you did not implement.

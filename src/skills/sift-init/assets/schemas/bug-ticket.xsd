@@ -7,23 +7,21 @@
   <xs:include schemaLocation="sift-common.xsd" />
 
   <!--
-    Drafting schema for a ticket with type: bug.
-
     Element order is the rendered section order; do not reorder. Optional elements are
-    omitted entirely when they do not apply — never emitted empty.
+    omitted entirely when they do not apply.
   -->
   <xs:element name="bug-ticket">
     <xs:complexType>
       <xs:sequence>
         <xs:element name="front-matter" type="tns:frontMatter" />
 
-        <!-- ## Problem — what is wrong, and why it matters. 2-6 sentences. -->
+        <!-- <problem> renders as "## Problem". -->
         <xs:element name="problem" type="tns:nonEmptyString" />
 
-        <!-- ## Expected behaviour — what should happen instead. -->
+        <!-- <expected-behaviour> renders as "## Expected behaviour". -->
         <xs:element name="expected-behaviour" type="tns:nonEmptyString" />
 
-        <!-- ## Steps to reproduce — one numbered step per element. -->
+        <!-- Each <step> renders as one numbered item under "## Steps to reproduce". -->
         <xs:element name="steps-to-reproduce" minOccurs="0">
           <xs:complexType>
             <xs:sequence>
@@ -32,13 +30,13 @@
           </xs:complexType>
         </xs:element>
 
-        <!-- ## Evidence — file:line refs, test names, logs, links. -->
+        <!-- <evidence> renders as "## Evidence". -->
         <xs:element name="evidence" type="tns:evidence" />
 
-        <!-- ## Direction — proposed approach, alternatives, known constraints. -->
+        <!-- <direction> renders as "## Direction". -->
         <xs:element name="direction" type="tns:nonEmptyString" minOccurs="0" />
 
-        <!-- ## Acceptance criteria -->
+        <!-- <acceptance-criteria> renders as "## Acceptance criteria". -->
         <xs:element name="acceptance-criteria" type="tns:acceptanceCriteria" />
       </xs:sequence>
     </xs:complexType>

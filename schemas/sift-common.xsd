@@ -5,29 +5,8 @@
            elementFormDefault="qualified">
 
   <!--
-    Shared definitions for the sift ticket drafting schemas. Included (not imported)
-    by bug-ticket.xsd, feature-ticket.xsd and task-ticket.xsd, which all share this
-    target namespace.
-
-    These schemas describe a ticket at DRAFTING time. The ticket on disk is always
-    markdown with YAML front-matter; nothing in sift reads XML. See README.md,
-    "Drafting a ticket", for the render step and the field-by-field mapping.
-
-    Two rules from README.md cannot be expressed in XSD 1.0 and are therefore NOT
-    enforced here:
-      - An archived ticket (status done | wontfix | superseded) requires a non-empty
-        <resolution>. This is a cross-field constraint; check it by hand.
-      - <milestone> must name a milestone declared in MILESTONES.md, and must match
-        the folder the ticket file lives in. The set is open and per-repository.
-  -->
-
-  <!-- ==================== front-matter value types ==================== -->
-
-  <!--
-    Ticket ID: <PREFIX>-<NNNN>. The numeric suffix is an open-ended digit run;
-    four-digit zero-pad (%04d) is allocation rendering width, not a schema maximum.
-    The prefix is per-repository configuration read from
-    .ai/sift/config/config.yaml; the schema constrains its shape, not its value.
+    <id> renders as YAML "id". The numeric suffix has a minimum width of four digits
+    and remains open-ended. XSD cannot bind <PREFIX> to the repository configuration.
   -->
   <xs:simpleType name="ticketId">
     <xs:restriction base="xs:string">
@@ -42,7 +21,10 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- open | in-progress | blocked live in open/; the rest live in archive/. -->
+  <!--
+    <status> renders as YAML "status". open | in-progress | blocked belong in open/;
+    done | wontfix | superseded belong in archive/. XSD cannot inspect the ticket path.
+  -->
   <xs:simpleType name="status">
     <xs:restriction base="xs:string">
       <xs:enumeration value="open" />
@@ -54,7 +36,10 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Closed set. Doubles as the <category> folder under the milestone. -->
+  <!--
+    <type> renders as YAML "type" and must match the category folder. XSD cannot
+    inspect the ticket path.
+  -->
   <xs:simpleType name="type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="bug" />
@@ -67,7 +52,6 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- p1 critical | p2 high | p3 normal | p4 someday -->
   <xs:simpleType name="priority">
     <xs:restriction base="xs:string">
       <xs:enumeration value="p1" />
@@ -87,9 +71,8 @@
   </xs:simpleType>
 
   <!--
-    Milestone names are an open set defined per repository in MILESTONES.md. The only
-    constraint the convention imposes is that the name is usable as a directory
-    component: no slashes, no whitespace.
+    <milestone> renders as YAML "milestone". It must be listed in MILESTONES.md and
+    match the milestone folder. XSD cannot enforce either rule.
   -->
   <xs:simpleType name="milestone">
     <xs:restriction base="xs:string">
@@ -97,15 +80,17 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Free-form topic tags. Kebab-case so they stay greppable. -->
   <xs:simpleType name="label">
     <xs:restriction base="xs:string">
       <xs:pattern value="[a-z0-9]+(-[a-z0-9]+)*" />
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- ==================== front-matter ==================== -->
-
+  <!--
+    <front-matter> children render as same-name YAML keys in declaration order, except
+    <depends-on> renders as "depends_on". Repeated <label> and <ticket> elements render
+    as YAML lists.
+  -->
   <xs:complexType name="frontMatter">
     <xs:sequence>
       <xs:element name="id" type="tns:ticketId" />
@@ -131,25 +116,23 @@
           </xs:sequence>
         </xs:complexType>
       </xs:element>
-      <!-- Required non-empty when status is done | wontfix | superseded. -->
+      <!--
+        <resolution> is required and non-empty for terminal statuses. XSD cannot express
+        this cross-field constraint.
+      -->
       <xs:element name="resolution" type="tns:nonEmptyString" minOccurs="0" />
       <xs:element name="source" type="tns:nonEmptyString" minOccurs="0" />
     </xs:sequence>
   </xs:complexType>
 
-  <!-- ==================== shared body sections ==================== -->
-
-  <!--
-    Renders as "## Evidence": one bullet per item. Claims about code cite file:line
-    (README.md rule 5).
-  -->
+  <!-- Each <item> renders as one bullet under "## Evidence". -->
   <xs:complexType name="evidence">
     <xs:sequence>
       <xs:element name="item" type="tns:nonEmptyString" maxOccurs="unbounded" />
     </xs:sequence>
   </xs:complexType>
 
-  <!-- Renders as "## Acceptance criteria": one "- [ ]" checkbox per criterion. -->
+  <!-- Each <criterion> renders as one "- [ ]" under "## Acceptance criteria". -->
   <xs:complexType name="acceptanceCriteria">
     <xs:sequence>
       <xs:element name="criterion" type="tns:nonEmptyString" maxOccurs="unbounded" />

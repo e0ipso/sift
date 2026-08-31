@@ -22,6 +22,8 @@
 # Output lists created, kept, stale, and orphan paths plus the selected prefix.
 # Stale entries include explicit asset refresh commands. Orphan entries include
 # a manual removal command. Neither condition rewrites an existing file.
+# Deleting a possible repository-owned schema is the repair this script must
+# never make on its own.
 #
 # A final sift-gate check reports whether the resulting tree is READY.
 #
@@ -30,7 +32,6 @@
 #   0  created, repaired, or reported drift
 #   1  no usable prefix suggestion
 #   2  usage or environment error
-# Deleting a possible repository-owned schema is the repair this script must never make on its own.
 
 set -u
 
@@ -48,7 +49,7 @@ while [ $# -gt 0 ]; do
     --prefix)         need_value --prefix "$#";    prefix="${2:-}"; shift 2 ;;
     --milestone)      need_value --milestone "$#"; milestone="${2:-}"; shift 2 ;;
     --suggest-prefix) suggest=1; shift ;;
-    -h|--help)        sed -n '2,34p' "$0"; exit 0 ;;
+    -h|--help)        awk 'NR == 1 { next } /^#/ { print; next } { exit }' "$0"; exit 0 ;;
     *) echo "error: unknown argument: $1" >&2; exit 2 ;;
   esac
 done

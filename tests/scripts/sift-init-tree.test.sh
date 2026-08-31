@@ -522,10 +522,11 @@ root="$(newdir)"
 run_cmd "$root" "$INIT" --help
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_contains "$R_OUT" 'sift-init.sh --root PATH --prefix ABCD' "the usage line is shown"
-# --help prints a fixed line range out of the header comment, so a paragraph
-# added above the last one silently truncates the usage text unless the range
-# moves with it. Anchoring on the final paragraph is what catches that.
-assert_contains "$R_OUT" 'must never make on its own.' "through to the end of the header block"
+# --help prints the leading comment block through to its end, so a stray
+# non-comment line inside the header silently truncates the usage text.
+# Anchoring on the final header line is what catches that.
+assert_contains "$R_OUT" 'never make on its own.' "the schema-deletion caveat is shown"
+assert_contains "$R_OUT" '2  usage or environment error' "through to the end of the header block"
 assert_no_dir "$root/.ai" "asking for help materialises nothing"
 
 # --- Rejected arguments arriving at a tree with real work in it (SFT-0008) ---

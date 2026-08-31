@@ -65,11 +65,14 @@ ROWS="$(ticket_rows)"
 # with no dependencies carries ticket_rows' absent-value hyphen, not an ID.
 dep_ids() {
   [ "$1" = "-" ] && return 0
-  printf '%s\n' "$1" | tr -d '[]' | tr ',' '\n' |
-    while read -r dep; do
-      dep="$(printf '%s\n' "$dep" | tr -d '[:space:]')"
-      [ -n "$dep" ] && printf '%s\n' "$dep"
-    done
+  printf '%s\n' "$1" | awk '
+    # Match ticket-check: flow punctuation and either quote style wrap values,
+    # while whitespace only separates IDs and never becomes part of one.
+    {
+      gsub(/[][,"'"'"']/, " ")
+      for (i = 1; i <= NF; i++) print $i
+    }
+  '
 }
 
 # unmet_dep <depends_on-value> — the first dependency that is not archived, or

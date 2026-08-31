@@ -239,6 +239,20 @@ assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "ACME-0002" "$(out_key ticket)" "the dependent ticket is dispatchable now"
 assert_not_contains "$R_OUT" 'skipped:' "and nothing is held back"
 
+test_case "quoted flow-list dependency IDs use the same tokens as ticket-check"
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" archive backlog/bug ACME-0001 one 'One' \
+  'status: done' 'resolution: "Shipped"' > /dev/null
+ticket "$d" archive backlog/bug ACME-0002 two 'Two' \
+  'status: done' 'resolution: "Shipped"' > /dev/null
+ticket "$d" open backlog/bug ACME-0003 three 'Three' \
+  "depends_on: [\"ACME-0001\", 'ACME-0002']" > /dev/null
+next "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "ACME-0003" "$(out_key ticket)" \
+  "both quote styles are wrappers, so both archived dependencies are resolved"
+assert_not_contains "$R_OUT" 'skipped:' "no quoted ID is mistaken for a missing ticket"
+
 test_case "a depends_on naming no ticket at all is unmet, not ignored"
 # An ID nothing backs cannot have been resolved. Treating it as met would
 # dispatch work whose stated blocker the tree cannot even find.
@@ -415,6 +429,21 @@ $d/.ai/sift/open/backlog/bug/ACME-0001--one.md
 $d/.ai/sift/open/backlog/bug/ACME-0002--two.md" \
   "with one absolute path per line, in the same order as the IDs"
 assert_eq "" "$(dup_keys)" "and the three new keys collide with nothing already printed"
+
+test_case "the README cluster form drops its inline comment before grouping"
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one 'One' \
+  'cluster: whole-token-ids  # optional kebab name of a root cause shared with other tickets' \
+  > /dev/null
+ticket "$d" open backlog/bug ACME-0002 two 'Two' \
+  'cluster: whole-token-ids  # optional kebab name of a root cause shared with other tickets' \
+  > /dev/null
+next "$d" --group
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "2" "$(out_key group_size)" \
+  "fm_value returns the kebab value rather than appending the YAML comment"
+assert_eq "ACME-0001 ACME-0002" "$(out_key group_tickets)" \
+  "both tickets name the same documented cluster"
 
 test_case "--group is an option, so it goes in front of the marker (SFT-0033)"
 grouped_out="$R_OUT"
@@ -832,6 +861,35 @@ assert_contains "$(squeeze "$R_OUT")" 'ACME-0001 [p2/m/open] Cache \t tenant loo
   "the whole title comes back, with the backslash-t intact and nothing shifted"
 assert_eq 0 "$(printf '%s\n' "$R_OUT" | grep -c "$(printf '\t')")" \
   "and no real tab reached the report"
+
+test_case "a real tab in a title cannot shift the ticket_rows TSV"
+# The tab is an actual byte, not the two-character escape pinned above. Before
+# sanitizing at the row boundary it split the title field and made the final
+# `file` variable contain part of the title instead of a readable ticket path.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one "$(printf 'Cache\ttenant lookups')" > /dev/null
+next "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "$d/.ai/sift/open/backlog/bug/ACME-0001--one.md" "$(out_key file)" \
+  "the field behind title is still the exact ticket path"
+assert_eq "open" "$(out_key status)" "fields in front of the title remain aligned too"
+wave_status "$d"
+assert_eq 0 "$R_STATUS" "the other TSV consumer also succeeds"
+assert_contains "$(squeeze "$R_OUT")" 'ACME-0001 [p2/m/open] Cache tenant lookups' \
+  "it renders the tab as one space without dropping either half of the title"
+assert_eq 0 "$(printf '%s\n' "$R_OUT" | grep -c "$(printf '\t')")" \
+  "no delimiter byte leaks into the human-readable status report"
+
+test_case "a hash inside a quoted title remains data before an inline comment"
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open backlog/bug ACME-0001 one ignored \
+  'title: "Cache # tenant lookups" # user-facing summary' > /dev/null
+next "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq 'Cache # tenant lookups' "$(out_key title)" \
+  "fm_value preserves the quoted hash and removes only the trailing comment"
+assert_eq "$d/.ai/sift/open/backlog/bug/ACME-0001--one.md" "$(out_key file)" \
+  "ticket_rows made the same distinction, so the TSV stayed aligned"
 
 test_case "reporting progress changes nothing, and writes no generated file"
 d="$(newdir)"; make_tree "$d" ACME

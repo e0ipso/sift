@@ -204,11 +204,12 @@ Run the tree's own checks, from the cookbook in `.ai/sift/README.md` — that fi
 convention as it shipped into this repository, so take the recipes from it rather than
 from memory:
 
-- **Ticket consistency check** — every open ticket carries a positive `wave`, and every
+- **Front-matter consistency check** — every open ticket carries a `wave:` key, and every
   `depends_on` ID resolves to a ticket file. Anything it prints is a ticket this run left
   undispatchable, to fix now, before the report.
-- **Validate front-matter across the tree** — the ten required keys, `wave` included,
-  present on everything this run wrote.
+- **Validate front-matter across the tree** — the nine required keys are present on
+  everything this run wrote. This recipe does not check `wave`; the consistency check
+  above validates that separate open-ticket requirement.
 
 Then report:
 

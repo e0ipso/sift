@@ -15,7 +15,7 @@ working tree is the data model, and `git` is the implementation audit log.
 
 [README.md](README.md) is the normative specification and ships into consuming repositories
 as `.ai/sift/README.md`. Read it in full before changing ticket shape, lifecycle, layout,
-front-matter, body headings, or roadmap rules. Keep those details there instead of copying
+front-matter, body headings, or wave rules. Keep those details there instead of copying
 them into this repository contract.
 
 ## Changing the convention

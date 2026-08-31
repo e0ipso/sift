@@ -79,12 +79,37 @@ ticket_file() {
 # One front-matter value, unquoted, or empty when the key is absent.
 fm_value() {
   awk -v key="$2" '
+    # Strip a YAML inline comment only outside quotes. A hash inside a quoted
+    # title is data; a hash after whitespace and a closed quote is commentary.
+    function strip_comment(s,   q, i, c, prev, single, double) {
+      q = sprintf("%c", 39)
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        prev = (i > 1) ? substr(s, i - 1, 1) : ""
+        if (c == q && !double) { single = !single; continue }
+        if (c == "\"" && !single && prev != "\\") { double = !double; continue }
+        if (c == "#" && !single && !double && (i == 1 || prev ~ /[[:space:]]/)) {
+          s = substr(s, 1, i - 1)
+          sub(/[[:space:]]+$/, "", s)
+          break
+        }
+      }
+      return s
+    }
+    function dequote(s,   q, first, last) {
+      q = sprintf("%c", 39)
+      if (length(s) < 2) return s
+      first = substr(s, 1, 1)
+      last = substr(s, length(s), 1)
+      if (first == last && (first == "\"" || first == q))
+        return substr(s, 2, length(s) - 2)
+      return s
+    }
     NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
     infm && /^---[[:space:]]*$/ { exit }
     infm && $0 ~ "^" key ":" {
       sub("^" key ":[[:space:]]*", "")
-      gsub(/^["'"'"']|["'"'"']$/, "")
-      print
+      print dequote(strip_comment($0))
       exit
     }
   ' "$1"
@@ -172,14 +197,42 @@ ticket_search_dirs() {
 # one empty field would hand every field behind it to the wrong variable, and
 # `read` would report a title as a dependency rather than failing.
 ticket_rows() {
-  local files=() f
+  local files=() content_files=() empty_files=() f id done
   while IFS= read -r f; do
     [ -n "$f" ] && files+=("$f")
   done < <(find "$SIFT/open" "$SIFT/archive" -name "$PREFIX-*.md" 2>/dev/null)
   [ "${#files[@]}" -gt 0 ] || return 0
-  awk '
+  for f in "${files[@]}"; do
+    if [ -s "$f" ]; then
+      content_files+=("$f")
+    else
+      empty_files+=("$f")
+    fi
+  done
+  {
+    if [ "${#content_files[@]}" -gt 0 ]; then
+      awk '
     # This is a single-quoted shell string; keep awk comments free of apostrophes.
     # POSIX classes avoid both undefined backslashes and collated ranges.
+    # A YAML comment starts at a hash outside quotes after whitespace. Remove it
+    # before dequoting so documented values such as `wave: 1 # required` and
+    # `depends_on: [] # optional` reach consumers as `1` and `[]`.
+    function strip_comment(s,   q, i, c, prev, single, double) {
+      q = sprintf("%c", 39)
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        prev = (i > 1) ? substr(s, i - 1, 1) : ""
+        if (c == q && !double) { single = !single; continue }
+        if (c == "\"" && !single && prev != "\\") { double = !double; continue }
+        if (c == "#" && !single && !double && (i == 1 || prev ~ /[[:space:]]/)) {
+          s = substr(s, 1, i - 1)
+          sub(/[[:space:]]+$/, "", s)
+          break
+        }
+      }
+      return s
+    }
+    BEGIN { tab = sprintf("%c", 9) }
     # A quoted scalar is unwrapped by comparing the two ends, so the quote
     # characters never have to appear inside a regex literal here.
     function dequote(s,   q, first, last) {
@@ -221,7 +274,11 @@ ticket_rows() {
       if ($0 !~ /^[[:alpha:]_][[:alnum:]_]*:/) next
       k = $0; sub(/:.*$/, "", k)
       v = $0; sub(/^[^:]*:[[:space:]]*/, "", v)
+      v = strip_comment(v)
       v = dequote(v)
+      # Tabs are the record delimiter. Keep one malformed scalar from shifting
+      # every field behind it in the shared TSV consumed by the drain scripts.
+      gsub(tab, " ", v)
       if (k == "id") id = v
       else if (k == "title") title = v
       else if (k == "status") status = v
@@ -231,5 +288,18 @@ ticket_rows() {
       else if (k == "depends_on") deps = v
     }
     END { flush() }
-  ' "${files[@]}" | LC_ALL=C sort | cut -f4-
+      ' "${content_files[@]}"
+    fi
+    # awk receives no record for a zero-byte file. Emit the same fallback row
+    # explicitly so every ticket file remains visible and its filename ID can
+    # still satisfy dependency lookups while ticket-check reports its defects.
+    for f in "${empty_files[@]}"; do
+      id="${f##*/}"
+      id="${id%%--*}"
+      done=0
+      case "$f" in */archive/*) done=1 ;; esac
+      printf '999999\tzzz\t%s\t0\t-\t%s\t%d\t-\t-\t-\t-\t%s\n' \
+        "$id" "$id" "$done" "$f"
+    done
+  } | LC_ALL=C sort | cut -f4-
 }

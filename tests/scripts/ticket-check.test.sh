@@ -131,6 +131,31 @@ check "$d"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_contains "$R_OUT" 'OK: 3 ticket file(s) are consistent' "both edges resolve"
 
+test_case "README inline comments do not become wave or dependency data"
+# These are the exact scalar and flow-list forms in README's ticket example.
+# Without comment stripping the wave becomes unkeyed and the example ID inside
+# the depends_on comment becomes a dependency that no ticket can satisfy.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'One' \
+  'wave: 1                # required positive integer while open; see rule 9' \
+  'depends_on: []         # list of ticket IDs that must land first, e.g. [<PREFIX>-0041]' \
+  > /dev/null
+check "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_contains "$R_OUT" 'OK: 1 ticket file(s) are consistent' \
+  "only the values before the comments reach the consistency checks"
+
+test_case "quoted flow-list dependency IDs resolve under either quote style"
+d="$(newdir)"; make_tree "$d"
+archived "$d" SFT-0001 one 'One'
+archived "$d" SFT-0002 two 'Two'
+ticket "$d" open backlog/bug SFT-0003 three 'Three' \
+  "depends_on: [\"SFT-0001\", 'SFT-0002']" > /dev/null
+check "$d"
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_contains "$R_OUT" 'OK: 3 ticket file(s) are consistent' \
+  "quotes wrap IDs but are not part of either lookup"
+
 # --- One violation class per case --------------------------------------------
 
 test_case "an open ticket with no wave is reported, with the edit that fixes it"
@@ -146,6 +171,27 @@ assert_contains "$R_OUT" "fix: add 'wave: <n>' to its front matter" \
   "and the line beneath names the edit"
 assert_contains "$R_OUT" 'FAIL: 1 violation(s) across 1 ticket file(s)' \
   "one violation, counted against the total"
+
+test_case "a zero-byte ticket is reported and its filename ID still resolves"
+# A multi-file awk gets no record at all for an empty file. The reader must emit
+# one row anyway: the file is broken, but it exists and can satisfy an edge by
+# the ID in its convention-shaped filename while its own findings name the path.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0001 one 'One' \
+  'depends_on: [SFT-0002]' > /dev/null
+stub_ticket "$d" open backlog/bug SFT-0002--empty.md
+check "$d"
+assert_eq 1 "$R_STATUS" "exits 1 because the empty ticket has no front matter"
+assert_contains "$R_OUT" \
+  '! NO WAVE: SFT-0002 -> .ai/sift/open/backlog/bug/SFT-0002--empty.md' \
+  "the filename fallback keeps the empty file visible and identifies its repair"
+assert_contains "$R_OUT" \
+  "! BUCKET/STATUS MISMATCH: SFT-0002 is in open/ with status '-'" \
+  "its missing status is reported against the same ticket"
+assert_not_contains "$R_OUT" 'SFT-0001 depends_on SFT-0002' \
+  "the existing filename ID satisfies the dependency lookup"
+assert_contains "$R_OUT" 'FAIL: 2 violation(s) across 2 ticket file(s)' \
+  "the empty file is included in both the findings and the file count"
 
 test_case "a wave that is not a positive integer is reported as its own class"
 # Absent and malformed are different repairs — one adds a key, the other fixes a

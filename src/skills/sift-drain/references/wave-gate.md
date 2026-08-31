@@ -54,7 +54,7 @@ Iterate on a single e2e test file while developing; the deliverable is a GREEN F
 
 If a genuine product bug blocks green, do NOT paper over it. Report a ticket-worthy defect
 with the failing behaviour, reproduction evidence, and proposed scope. The orchestrator will
-create the ticket and roadmap row, then dispatch any skip/fixme annotation that needs its ID.
+create the ticket, wave included, then dispatch any skip/fixme annotation that needs its ID.
 Test-side problems are yours to fix.
 
 Do not capture durable knowledge in this pass. Do not edit the sift-drain skill or file a
@@ -63,7 +63,7 @@ proposal as a `type: dx` ticket-worthy defect for the orchestrator.
 
 Branch off local {{BASE_BRANCH}}, commit your scoped changes, and report the commit. Do not
 merge and NEVER `git push`. Do not write tracker state, including ticket files, archive
-moves, or roadmap rows.
+moves, or wave keys.
 
 REPORT (only this):
   status: done | blocked
@@ -116,7 +116,7 @@ exact totals reported for each; if there is no e2e layer, report that status exp
 
 If a full-suite failure is a product bug rather than a test bug, do NOT fix product code
 here. Report it precisely as a ticket-worthy defect so the orchestrator can create the
-ticket and roadmap row, then dispatch a fix agent and any assertion annotation that needs
+ticket, wave included, then dispatch a fix agent and any assertion annotation that needs
 the ticket ID. Test-side problems you fix yourself.
 
 Do not capture durable knowledge in this pass. Do not edit the sift-drain skill or file a
@@ -125,7 +125,7 @@ proposal as a `type: dx` ticket-worthy defect for the orchestrator.
 
 Branch off local {{BASE_BRANCH}}, commit your scoped changes, and report the commit. Do not
 merge and NEVER `git push`. Do not write tracker state, including ticket files, archive
-moves, or roadmap rows.
+moves, or wave keys.
 
 REPORT (only this):
   status: done | blocked
@@ -162,7 +162,7 @@ touched, plus the authoritative lint run. If any required verification cannot ru
 in the verification field with the reason.
 
 If the work exposes a separate ticket-worthy defect, report its failing behaviour, evidence,
-and proposed scope. The orchestrator creates its ticket and roadmap row and dispatches any
+and proposed scope. The orchestrator creates its ticket, wave included, and dispatches any
 follow-up that needs the new ID.
 
 Fold test changes into the existing files and classes that own the behaviour. Do not create
@@ -173,7 +173,7 @@ orchestrator.
 
 Branch off local {{BASE_BRANCH}}, commit your scoped changes, and report the commit. Do not
 merge and NEVER `git push`. Do not write tracker state, including ticket files, archive
-moves, or roadmap rows.
+moves, or wave keys.
 
 REPORT (only this):
   status: done | blocked
@@ -219,7 +219,7 @@ interface. Never edit the sift-drain skill's files and do not file, comment on, 
 external tracker. Identify an upstream proposal in the summary as a `type: dx` candidate
 for the orchestrator. After the capture, commit your scoped changes and report the commit.
 Do not merge. Never `git push`. Do not write tracker state, including ticket files, archive
-moves, or roadmap rows.
+moves, or wave keys.
 
 REPORT (only this):
   status: done | blocked
@@ -240,7 +240,7 @@ Two membership rules decide what the gate certifies:
 - **A ticket slotted into an already-closed wave is worked as the current wave's tail.**
   The closed gate is never reopened; that ticket's deferred criteria ride the next gate.
 
-Run `roadmap-check.sh` (must exit 0), then post:
+Run `ticket-check.sh` (must exit 0), then post:
 
 ```
 Wave {{WAVE}} closed.
@@ -249,5 +249,5 @@ Wave {{WAVE}} closed.
   tickets filed:   <IDs and titles> | none
   tests added:     <classes/counts; e2e test files/counts>
   suite status:    tests <N, M assertions> green; e2e <N> green | no e2e layer; lint clean
-  roadmap:         <wave-status.sh, summarised in one line>
+  waves:           <wave-status.sh, summarised in one line>
 ```

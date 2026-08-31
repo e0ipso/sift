@@ -16,13 +16,13 @@ exact worker report schema live only in `ticket-agent-prompt.md`.
 
 ## Ticket intake
 
-`wave-status.sh` lists the current wave's remaining tickets. That set is the load.
-Row order is the **default**, not the rule:
+`wave-status.sh` lists the current wave's remaining tickets, in `priority` order. That
+set is the load, and that order is the **default**, not the rule:
 
-- **Priority beats row order.** A p1 filed mid-run is pulled forward immediately — above
-  all, anything blocking test infrastructure, since a broken fixture chain stalls every
-  later gate. p2 crash and data-integrity tickets go ahead of p3/p4 stragglers even if
-  their rows sit lower.
+- **Priority is the intra-wave order, and it is only a default.** A p1 filed mid-run is
+  pulled forward immediately — above all, anything blocking test infrastructure, since a
+  broken fixture chain stalls every later gate. p2 crash and data-integrity tickets go
+  ahead of p3/p4 stragglers however late they were drafted.
 - **Dependencies still win.** Priority chooses among ready tickets; it does not bypass an
   unmet `depends_on` or a write-scope edge.
 - **Stale state changes the dispatch.** Search the integration branch log and local branch
@@ -49,18 +49,20 @@ treat the affected files as overlapping until a ticket narrows the write scope.
 enforces the spec's size bounds. Consult it when partitioning a sitting. Do not treat
 its output as the thing that starts a worker.
 
+A ticket carrying no `wave:` is in no load at all. `ticket-check.sh` names each one; give
+it the wave it belongs in before the next dispatch rather than working it off the report.
+
 A sitting never crosses a wave boundary. Before dispatch, verify that every ticket in it is
 still present in the live wave and that no earlier edge remains unmet.
 
-## The roadmap moves underneath you
+## The tree moves underneath you
 
 `.ai/sift` is commonly gitignored, so the tracker has no history and no diff. The user and
 parallel sessions edit it while the run is in flight: tickets get consolidated, audit
-tickets appear, rows are re-struck or re-worded. Workers write new files under `open/`
-without touching `ROADMAP.md`.
+tickets appear, a `wave:` or a `priority:` is rewritten. Workers add files under `open/`.
 
-The skill requires a fresh `ROADMAP.md` read before every dispatch. When it does not match
-what you remember:
+The skill requires a fresh `wave-status.sh` run before every dispatch. When its report does
+not match what you remember:
 
 1. Do not assume phantom work, a lost merge, or a corrupted tree.
 2. Check `git log` on the integration branch. If no foreign code landed, the change is
@@ -68,7 +70,7 @@ what you remember:
 3. Adapt to the tree as it now is and continue. Mention the reshuffle in the next progress
    line so the user knows you saw it.
 
-The skill owns tracker writes and the required `roadmap-check.sh` call. This section only
+The skill owns tracker writes and the required `ticket-check.sh` call. This section only
 defines how to react to concurrent bookkeeping changes before the next dispatch.
 
 ## Worker check-back
@@ -97,10 +99,10 @@ next dispatch.
 - **Every self-filed ticket, surfaced explicitly and prominently.** Every time, even when
   the same IDs were mentioned a moment earlier. The user's oversight of the backlog depends
   on it.
-- **Honest completion arithmetic.** Give the raw struck-row percentage *and* the
-  qualifiers: later waves usually skew heavier than the early bug tail, so struck rows
-  overstate progress, and rows struck by consolidation into another ticket are bookkeeping,
-  not completed work.
+- **Honest completion arithmetic.** Give the raw done percentage from `wave-status.sh`
+  *and* the qualifiers: later waves usually skew heavier than the early bug tail, so the
+  archived count overstates progress, and a ticket archived `superseded` by consolidation
+  into another one is bookkeeping, not completed work.
 - **Incomplete reports go back to their author.** The exact schema lives in
   `ticket-agent-prompt.md`; ask for the missing field or number instead of inspecting an
   implementation file.

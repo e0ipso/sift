@@ -620,7 +620,7 @@ assert_no_file "$BIN/dash" "no dash"
 assert_no_file "$BIN/xmllint" "no xmllint"
 
 test_case "the whole documented workflow runs with nothing but the baseline"
-# gate -> init -> allocate -> create -> archive -> roadmap-check, with PATH
+# gate -> init -> allocate -> create -> archive -> ticket-check, with PATH
 # holding only POSIX utilities and bash. This is the promise the convention
 # makes to a consuming repository, so the suite has to be able to keep it too.
 run_cmd "$TMPROOT" env -i PATH="$BIN" HOME="$TMPROOT" SIFT_TEST_KEEP= \

@@ -2,7 +2,7 @@
 id: 3
 group: "skill-rewiring"
 dependencies: [2]
-status: "pending"
+status: "completed"
 created: 2026-08-31
 skills:
   - portable-shell
@@ -20,11 +20,11 @@ Remove shared roadmap reads and writes from sift-drain, route dispatch freshness
 Portable shell workflow implementation and maintenance of parsed prompt and README-section contracts.
 
 ## Acceptance Criteria
-- [ ] The drain skill and run-management references run `wave-status.sh` for every dispatch freshness check and never instruct an agent to read or edit ROADMAP.md.
-- [ ] Archiving requires only the ticket front-matter status edit and `mv`; filing mid-run work assigns `wave` in the ticket file.
-- [ ] A renamed consistency script validates that every open ticket has a positive wave and every `depends_on` ID resolves to a ticket, with file-specific errors and its own remedy.
-- [ ] Drain lifecycle, wave, root-resolution, prompt-order, and consistency tests cover the new operations and exit zero.
-- [ ] `tests/run.sh` exits zero with no failures or unexpected skips.
+- [x] The drain skill and run-management references run `wave-status.sh` for every dispatch freshness check and never instruct an agent to read or edit ROADMAP.md.
+- [x] Archiving requires only the ticket front-matter status edit and `mv`; filing mid-run work assigns `wave` in the ticket file.
+- [x] A renamed consistency script validates that every open ticket has a positive wave and every `depends_on` ID resolves to a ticket, with file-specific errors and its own remedy.
+- [x] Drain lifecycle, wave, root-resolution, prompt-order, and consistency tests cover the new operations and exit zero.
+- [x] `tests/run.sh` exits zero with no failures or unexpected skips.
 
 Use your internal Todo tool to track these and keep on track.
 

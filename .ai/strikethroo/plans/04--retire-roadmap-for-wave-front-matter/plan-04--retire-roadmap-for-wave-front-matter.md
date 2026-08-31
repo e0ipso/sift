@@ -372,13 +372,13 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 002: Generate the wave view from tickets (depends on: 001)
 
-### Phase 3: Rewire the skills
+### ✅ Phase 3: Rewire the skills
 
-**Status:** Pending
+**Status:** Completed
 
 **Parallel Tasks:**
-- Task 003: Rewire sift-drain (depends on: 002)
-- Task 004: Rewire sift-prime (depends on: 002)
+- ✔️ Task 003: Rewire sift-drain (depends on: 002)
+- ✔️ Task 004: Rewire sift-prime (depends on: 002)
 
 ### Phase 4: Retire file-backed runtime machinery
 

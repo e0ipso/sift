@@ -16,6 +16,7 @@ none of them; that is what keeps one allocator in the run.
 | `{{WHY}}` | the slate row's one-line rationale |
 | `{{CLUSTER}}` | the kebab-case root-cause value when the slate kept this row's cluster split across tickets, else `none` |
 | `{{DEPENDS_ON}}` | the agreed edges, as a YAML flow list, or `[]` |
+| `{{WAVE}}` | the wave the slate placed this row in — a positive whole number the orchestrator owns, exactly as it owns the IDs |
 | `{{SCHEMA_PATH}}` | absolute path of the XSD for `{{TYPE}}` under `.ai/sift/schemas/` |
 | `{{PROJECT_ROOT}}` | absolute path the agent works in |
 | `{{TODAY}}` | the date the orchestrator resolved once, for `created` and `updated` |
@@ -76,6 +77,7 @@ and resolves them by position against README's bounded `## Rules for agents` lis
      title:      {{TITLE}}
      type:       {{TYPE}}   priority: {{PRIORITY}}   effort: {{EFFORT}}
      milestone:  {{MILESTONE}}
+     wave:       {{WAVE}}
      depends_on: {{DEPENDS_ON}}
      evidence:   {{EVIDENCE}}
      why:        {{WHY}}
@@ -90,12 +92,11 @@ and resolves them by position against README's bounded `## Rules for agents` lis
 @RULE: README.md 2 Never renumber, reuse, or delete a ticket ID
 
 2. Read {{PROJECT_ROOT}}/.ai/sift/README.md in full. Apply its front-matter, evidence,
-   roadmap-sync, and type-specific body rules. Read
+   and type-specific body rules. Read
    {{PROJECT_ROOT}}/.ai/sift/MILESTONES.md and check that it lists {{MILESTONE}}. Use `find`
    and `command grep` inside `.ai/sift` because ignore-aware search may skip that tree.
 @RULE: README.md 3 Front-matter is the source of truth
 @RULE: README.md 5 Claims about code cite
-@RULE: README.md 9 in sync — in the same change
 @RULE: README.md 10 Use the body template for the ticket's
 
 3. Read {{SCHEMA_PATH}}. Use `bug-ticket` for `type: bug`, `feature-ticket` for
@@ -108,7 +109,7 @@ and resolves them by position against README's bounded `## Rules for agents` lis
 4. Create the directory for {{TICKET_PATH}} and write the finished ticket to that path. The
    path must have the form
    `<bucket>/<milestone>/<category>/<ID>--<kebab-slug>.md`, and its category must equal the
-   ticket's type. Write all nine required front-matter keys and the assigned dependency list:
+   ticket's type. Write all ten required front-matter keys and the assigned dependency list:
 
      id: {{TICKET_ID}}
      title: {{TITLE}}
@@ -117,6 +118,7 @@ and resolves them by position against README's bounded `## Rules for agents` lis
      milestone: {{MILESTONE}}
      priority: {{PRIORITY}}
      effort: {{EFFORT}}
+     wave: {{WAVE}}
      created: {{TODAY}}
      updated: {{TODAY}}
      depends_on: {{DEPENDS_ON}}
@@ -155,10 +157,9 @@ and resolves them by position against README's bounded `## Rules for agents` lis
    criteria so work at only the first site cannot satisfy the ticket.
 
 5. Check the write scope. Leave only {{TICKET_PATH}} in `.ai/sift`; delete the external
-   scratch file. Do not edit ROADMAP.md, MILESTONES.md, config, or another ticket. Do not
-   change product code or tests. Do not create a branch or commit, run `git push`, or use an
-   external tracker.
-@RULE: README.md 9 in sync — in the same change
+   scratch file. Do not edit MILESTONES.md, config, or another ticket. Do not change product
+   code or tests. Do not create a branch or commit, run `git push`, or use an external
+   tracker.
 
 6. Return exactly these fields and no other text. Put the citations exactly as rendered in
    `## Evidence` in the `evidence:` field. Do not return file contents, diffs, or a step log.

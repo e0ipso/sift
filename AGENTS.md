@@ -47,7 +47,8 @@ installable binary is out of scope for this convention.
 Each skill installs independently, so a cross-skill rule has one copy in each skill. The row
 rule defines a roadmap row as a markdown table line whose first whole-token ticket-ID cell is
 `<PREFIX>-NNNN`. The ID rule accepts `<PREFIX>`, a hyphen, and four or more digits, with no
-other characters. The inventory below is parsed by
+other characters. The row rule's sift-prime copy retired with the roadmap writer, so the drain
+reader now holds it alone, pending that rule's own retirement. The inventory below is parsed by
 `tests/static/agents-skill-copies.test.sh`; keep the heading, marker, path, and construct shapes.
 The rationale, history, rejected alternatives, and fixture coverage live in
 [the cross-skill Kenkeep record](.ai/kenkeep/nodes/cross-skill/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md).
@@ -56,10 +57,8 @@ The rationale, history, rejected alternatives, and fixture coverage live in
 @SKILL-COPY: src/skills/sift-drain/scripts/lib.sh roadmap_rows() {
 @SKILL-COPY: src/skills/sift-drain/scripts/lib.sh pat = prefix
 @SKILL-COPY: src/skills/sift-drain/scripts/lib.sh function cell_id(
-@SKILL-COPY: src/skills/sift-prime/scripts/roadmap-append.sh case "$ID" in
-@SKILL-COPY: src/skills/sift-prime/scripts/roadmap-append.sh ROW_ID_PAT=
-@SKILL-COPY: src/skills/sift-prime/scripts/roadmap-append.sh ROW_CELL_ID_AWK=
-@SKILL-COPY: src/skills/sift-prime/scripts/roadmap-append.sh function cell_id(
+@SKILL-COPY: src/skills/sift-prime/scripts/reserve-ids.sh [0-9]{4,}
+@SKILL-COPY: src/skills/sift-prime/scripts/reserve-ids.sh printf '%s-%04d\n'
 @SKILL-COPY: src/skills/sift-drain/scripts/drain-log.sh require_ticket_id() {
 ```
 
@@ -67,9 +66,9 @@ Keep these obligations with every rule in that inventory:
 
 - Each skill holds exactly one copy of the rule.
 - Change both skills' copies in the same commit and run the corresponding agreement test in
-  `tests/scripts/prime-backlog.test.sh`. The row and ID rules each have one agreement test;
-  extend that test's fixture when its rule gains an edge. Add a third cross-skill rule only
-  with its own agreement test.
+  `tests/scripts/prime-backlog.test.sh`. The ID rule has one there, measured on the IDs
+  `reserve-ids.sh` really emits; extend its fixture when the rule gains an edge. Add a third
+  cross-skill rule only with its own agreement test.
 
 ## This repository's own sift tree is untracked
 
@@ -78,7 +77,7 @@ Keep these obligations with every rule in that inventory:
 path under `.ai/sift`; it recreates a half-tracked tree. The equality check in
 `tests/static/sift-tree-untracked.test.sh` parses this section and enforces that index state.
 Tracker edits do not appear in code review, so run
-`src/skills/sift-drain/scripts/roadmap-check.sh` before a ticket commit.
+`src/skills/sift-drain/scripts/ticket-check.sh` before a ticket commit.
 The rationale and operating cost are in
 [the untracked-tree Kenkeep record](.ai/kenkeep/nodes/convention/practice-never-force-add-a-file-under-this-repository-s-own-sift-tree.md).
 

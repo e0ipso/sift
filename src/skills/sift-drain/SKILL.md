@@ -5,7 +5,7 @@ description: This skill should be used when the user asks to "drain sift", "drai
 
 # Drain Sift
 
-Work a `.ai/sift` roadmap to completion. You are the orchestrator: you load each
+Work a `.ai/sift` backlog to completion. You are the orchestrator: you load each
 wave, build a graph of workers, monitor them, land tracker writes as they
 return, and close the wave with a test-and-lint gate. Then you continue into the
 next wave. Nothing here is project-specific — workers discover the repository's
@@ -30,7 +30,7 @@ something that has moved. State a new claim about another file, tag it the same 
 
 ## Gate: is sift initialized?
 
-Before anything else — before reading `ROADMAP.md`, before the first dispatch — run the
+Before anything else — before the first wave load, before the first dispatch — run the
 `sift-init` skill's `scripts/sift-gate.sh`. It reads only, and its exit code decides:
 
 - **0 (`READY`)** — continue below.
@@ -59,14 +59,14 @@ held to the script by `tests/scripts/sift-gate.test.sh`.
 ## Orchestrate, never implement
 
 You implement nothing — no product code, no tests. Tracker bookkeeping is yours:
-striking rows, archiving tickets, slotting roadmap rows for tickets workers wrote
-under `open/`, and merging worker branches onto the integration branch.
+archiving tickets, setting the `wave:` key on tickets workers wrote under `open/`,
+and merging worker branches onto the integration branch.
 
-Invoking a shipped script is not implementing. `wave-status.sh`, `roadmap-check.sh` and
+Invoking a shipped script is not implementing. `wave-status.sh`, `ticket-check.sh` and
 `drain-log.sh` are all called, never reimplemented — so stamping the run log means running
 `drain-log.sh`, and writing a row into `RUNLOG.md` yourself is a breach of this rule.
 
-You read `.ai/sift/ROADMAP.md`, **every remaining ticket file in the current wave**
+You read `wave-status.sh`'s report, **every remaining ticket file in the current wave**
 (to plan the graph), structured worker reports, and, when building a wave gate's
 coverage list, the `resolution` lines of that wave's archived tickets. Write scope
 comes from those tickets' citations, not from opening source. Never open source
@@ -78,19 +78,20 @@ resolve it; do not edit the product yourself.
 
 | Path | Role |
 |---|---|
-| `.ai/sift/README.md` | Ticket convention. Its roadmap-sync rule is load-bearing. |
-| `.ai/sift/ROADMAP.md` | Wave ordering. `~~struck~~` rows are done. You are its only writer during a drain. |
-| `.ai/sift/open/**` | Actionable tickets (`open`, `in-progress`, `blocked`). Workers may create files here. |
+| `.ai/sift/README.md` | Ticket convention. Its front-matter and archiving rules are load-bearing. |
+| `.ai/sift/open/**` | Actionable tickets (`open`, `in-progress`, `blocked`), each carrying its own `wave:`. Workers may create files here; you own every `wave:` value. |
 | `.ai/sift/archive/**` | Terminal tickets (`done`, `wontfix`, `superseded`). Only you move files here. |
+| `scripts/wave-status.sh` | Wave ordering, generated from those tickets. There is no shared tracker table to read or write. |
 
-**Keep the roadmap in sync:** archiving a ticket and striking its roadmap row is ONE
-change, in the same commit as the implementation. You land that change. The worker does
-not.
+**Archiving is the edit and the move:** set `status`, `resolution` and `updated`, then
+`mv` the file to the mirrored path under `archive/`. That is the whole operation — one
+change, in the same commit as the implementation, with no second file to keep in step.
+You land that change. The worker does not.
 
-**Re-read `ROADMAP.md` before every dispatch.** Workers file tickets mid-run, and the
+**Run `wave-status.sh` before every dispatch.** Workers file tickets mid-run, and the
 tree is commonly gitignored — so the user or a parallel session can reorganise it with no
-trace in git. A row that moved or vanished is bookkeeping, not corruption: confirm via
-`git log` that no foreign code landed, adapt, continue.
+trace in git. A ticket that changed wave or vanished is bookkeeping, not corruption:
+confirm via `git log` that no foreign code landed, adapt, continue.
 
 ## Scripts
 
@@ -101,7 +102,7 @@ resolve that absolute path once at run start and reuse it.
 scripts/wave-status.sh    # per-wave done/remaining + current wave's remaining tickets
 scripts/next-ticket.sh    # cluster-widening helper (not the drain loop)
 scripts/next-ticket.sh --group
-scripts/roadmap-check.sh  # rule-9 consistency, non-zero on violation
+scripts/ticket-check.sh   # front-matter consistency, non-zero on violation
 scripts/list-labels.sh    # every label in use (--counts, --open)
 scripts/tickets-by-label.sh <label>  # tickets carrying one label (--open, --paths)
 scripts/drain-log.sh dispatch|phase|return|report  # per-dispatch runtime and idle attribution
@@ -120,7 +121,7 @@ means exactly one thing.
 Every script here honours `--` as the end-of-options marker, and it means one thing across
 the skill: the option list ends there and everything behind it is positional. So
 `tickets-by-label.sh -- <label>` looks the label up even when it came out of a variable,
-while `list-labels.sh`, `next-ticket.sh`, `wave-status.sh` and `roadmap-check.sh` take no
+while `list-labels.sh`, `next-ticket.sh`, `wave-status.sh` and `ticket-check.sh` take no
 positional at all — they accept the marker and refuse anything behind it rather than
 ignoring it. `drain-log.sh`'s first positional is a subcommand, so the marker stands in
 front of it: `drain-log.sh -- dispatch <TICKET>` records the row `drain-log.sh dispatch
@@ -140,15 +141,16 @@ The sitting phase order is `orient`, `implement`, `verify`, then `bookkeep`.
 `drain-log.sh report` reads the log back as a per-group table of agent runtime, the idle gap
 before each dispatch, the phase breakdown, and the runtime divided by the tickets the group
 actually **resolved**, and flags incomplete, orphaned and unusually slow records.
-Run `roadmap-check.sh` after **your** bookkeeping for a returned worker — not against a
-worker who was forbidden to write the tracker. Non-zero means a ticket and its roadmap
-row have gone out of sync.
+Run `ticket-check.sh` after **your** bookkeeping for a returned worker — not against a
+worker who was forbidden to write the tracker. Non-zero means the tickets disagree with
+each other: an open ticket carrying no wave, a `depends_on` pointing at no file, a status
+that contradicts its folder. Each finding names the file and the edit that settles it.
 
 ## Wave graph
 
 You are the planner. Load the current wave, analyse the load, and build a graph of
 workers that may run in parallel **and** in sequence. Monitor them. As they finish,
-decide what to strike. Workers may write new tickets under `open/`; their completion
+decide what to land. Workers may write new tickets under `open/`; their completion
 output names those IDs, and you factor them into the graph when they belong in this
 wave.
 
@@ -168,12 +170,12 @@ decision and its timing.
 ```
 
 **You are the only tracker writer and the only merger.** Workers implement on a
-branch and report. They do not strike, archive, or merge.
+branch and report. They do not archive, re-wave, or merge.
 
 Loop, until the current wave has no remaining dispatchable tickets:
 
 1. Run `wave-status.sh`. Read **every** remaining ticket file it names in this wave.
-   Rebuild the graph from the live tree: workers file tickets, and the roadmap is
+   Rebuild the graph from the live tree: workers file tickets, and the tree is
    commonly gitignored.
 2. Ready sittings are those with no unmet `depends_on` and no sequential edge to a
    sitting that has not yet returned. Dispatch **every** ready sitting whose
@@ -200,20 +202,21 @@ Loop, until the current wave has no remaining dispatchable tickets:
     - Run `drain-log.sh return <TICKET> <STATUS>...` in one call, pairing each
       ticket with the `status:` its report gave **for that ticket**.
     - For each ticket reported `done`, land **one** commit on the integration
-      branch that contains that ticket's implementation, its archive move, and its
-      roadmap strike — all one change. Cherry-pick `-n` the worker's commit for that
-      ticket, archive, strike, then commit. Never land two tickets in one commit.
-    - For each ID under `tickets filed:`, slot a `ROADMAP.md` row if it belongs in
-      this wave (or the correct later wave) and hang it on the graph.
-    - Run `roadmap-check.sh`. Post a **one-line progress update per ticket**.
+      branch that contains that ticket's implementation, its front-matter edit and
+      its archive move — all one change. Cherry-pick `-n` the worker's commit for
+      that ticket, edit, move, then commit. Never land two tickets in one commit.
+    - For each ID under `tickets filed:`, read the `wave:` the worker wrote. Keep it
+      when the ticket belongs in this wave, edit it to the correct later wave when it
+      does not, and hang the ticket on the graph either way.
+    - Run `ticket-check.sh`. Post a **one-line progress update per ticket**.
       **Surface every self-filed ticket to the user** — non-negotiable, every time.
     - Rewire. Dispatch newly ready sittings.
 
 If a worker stalls, follow the resume procedure in `references/run-management.md`.
 
 **Failure policy:** redispatch once with the failure context attached. On a second
-failure, set `status: blocked` yourself (file stays in `open/`, roadmap row left
-unstruck), report it, and continue the wave. Never stall a run on one ticket.
+failure, set `status: blocked` yourself (the file stays in `open/` and keeps its
+`wave:`), report it, and continue the wave. Never stall a run on one ticket.
 
 **A sitting fails per ticket, not as a unit.** Land the tickets that came back
 `done`. Redispatch only the ones that failed. A sitting is a dispatch, never a
@@ -256,8 +259,8 @@ wave. You do.
    or the explicit no-e2e-layer status.
 4. Group fallout by root cause and dispatch one fix agent per cause. Merge each returned
    commit, then repeat every full run after the last fix lands. A gate agent reports a
-   ticket-worthy defect; you create its ticket and roadmap row before dispatching work that
-   needs the new ID.
+   ticket-worthy defect; you create its ticket, `wave:` included, before dispatching work
+   that needs the new ID.
 5. Do not close while a p1 or p2 ticket filed into this wave remains open. Work a ticket
    slotted into an already-closed wave as the current wave's tail. Its deferred coverage
    belongs to the next gate; never reopen a closed one.
@@ -278,15 +281,15 @@ agent; that is fine because you did not implement.
 - **`.ai/sift` is usually gitignored**, so ignore-aware search (the Grep tool, `rg`, a
   wrapper `grep` shell function) silently returns nothing there. Use `find` plus
   `command grep`, or the tool's no-ignore flag.
-- **`ROADMAP.md` orders the work, but `depends_on` is the authority** when the two
-  disagree, and priority pulls tickets forward within it.
+- **`wave:` orders the work, but `depends_on` is the authority** when the two
+  disagree, and `priority` pulls tickets forward within a wave.
 - **Write-scope overlap is not `depends_on`.** Most tickets declare no dependencies
   while several edit the same files. Graph from citations, not from the dependency
   field alone.
 
 ## Final report at run end
 
-Roadmap state from `wave-status.sh`; every blocked ticket and why; every ticket filed
+Wave state from `wave-status.sh`; every blocked ticket and why; every ticket filed
 during the run; the timing table from `drain-log.sh report`.
 
 ## Additional resources

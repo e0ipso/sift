@@ -30,7 +30,7 @@ PRIME="$REPO_ROOT/src/skills/sift-prime/scripts"
 # sweep asserting a SUCCESSFUL resolution would have to run them for real.
 SCRIPTS="$DRAIN/next-ticket.sh:
 $DRAIN/wave-status.sh:
-$DRAIN/roadmap-check.sh:
+$DRAIN/ticket-check.sh:
 $DRAIN/list-labels.sh:
 $DRAIN/tickets-by-label.sh:caching
 $PRIME/reserve-ids.sh:1
@@ -120,9 +120,9 @@ test_case "the walk finds the tree from any depth below it"
 root="$(newdir)"
 make_tree "$root" ACME
 # A bare tree would make next-ticket.sh and wave-status.sh exit 2 on their own
-# empty-roadmap precondition, which is indistinguishable from a failed walk. One
-# ticket and its row give every swept script something real to read, so a 2 here
-# can only mean the root was not resolved.
+# no-tickets precondition, which is indistinguishable from a failed walk. One
+# ticket gives every swept script something real to read, so a 2 here can only
+# mean the root was not resolved.
 ticket "$root" open v1/bug ACME-0001 alpha 'Alpha' 'labels: [caching]' > /dev/null
 roadmap_row "$root" 1 ACME-0001 'Alpha' '-'
 mkdir -p "$root/pkg/api/src/deep"
@@ -137,9 +137,9 @@ test_case "a nested .git does not stop the walk"
 # In a monorepo, a subproject's own VCS marker must not shadow the parent's sift
 # tree: the .ai/sift DIRECTORY is the marker, and nothing else is.
 mkdir "$root/pkg/.git"
-run_cmd "$root/pkg/api" env PATH="$PATH" "$DRAIN/roadmap-check.sh"
-assert_eq 0 "$R_STATUS" "roadmap-check.sh still resolves the parent tree"
-assert_contains "$R_OUT" 'OK: 1 roadmap rows / 1 ticket files' "and reads it"
+run_cmd "$root/pkg/api" env PATH="$PATH" "$DRAIN/ticket-check.sh"
+assert_eq 0 "$R_STATUS" "ticket-check.sh still resolves the parent tree"
+assert_contains "$R_OUT" 'OK: 1 ticket file(s) are consistent' "and reads it"
 
 test_case "a tree with no ROADMAP.md reports that specifically"
 # An initialised tree missing its roadmap is a bookkeeping problem to repair, not a
@@ -163,30 +163,30 @@ root="$(newdir)"
 make_tree "$root" ACME
 ticket "$root" open v1/bug ACME-0001 alpha 'Alpha' 'labels: [caching]' > /dev/null
 roadmap_row "$root" 1 ACME-0001 'Alpha' '-'
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/roadmap-check.sh"
-assert_eq 0 "$R_STATUS" "roadmap-check.sh exits 0"
-assert_contains "$R_OUT" 'OK: 1 roadmap rows / 1 ticket files' "it counted the ACME ticket"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/ticket-check.sh"
+assert_eq 0 "$R_STATUS" "ticket-check.sh exits 0"
+assert_contains "$R_OUT" 'OK: 1 ticket file(s) are consistent' "it counted the ACME ticket"
 
 test_case "a quoted prefix in config.yaml is unwrapped"
 for quoted in '"ACME"' "'ACME'"; do
   printf 'prefix: %s\n' "$quoted" > "$root/.ai/sift/config/config.yaml"
-  run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/roadmap-check.sh"
+  run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/ticket-check.sh"
   if [ "$R_STATUS" -eq 0 ] &&
-     case "$R_OUT" in *'1 roadmap rows / 1 ticket files'*) true ;; *) false ;; esac
+     case "$R_OUT" in *'OK: 1 ticket file(s) are consistent'*) true ;; *) false ;; esac
   then t_ok "prefix: $quoted resolves to ACME"
   else t_fail "prefix: $quoted" "status=$R_STATUS" "stdout=$R_OUT"; fi
 done
 printf 'prefix: ACME\n' > "$root/.ai/sift/config/config.yaml"
 
 test_case "SIFT_PREFIX overrides the configured value"
-run_cmd "$root" env SIFT_ROOT="$root" SIFT_PREFIX=ZZZZ "$DRAIN/roadmap-check.sh"
-# The override has to reach the row filter AND the file glob, not just one: with
-# PREFIX=ZZZZ the ACME row is not a ticket row and the ACME file is not a ticket
-# file, so 0/0 is the consistent answer. The case above saw 1/1 on the same tree,
-# which is what makes this 0/0 evidence the override landed.
+run_cmd "$root" env SIFT_ROOT="$root" SIFT_PREFIX=ZZZZ "$DRAIN/ticket-check.sh"
+# The override has to reach the file glob the whole verdict is built from: with
+# PREFIX=ZZZZ the ACME file is not a ticket file, so zero is the consistent
+# answer. The case above saw one ticket on the same tree, which is what makes
+# this zero evidence the override landed rather than an empty tree.
 assert_eq 0 "$R_STATUS" "exits 0: under ZZZZ there is nothing left to be inconsistent about"
-assert_contains "$R_OUT" 'OK: 0 roadmap rows / 0 ticket files' \
-  "the ACME row and the ACME file both stop counting"
+assert_contains "$R_OUT" 'OK: 0 ticket file(s) are consistent' \
+  "the ACME file stops counting"
 run_cmd "$root" env SIFT_ROOT="$root" SIFT_PREFIX=ZZZZ "$PRIME/reserve-ids.sh" 1
 assert_eq 0 "$R_STATUS" "reserve-ids.sh exits 0"
 assert_eq "ZZZZ-0001" "$R_OUT" "and allocates under the overridden prefix, from both skills' lib.sh"

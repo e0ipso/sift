@@ -1,13 +1,13 @@
 ---
 name: sift-prime
-description: This skill should be used when the user asks to "prime the backlog", "seed the backlog", "fill the sift roadmap", "propose work", "what should we build next", "find work in this repo", or otherwise asks to turn a repository into `.ai/sift` tickets. Provides the goal-gap analysis sweep and its evidence bar, the chat-only proposal negotiation, single-pass ID reservation, and the drafting fan-out that writes tickets plus the roadmap rows `sift-drain` pulls.
+description: This skill should be used when the user asks to "prime the backlog", "seed the backlog", "fill the sift roadmap", "propose work", "what should we build next", "find work in this repo", or otherwise asks to turn a repository into `.ai/sift` tickets. Provides the goal-gap analysis sweep and its evidence bar, the chat-only proposal negotiation, single-pass ID reservation, and the drafting fan-out that writes the wave-assigned tickets `sift-drain` pulls.
 ---
 
 # Prime Sift
 
 Turn a repository into sift tickets: measure what the project's own documents say it is
 against what is actually on disk, propose the gaps to the user, and on their agreement
-write the tickets and the `ROADMAP.md` rows behind them. This skill sits between
+write the tickets, each carrying the wave it was negotiated into. This skill sits between
 `sift-init`, which creates the tree, and `sift-drain`, which empties it. Filling it is this
 skill's job.
 
@@ -64,8 +64,10 @@ repository's source to check a finding yourself — sweeping inline buries your 
 the material you delegated away, and by the time the slate is long there is no room left
 to negotiate it. Catch yourself reading implementation code: **stop and delegate.**
 
-Two files are yours to write and nobody else's: `ROADMAP.md`, and `MILESTONES.md` when the
-user agrees to a new milestone. Everything under `open/` is written by drafting agents.
+One file is yours to write and nobody else's: `MILESTONES.md`, and only when the user
+agrees to a new milestone. Everything under `open/` is written by drafting agents — a
+ticket's wave included, because wave membership is front matter on the ticket and not a
+row in a file anybody shares.
 
 ## Scripts
 
@@ -73,20 +75,18 @@ Call these instead of parsing markdown by eye. They live in `scripts/` next to t
 resolve that absolute path once at run start and reuse it.
 
 ```sh
-scripts/existing-work.sh    # every open + archived ticket, tab-separated, for dedupe
-scripts/reserve-ids.sh <count>                          # the next <count> contiguous IDs
-scripts/roadmap-append.sh <wave> <ID> <title> <needs>   # append one roadmap row
+scripts/existing-work.sh       # every open + archived ticket, tab-separated, for dedupe
+scripts/reserve-ids.sh <count> # the next <count> contiguous IDs
 ```
 
 They find the project root by walking up from `$PWD` for a `.ai/sift/` directory and read
 the prefix from `.ai/sift/config/config.yaml`; override with `SIFT_ROOT` / `SIFT_PREFIX`.
-Exit 2 from any of them is a setup error — the tree or the prefix could not be resolved —
-and never a verdict on the work.
+Exit 2 from either of them is a setup error — the tree or the prefix could not be resolved
+— and never a verdict on the work.
 
-`existing-work.sh` and `reserve-ids.sh` write nothing. `roadmap-append.sh` is the only
-script here that writes: `<needs>` is `""` when nothing blocks the row, it creates the
-`## Wave <n>` section when that wave is new, and it exits 1 rather than adding a second row
-for an ID the roadmap already carries.
+Both write nothing, and there is no third script that does: a priming run's only writes are
+the ticket files the drafting agents create, one file each, plus `MILESTONES.md` when the
+user agreed to a new milestone.
 
 ## Phase 1 — Analyse
 
@@ -139,7 +139,11 @@ name that exception in the slate.
 
 Present the survivors as a slate: title, `type`, `priority`, `effort`, milestone, the
 one-line rationale and the citation behind each row, plus the `depends_on` edges you
-propose between them and the waves those edges imply. Name what dedupe dropped and why.
+propose between them and the wave each row lands in. A wave is a positive whole number: a
+row that depends on nothing in the slate is Wave 1, and every other row lands in the first
+wave after all the rows it depends on. Say each row's number, not only the shape of the
+graph — that number is what the drafting agent writes into the ticket. Name what dedupe
+dropped and why.
 
 For a clustered row, apply the analysis reference's
 [one-citation-per-site rule](references/analysis.md#one-citation-per-site) so the user can
@@ -181,26 +185,18 @@ its retry for an agent that returns blocked. Resolve every placeholder before di
 today's date included, so a batch that straddles midnight still carries one `created` date
 throughout. `{{CLUSTER}}` is `none` for an unclustered row and otherwise the same
 kebab-case value on every member of the cluster — you own that value, exactly as you own
-the IDs, because members that spell it differently are not a group. Agents may run concurrently — one file is one ticket and each agent owns
-exactly one file, which is what makes that safe.
+the IDs, because members that spell it differently are not a group. `{{WAVE}}` is the
+agreed wave for that row, spelled as the exact positive whole number and never as a range,
+a guess or the word "next" — you own it for the same reason, because a ticket whose wave
+disagrees with the edges the slate drew is dispatched in the wrong order. Agents may run
+concurrently — one file is one ticket and each agent owns exactly one file, which is what
+makes that safe.
 
-**Then write `ROADMAP.md` yourself**, after every drafting agent has returned:
-
-```sh
-scripts/roadmap-append.sh <wave> <ID> <title> <needs>
-```
-
-One row per file written, waves following the agreed `depends_on` edges. **Append in
-ascending wave order** — a new wave's section lands at the end of the file and nothing
-inserts Wave 3 between Wave 2 and Wave 4, so appending out of order leaves the sections
-out of order. This is the
-orchestrator's job and not the agents' for one reason: a dozen agents appending to one
-file is the shared-mutable-file shape this project avoids, and the roadmap consistency
-check is what would then report the interleaved result as broken. The convention makes a
-ticket and its roadmap row **one change**, so the batch is not finished until every row
-is appended.
-An agent that returns blocked twice gets no row; its reserved ID simply goes unused, which
-costs nothing.
+The wave lands in the same write that creates the ticket, so there is nothing left to
+publish once the agents return: `wave:` is front matter, `sift-drain` reads it from the
+ticket files, and no shared file has to be kept in step with them. An agent that returns
+blocked twice writes nothing; its reserved ID simply goes unused, which costs nothing, and
+the wave it was assigned is a gap in nothing at all.
 
 ## Phase 4 — Verify and report
 
@@ -208,11 +204,11 @@ Run the tree's own checks, from the cookbook in `.ai/sift/README.md` — that fi
 convention as it shipped into this repository, so take the recipes from it rather than
 from memory:
 
-- **Roadmap consistency check** — every ticket file appears in `ROADMAP.md`, and every
-  roadmap ID resolves to a file. Anything it prints is a roadmap/ticket desync to fix now,
-  before the report.
-- **Validate front-matter across the tree** — the nine required keys, present on
-  everything this run wrote.
+- **Ticket consistency check** — every open ticket carries a positive `wave`, and every
+  `depends_on` ID resolves to a ticket file. Anything it prints is a ticket this run left
+  undispatchable, to fix now, before the report.
+- **Validate front-matter across the tree** — the ten required keys, `wave` included,
+  present on everything this run wrote.
 
 Then report:
 

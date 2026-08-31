@@ -6,9 +6,10 @@
 # explicit so every new ID reaches the orchestrator.
 #
 # The sift-prime drafting prompt has six numbered steps. Its preamble points the
-# XSD pins at step 3 and the body-heading pins at step 4. Its two rule-9 markers
-# belong to the roadmap-reading instruction in step 2 and the write-scope
-# instruction in step 5, not to one repeated site.
+# XSD pins at step 3 and the body-heading pins at step 4. The wave the orchestrator
+# negotiated reaches the agent as an assigned value in step 1 and is written into
+# the ticket's front matter in step 4 — the two sites that make the ticket file the
+# only place wave membership lives.
 #
 # The Claude and Cursor plan-creator prompts are two platform entry points for one
 # contract. Keep their bytes equal and their seven phases in the declared order.
@@ -55,9 +56,6 @@ DRAFTING_REFERENCES='STEP 3
 STEP 4
 STEP 3
 STEP 4'
-DRAFTING_RULE9='@RULE: README.md 9 in sync — in the same change'
-DRAFTING_RULE9_STEPS='2
-5'
 DRAFTING_STEP_CONTRACT='1 assigned-values
 2 read-convention
 3 read-schema
@@ -72,6 +70,8 @@ evidence: <every citation rendered into ## Evidence>
 judgment calls: <decisions you made yourself> | none'
 DRAFTING_EVIDENCE_STEPS='1
 4
+4'
+DRAFTING_WAVE_STEPS='1
 4'
 
 count_exact() {
@@ -112,37 +112,6 @@ drafting_preamble_references() {
         print substr(line, RSTART, RLENGTH)
         line = substr(line, RSTART + RLENGTH)
       }
-    }
-  ' "$1"
-}
-
-drafting_rule9_steps() {
-  awk -v marker="$DRAFTING_RULE9" '
-    $0 == "## Template" { seek_fence = 1; next }
-    seek_fence && $0 == "```" { in_template = 1; seek_fence = 0; next }
-    in_template && $0 == "```" { exit }
-    in_template && /^[0-9][0-9]*\.[[:space:]]/ {
-      step = $0
-      sub(/\..*$/, "", step)
-    }
-    in_template {
-      line = $0
-      sub(/^[[:space:]]+/, "", line)
-      sub(/[[:space:]]+$/, "", line)
-      if (line == marker) print step
-    }
-  ' "$1"
-}
-
-adjacent_drafting_rule9_markers() {
-  awk -v marker="$DRAFTING_RULE9" '
-    {
-      line = $0
-      sub(/^[[:space:]]+/, "", line)
-      sub(/[[:space:]]+$/, "", line)
-      if (line == marker && previous == marker)
-        printf "%d:%d\n", NR - 1, NR
-      previous = line
     }
   ' "$1"
 }
@@ -268,6 +237,29 @@ worker_report_fields() {
   ' "$1"
 }
 
+WAVE_PLACEHOLDER='{{WAVE}}'
+
+# worker_table_placeholders <prompt> — the placeholders the sitting's own source
+# table declares. The prompt carries later tables for the resume and redispatch
+# templates; this reads the first, which is the sitting's.
+worker_table_placeholders() {
+  awk '
+    $0 == "| Placeholder | Source |" { in_table = 1 }
+    in_table && $0 == "" { exit }
+    in_table { print }
+  ' "$1" | placeholders
+}
+
+# worker_wave_sites <prompt> — the step heading above every {{WAVE}} use inside
+# the template, one line per use. The declaration in the source table sits above
+# the first step and is deliberately not one of them.
+worker_wave_sites() {
+  awk -v want="$WAVE_PLACEHOLDER" '
+    /^Step [0-9][0-9]*: / { step = $0; sub(/:.*$/, "", step) }
+    step != "" && index($0, want) { print step }
+  ' "$1"
+}
+
 worker_schema_owners() {
   # `sitting verification` is unique to the worker report. A second exact
   # schema would have to copy it, while the gate agents have their own reports.
@@ -326,6 +318,29 @@ assert_not_contains "$(cat "$damaged")" "$FIELD" "the report field is gone from 
 assert_eq "tickets filed field missing" "$(report_error "$damaged")" \
   "the report check names the missing field"
 
+test_case "the worker prompt carries the sitting's wave into the ticket it files"
+# Wave membership is a key in the ticket file, so a follow-up written without one
+# is in no load and is dispatched by nobody. The placeholder is how the
+# orchestrator's wave reaches the worker, and the filing step is the only place
+# the worker has a ticket to put it in — a use anywhere else is a number with
+# nothing to do, and no use at all is a ticket filed adrift.
+assert_contains "$(worker_table_placeholders "$PROMPT")" "$WAVE_PLACEHOLDER" \
+  "the sitting's wave is a declared input, not a number the agent invents"
+assert_eq 'Step 5' "$(worker_wave_sites "$PROMPT")" \
+  "and the template uses it at exactly one site: the step that files follow-ups"
+
+test_case "a wave used outside the filing step fails the placement check"
+work="$(newdir)"
+damaged="$work/ticket-agent-prompt.md"
+awk -v want='Step 3: Implement and commit each ticket' '
+  $0 == want { print; print "Record wave {{WAVE}} in the commit message."; next }
+  { print }
+' "$PROMPT" > "$damaged"
+assert_contains "$(worker_wave_sites "$damaged")" 'Step 3' \
+  "the copy uses the wave where no ticket is being written"
+assert_ne 'Step 5' "$(worker_wave_sites "$damaged")" \
+  "the placement check rejects it"
+
 test_case "the drafting prompt keeps its six-step reference contract"
 assert_file "$DRAFTING_PROMPT" "the canonical drafting prompt exists"
 assert_eq "$DRAFTING_STEPS" "$(drafting_step_numbers "$DRAFTING_PROMPT")" \
@@ -350,29 +365,6 @@ assert_ne "$(drafting_preamble_references "$DRAFTING_PROMPT")" \
   "the stale-reference mutation changed the live contract"
 assert_ne "$DRAFTING_REFERENCES" "$(drafting_preamble_references "$damaged")" \
   "the reference comparison rejects the stale step number"
-
-test_case "the drafting rule-9 markers pin two owning steps"
-assert_eq "$DRAFTING_RULE9_STEPS" "$(drafting_rule9_steps "$DRAFTING_PROMPT")" \
-  "the roadmap-read and write-scope statements each carry one rule-9 marker"
-assert_eq '' "$(adjacent_drafting_rule9_markers "$DRAFTING_PROMPT")" \
-  "the two rule-9 markers are not adjacent"
-
-test_case "adjacent drafting rule-9 markers fail the placement check"
-work="$(newdir)"
-damaged="$work/drafting-agent-prompt.md"
-awk -v marker="$DRAFTING_RULE9" '
-  $0 == marker && !moved { moved = 1; next }
-  $0 == marker && moved { print; print; moved = 0; next }
-  { print }
-' "$DRAFTING_PROMPT" > "$damaged"
-assert_eq '5
-5' "$(drafting_rule9_steps "$damaged")" \
-  "the copy co-locates both markers at the write-scope statement"
-assert_ne "$(drafting_rule9_steps "$DRAFTING_PROMPT")" \
-  "$(drafting_rule9_steps "$damaged")" \
-  "the adjacent-marker mutation changed the live placement"
-assert_ne '' "$(adjacent_drafting_rule9_markers "$damaged")" \
-  "the placement check rejects adjacent rule-9 markers"
 
 test_case "the drafting steps each own one process requirement"
 assert_eq "$DRAFTING_STEP_CONTRACT" "$(drafting_step_contract "$DRAFTING_PROMPT")" \
@@ -404,6 +396,9 @@ assert_eq "$(drafting_table_placeholders "$DRAFTING_PROMPT")" \
 assert_eq "$DRAFTING_EVIDENCE_STEPS" \
   "$(drafting_placeholder_steps "$DRAFTING_PROMPT" '{{EVIDENCE}}')" \
   "assigned evidence reaches the single-site and multi-site ticket rules"
+assert_eq "$DRAFTING_WAVE_STEPS" \
+  "$(drafting_placeholder_steps "$DRAFTING_PROMPT" '{{WAVE}}')" \
+  "the negotiated wave is an assigned value and a front-matter key, and nothing else"
 assert_eq "$DRAFTING_REPORT_SCHEMA" "$(drafting_report_schema "$DRAFTING_PROMPT")" \
   "the drafting report keeps every field and value contract in order"
 

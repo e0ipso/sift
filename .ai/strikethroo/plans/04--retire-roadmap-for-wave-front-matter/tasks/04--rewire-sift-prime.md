@@ -2,7 +2,7 @@
 id: 4
 group: "skill-rewiring"
 dependencies: [2]
-status: "pending"
+status: "completed"
 created: 2026-08-31
 skills:
   - prompt-contracts
@@ -19,11 +19,11 @@ Make each drafting agent write the negotiated wave into the ticket it creates an
 Prompt contract maintenance and shell integration testing.
 
 ## Acceptance Criteria
-- [ ] Sift-prime's slate and drafting instructions pass an exact positive wave to each ticket writer, which emits `wave: N` in front matter.
-- [ ] `src/skills/sift-prime/scripts/roadmap-append.sh` is removed and no prime workflow calls or describes it.
-- [ ] ID reservation, dedupe, negotiation, and concurrent one-file-per-ticket drafting behavior remain intact.
-- [ ] Prime backlog tests retain meaningful drafting and ID-rule coverage while all retired append-only cases are removed, and the focused test exits zero.
-- [ ] `tests/run.sh` exits zero with no failures or unexpected skips.
+- [x] Sift-prime's slate and drafting instructions pass an exact positive wave to each ticket writer, which emits `wave: N` in front matter.
+- [x] `src/skills/sift-prime/scripts/roadmap-append.sh` is removed and no prime workflow calls or describes it.
+- [x] ID reservation, dedupe, negotiation, and concurrent one-file-per-ticket drafting behavior remain intact.
+- [x] Prime backlog tests retain meaningful drafting and ID-rule coverage while all retired append-only cases are removed, and the focused test exits zero.
+- [x] `tests/run.sh` exits zero with no failures or unexpected skips.
 
 Use your internal Todo tool to track these and keep on track.
 

@@ -25,7 +25,7 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL="$REPO_ROOT/src/skills/sift-init/scripts"
 INIT="$SKILL/sift-init.sh"
 GATE="$SKILL/sift-gate.sh"
-CHECK="$REPO_ROOT/src/skills/sift-drain/scripts/roadmap-check.sh"
+CHECK="$REPO_ROOT/src/skills/sift-drain/scripts/ticket-check.sh"
 DRAIN_LIB="$REPO_ROOT/src/skills/sift-drain/scripts/lib.sh"
 PRIME_LIB="$REPO_ROOT/src/skills/sift-prime/scripts/lib.sh"
 
@@ -152,9 +152,9 @@ drain_rows() {
   )
 }
 
-# roadmap_verdict <root> — status and stdout together, so a caller compares a
+# check_verdict <root> — status and stdout together, so a caller compares a
 # result without relying on run_cmd's mutable return channel.
-roadmap_verdict() {
+check_verdict() {
   local out status
   out="$(cd "$1" && SIFT_ROOT="$1" "$CHECK" 2>&1)"
   status=$?
@@ -218,11 +218,11 @@ for tree in "$initialized" "$fixture"; do
 done
 
 expected_verdict='0
-OK: 0 roadmap rows / 0 ticket files are rule-9 consistent'
-assert_eq "$expected_verdict" "$(roadmap_verdict "$initialized")" \
-  "roadmap-check reports the initialized tree as 0/0"
-assert_eq "$expected_verdict" "$(roadmap_verdict "$fixture")" \
-  "roadmap-check reports the fixture tree with the same 0/0 verdict"
+OK: 0 ticket file(s) are consistent'
+assert_eq "$expected_verdict" "$(check_verdict "$initialized")" \
+  "ticket-check reports the initialized tree as zero"
+assert_eq "$expected_verdict" "$(check_verdict "$fixture")" \
+  "ticket-check reports the fixture tree with the same zero verdict"
 
 fixture_copy="$(newdir)"
 cp -R "$fixture/.ai" "$fixture_copy/"
@@ -304,12 +304,12 @@ assert_contains "$(cat "$root/.ai/sift/MILESTONES.md")" '## v1-2' \
   "MILESTONES.md documents the milestone in the same change that creates its folder"
 assert_contains "$(cat "$root/.ai/sift/config/config.yaml")" 'prefix: ACME' "the prefix is configured"
 
-test_case "a fresh tree is already rule-9 consistent"
-# An initialised tree has no tickets and no roadmap rows, which is the empty
+test_case "a fresh tree is already consistent"
+# An initialised tree has no tickets at all, which is the empty
 # case every consistency check has to survive rather than divide by.
 run_cmd "$root" env SIFT_ROOT="$root" "$CHECK"
-assert_eq 0 "$R_STATUS" "roadmap-check.sh exits 0 on a freshly initialised tree"
-assert_contains "$R_OUT" 'OK: 0 roadmap rows / 0 ticket files' "counting nothing, both ways"
+assert_eq 0 "$R_STATUS" "ticket-check.sh exits 0 on a freshly initialised tree"
+assert_contains "$R_OUT" 'OK: 0 ticket file(s) are consistent' "counting nothing at all"
 
 test_case "--root, not \$PWD, decides where the tree lands"
 elsewhere="$(newdir)"

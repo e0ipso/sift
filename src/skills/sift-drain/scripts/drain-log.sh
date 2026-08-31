@@ -38,7 +38,7 @@ LOG="$SIFT/RUNLOG.md"
 #
 # Accept PREFIX plus four-or-more digits; %04d is a minimum width. The outer arm
 # supplies the minimum and the inner arm rejects non-digits. Keep this rule in
-# sync with sift-prime/scripts/roadmap-append.sh and run the cross-skill ID test.
+# sync with sift-prime/scripts/reserve-ids.sh and run the cross-skill ID test.
 # `[0-9]` is intentional and byte-comparable with that copy; the portability ban
 # applies to locale-collated letter ranges.
 require_ticket_id() {

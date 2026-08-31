@@ -17,11 +17,12 @@ assigned to this node, listed in the order they must be worked. A sitting of one
 ordinary small case and needs no special form — the template reads correctly with a single
 stanza in `{{TICKET_BLOCK}}`, and every per-ticket instruction in it simply runs once.
 
-You implement. You do not strike `ROADMAP.md`, you do not archive, and you do not merge.
-The orchestrator lands those writes after you return.
+You implement. You do not archive, you do not move a ticket between waves, and you do not
+merge. The orchestrator lands those writes after you return.
 
 | Placeholder | Source |
 |---|---|
+| `{{WAVE}}` | the wave number this sitting belongs to; a follow-up is filed into it |
 | `{{GROUP_SIZE}}` | how many tickets this sitting carries |
 | `{{GROUP_TICKETS}}` | space-separated IDs, sitting order. This is also the ORDER you work them in |
 | `{{TICKET_BLOCK}}` | one stanza per ticket in that order: id, title, the absolute path, `type`/`priority`/`effort` from that ticket's own front matter, and one or two sentences of summary the orchestrator wrote after reading it |
@@ -68,7 +69,7 @@ one alone as the first action in its phase. Never write RUNLOG.md by hand.
 Read every ticket file listed above in full. Then read these sections of
 .ai/sift/README.md, not the whole file:
   @README-SECTION: ## Rules for agents
-    Read the roadmap-sync rule so you can keep tracker writes outside your branch.
+    Read the tracker-write rules so you can keep tracker writes outside your branch.
   @README-SECTION: ## Front-matter schema
     Read the required keys and allowed values before filing a ticket.
   @README-SECTION: ## Ticket body
@@ -113,9 +114,9 @@ orchestrator will coordinate the write scopes.
 
 Limit writes to the product files required by the current ticket and the existing tests
 allowed in step 3. Do not edit sift-drain skill files because a maintenance worker may own
-them. In `.ai/sift`, create only the follow-up ticket files described in step 5. The
-orchestrator alone changes ROADMAP.md, archives tickets, merges onto {{BASE_BRANCH}}, and
-adds roadmap rows for follow-ups.
+them. In `.ai/sift`, create only the follow-up ticket files described in step 5, and edit
+no ticket you did not create. The orchestrator alone archives tickets, merges onto
+{{BASE_BRANCH}}, and decides which wave a follow-up finally belongs in.
 
 Step 2: Create the sitting branch
 
@@ -182,7 +183,7 @@ Run this stamp alone before the sitting-wide checks:
   {{SCRIPTS_DIR}}/drain-log.sh phase verify
 Run the union of the step 3c test files once against the finished branch. Run lint and static
 analysis across every file the sitting touched. Do not run the full suite or
-roadmap-check.sh; the wave gate owns the full run and the orchestrator owns tracker checks.
+ticket-check.sh; the wave gate owns the full run and the orchestrator owns tracker checks.
 Amend a failure fix into the ticket commit that caused it. If no ticket caused it alone, use
 a separate commit and retain its hash for the final report.
 
@@ -196,6 +197,11 @@ Write an out-of-scope bug, deferred improvement, or unresolved gap as a new tick
 `## Problem`. For a non-trivial ticket, first use the matching `.ai/sift/schemas/*.xsd` as a
 checklist in a scratch draft. Render only the markdown ticket, then delete the draft. Do not
 invoke `xmllint`.
+
+Give every ticket you file `wave: {{WAVE}}`. An open ticket with no wave is in no load and
+is dispatched by nobody, and this wave is where the work surfaced; the orchestrator moves
+it to a later wave if that is where it belongs. Set no other wave and touch no other
+ticket's.
 
 Do not file, comment on, or patch an external tracker. Record a warranted upstream fix as a
 local `type: dx` ticket so the human can file it.
@@ -290,7 +296,7 @@ Sift ticket {{TICKET_ID}} at {{TICKET_PATH}} failed two implementation attempts.
 `## Rules for agents` and `## Front-matter schema` sections of .ai/sift/README.md first.
 Append a "## Blocked" section to the body recording both failure reasons:
 {{FAILURE_REPORTS}}
-Do not change status, do not archive, do not touch ROADMAP.md. The orchestrator sets
+Do not change status, do not archive, do not touch `wave:`. The orchestrator sets
 `status: blocked`. Commit the body edit on {{BASE_BRANCH}}; do not push.
 Report: status, commit hash, one-paragraph reason.
 ```

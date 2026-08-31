@@ -13,6 +13,17 @@
 # still restricts a ticket ID to [A-Z][A-Z0-9]*-[0-9]{4}, so optional xmllint
 # drafting would reject a five-digit ID until that pattern is widened.
 #
+# This is where sift-prime spells what a ticket ID is — a prefix, a hyphen and a
+# minimum-width four-digit number — so it holds this skill's copy of the ID rule
+# sift-drain's drain-log.sh states in require_ticket_id. That second copy is a
+# standing decision, not an oversight, and it is recorded in AGENTS.md under
+# "Duplication between skills": the skills install independently and neither
+# directory may source a file from the other, so the rule is written out once per
+# skill and a drift is caught by a test rather than by a tree that is already
+# wrong. The test is "every ID sift-prime allocates is one sift-drain will log" in
+# tests/scripts/prime-backlog.test.sh — change this copy and the drain's in the
+# same commit, and run that test to prove they still agree.
+#
 # Nothing is written: reserving is an act of reading, and the ID only becomes real
 # when the ticket file lands.
 #

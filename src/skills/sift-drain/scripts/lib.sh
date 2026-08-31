@@ -4,6 +4,7 @@
 # Provides:
 #   ROOT / SIFT / ROADMAP / PREFIX  — resolved absolute paths and the ticket prefix
 #   roadmap_rows                    — TSV of every roadmap ticket row
+#   ticket_rows                     — TSV of every ticket file, in dispatch order
 #   ticket_file <ID>                — absolute path of a ticket file, or empty
 #   fm_value <file> <key>           — one front-matter value
 #   fm_labels <file>                — one label per line from labels: [...]
@@ -220,4 +221,85 @@ ticket_search_dirs() {
   else
     printf '%s\n' "$SIFT/open" "$SIFT/archive"
   fi
+}
+
+# --- Ticket front matter ----------------------------------------------------
+# Print one TSV line per ticket file, open/ and archive/ alike:
+#   wave <TAB> priority <TAB> ID <TAB> done(0|1) <TAB> status <TAB> effort
+#     <TAB> depends_on <TAB> title <TAB> file
+#
+# The wave is the ticket's own `wave:` key; a ticket carrying none is reported
+# as wave 0, never assigned to a guessed one. `done` is the bucket, which is the
+# only place resolution is recorded once a ticket is archived.
+#
+# Rows come out in dispatch order: wave ascending with the unkeyed ones last,
+# then `priority` — the intra-wave order — then ID. The sort key is built as a
+# leading field and cut back off, so a missing priority sorts behind p0..p9
+# instead of in front of it.
+#
+# An absent optional value is written as a single hyphen, never as an empty
+# field. A tab is IFS whitespace, so bash collapses a run of them: a row holding
+# one empty field would hand every field behind it to the wrong variable, and
+# `read` would report a title as a dependency rather than failing.
+ticket_rows() {
+  local files=() f
+  while IFS= read -r f; do
+    [ -n "$f" ] && files+=("$f")
+  done < <(find "$SIFT/open" "$SIFT/archive" -name "$PREFIX-*.md" 2>/dev/null)
+  [ "${#files[@]}" -gt 0 ] || return 0
+  awk '
+    # This is a single-quoted shell string; keep awk comments free of apostrophes.
+    # POSIX classes avoid both undefined backslashes and collated ranges.
+    # A quoted scalar is unwrapped by comparing the two ends, so the quote
+    # characters never have to appear inside a regex literal here.
+    function dequote(s,   q, first, last) {
+      q = sprintf("%c", 39)
+      if (length(s) < 2) return s
+      first = substr(s, 1, 1)
+      last = substr(s, length(s), 1)
+      if (first == last && (first == "\"" || first == q))
+        return substr(s, 2, length(s) - 2)
+      return s
+    }
+    # The ID falls back to the filename so a ticket whose front matter is being
+    # repaired is still reported rather than silently dropped.
+    function basename(p,   n, parts) {
+      n = split(p, parts, "/")
+      return parts[n]
+    }
+    function given(s) { return (s == "") ? "-" : s }
+    function flush(   w, key) {
+      if (path == "") return
+      if (id == "") { id = basename(path); sub(/--.*$/, "", id) }
+      w = (wave ~ /^[0-9][0-9]*$/) ? wave + 0 : 0
+      key = sprintf("%06d\t%s\t%s", (w > 0) ? w : 999999, (pri == "") ? "zzz" : pri, id)
+      printf "%s\t%d\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
+        key, w, given(pri), id, done, given(status), given(effort),
+        given(deps), given(title), path
+      path = ""
+    }
+    FNR == 1 {
+      flush()
+      path = FILENAME
+      id = ""; title = ""; status = ""; pri = ""; effort = ""; wave = ""; deps = ""
+      done = (index(FILENAME, "/archive/") > 0) ? 1 : 0
+      infm = ($0 ~ /^---[[:space:]]*$/) ? 1 : 0
+      next
+    }
+    infm && /^---[[:space:]]*$/ { infm = 0; next }
+    infm {
+      if ($0 !~ /^[[:alpha:]_][[:alnum:]_]*:/) next
+      k = $0; sub(/:.*$/, "", k)
+      v = $0; sub(/^[^:]*:[[:space:]]*/, "", v)
+      v = dequote(v)
+      if (k == "id") id = v
+      else if (k == "title") title = v
+      else if (k == "status") status = v
+      else if (k == "priority") pri = v
+      else if (k == "effort") effort = v
+      else if (k == "wave") wave = v
+      else if (k == "depends_on") deps = v
+    }
+    END { flush() }
+  ' "${files[@]}" | LC_ALL=C sort | cut -f4-
 }

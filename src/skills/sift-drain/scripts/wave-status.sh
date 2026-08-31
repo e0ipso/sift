@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
-# wave-status.sh — per-wave progress across .ai/sift/ROADMAP.md.
+# wave-status.sh — per-wave progress, read from ticket front matter.
 #
-# A roadmap with no "## Wave <n>" headings is reported as a single wave 1.
+# The wave is a ticket key, not a table: every open ticket carries `wave: <n>`,
+# an archived ticket keeps whichever wave it was drafted with, and the bucket a
+# file lives in is what says whether it is done. Nothing is generated to disk —
+# this report IS the roadmap.
 #
 # Prints a done/remaining table for every wave, then the current wave (the
-# earliest one with remaining work) and its remaining ticket IDs with priority
-# and effort, so a run can be resumed without re-reading the roadmap by eye.
+# earliest one with remaining work) and its remaining tickets in `priority`
+# order with effort and status, so a run can be resumed without re-reading the
+# tree by eye.
+#
+# Tickets carrying no wave key are counted and reported as unkeyed. Archived
+# work resolved before the key existed has no wave to be assigned to, and
+# guessing one would put finished work into a wave it never belonged to.
 #
 # Usage:
 #   scripts/wave-status.sh
@@ -15,7 +23,7 @@
 # behind it is positional. This script has no positional to take, so the marker
 # is accepted and anything following it is a usage error.
 #
-# Exit codes: 0 work remains | 1 roadmap fully drained | 2 setup/usage error.
+# Exit codes: 0 work remains | 1 no runnable wave is left | 2 setup/usage error.
 
 set -uo pipefail
 # shellcheck source=lib.sh
@@ -27,7 +35,7 @@ usage() {
   exit 2
 }
 
-# The script reports the whole roadmap and takes no options, so every argument
+# The script reports the whole backlog and takes no options, so every argument
 # is a mistake worth refusing: mid-drain, a silently ignored flag reads as "this
 # is the whole picture" when the caller believes it asked for something narrower.
 while [ $# -gt 0 ]; do
@@ -43,17 +51,22 @@ done
 
 # Behind the marker every argument is positional, and there is none to take, so
 # `wave-status.sh -- --wave 1` is refused rather than answered with the whole
-# roadmap — which is exactly the plausible wrong answer the refusal above exists
+# backlog — which is exactly the plausible wrong answer the refusal above exists
 # to prevent.
 [ $# -eq 0 ] || usage
 
-ROWS="$(roadmap_rows)"
-[ -n "$ROWS" ] || { echo "error: no ticket rows parsed from $ROADMAP" >&2; exit 2; }
+ROWS="$(ticket_rows)"
+[ -n "$ROWS" ] || {
+  echo "error: no ticket files under $SIFT/open or $SIFT/archive" >&2
+  echo "hint: a tree with no tickets has nothing to report, not an empty wave" >&2
+  exit 2
+}
 
 printf '%-6s %7s %6s %10s\n' 'wave' 'total' 'done' 'remaining'
 printf '%-6s %7s %6s %10s\n' '------' '-------' '------' '----------'
 printf '%s\n' "$ROWS" | awk -F'\t' '
-  { total[$1]++; if ($4 == 1) done[$1]++; if (!( $1 in seen )) { seen[$1] = 1; order[++n] = $1 } }
+  $1 == 0 { next }                    # the unkeyed are reported under the table
+  { total[$1]++; if ($4 == 1) done[$1]++; if (!($1 in seen)) { seen[$1] = 1; order[++n] = $1 } }
   END {
     for (i = 1; i <= n; i++) {
       w = order[i]
@@ -63,28 +76,38 @@ printf '%s\n' "$ROWS" | awk -F'\t' '
   }
 '
 
+UNKEYED_DONE="$(printf '%s\n' "$ROWS" | awk -F'\t' '$1 == 0 && $4 == 1' | wc -l | tr -d ' ')"
+UNKEYED_OPEN="$(printf '%s\n' "$ROWS" | awk -F'\t' '$1 == 0 && $4 == 0' | wc -l | tr -d ' ')"
+if [ $((UNKEYED_DONE + UNKEYED_OPEN)) -gt 0 ]; then
+  echo
+  echo "unkeyed: $((UNKEYED_DONE + UNKEYED_OPEN)) ticket(s) carry no wave key" \
+       "($UNKEYED_DONE archived, $UNKEYED_OPEN open), counted in no wave"
+  # An open ticket with no wave is not dispatchable, so the report says what to
+  # edit rather than leaving the operator to compare two counts.
+  [ "$UNKEYED_OPEN" -gt 0 ] &&
+    echo "hint: add a wave: key to each unkeyed open ticket to make it dispatchable"
+fi
+
 TOTAL="$(printf '%s\n' "$ROWS" | wc -l | tr -d ' ')"
 DONE="$(printf '%s\n' "$ROWS" | awk -F'\t' '$4 == 1' | wc -l | tr -d ' ')"
 echo
-echo "overall: $DONE/$TOTAL struck, $((TOTAL - DONE)) remaining"
+echo "overall: $DONE/$TOTAL done, $((TOTAL - DONE)) remaining"
 
-CURRENT="$(printf '%s\n' "$ROWS" | awk -F'\t' '$4 == 0 { print $1; exit }')"
+CURRENT="$(printf '%s\n' "$ROWS" | awk -F'\t' '$1 > 0 && $4 == 0 { print $1; exit }')"
 if [ -z "$CURRENT" ]; then
-  echo "current wave: none — the roadmap is drained"
+  if [ "$UNKEYED_OPEN" -gt 0 ]; then
+    echo "current wave: none — every open ticket is unkeyed"
+  else
+    echo "current wave: none — every ticket is archived"
+  fi
   exit 1
 fi
 
 echo "current wave: $CURRENT"
 echo "remaining in wave $CURRENT:"
-printf '%s\n' "$ROWS" | awk -F'\t' -v w="$CURRENT" '$1 == w && $4 == 0 { print $2 "\t" $3 "\t" $5 }' |
-  while IFS=$'\t' read -r order id title; do
-    file="$(ticket_file "$id")"
-    if [ -n "$file" ]; then
-      status="$(fm_value "$file" status)"
-      printf '  %-6s %s  [%s/%s/%s] %s\n' "$order" "$id" \
-        "$(fm_value "$file" priority)" "$(fm_value "$file" effort)" "$status" "$title"
-    else
-      printf '  %-6s %s  [NO TICKET FILE] %s\n' "$order" "$id" "$title"
-    fi
-  done
+printf '%s\n' "$ROWS" |
+  CURRENT_WAVE="$CURRENT" awk -F'\t' '
+    BEGIN { want = ENVIRON["CURRENT_WAVE"] + 0 }
+    $1 == want && $4 == 0 { printf "  %s  [%s/%s/%s] %s\n", $3, $2, $6, $5, $8 }
+  '
 exit 0

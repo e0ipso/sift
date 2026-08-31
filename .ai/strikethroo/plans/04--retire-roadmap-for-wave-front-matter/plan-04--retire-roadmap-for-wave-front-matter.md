@@ -365,12 +365,12 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 001: Add the wave front-matter contract
 
-### Phase 2: Build the generated wave view
+### ✅ Phase 2: Build the generated wave view
 
-**Status:** Pending
+**Status:** Completed
 
 **Parallel Tasks:**
-- Task 002: Generate the wave view from tickets (depends on: 001)
+- ✔️ Task 002: Generate the wave view from tickets (depends on: 001)
 
 ### Phase 3: Rewire the skills
 

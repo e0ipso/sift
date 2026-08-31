@@ -32,7 +32,7 @@ run_cmd "$root" "$INIT/sift-init.sh" --root "$root" --prefix ACME --milestone v1
 assert_eq 0 "$R_STATUS" "init materialises the tree"
 ticket "$root" open v1/bug ACME-0001 first 'First thing' 'priority: p1' 'effort: s' > /dev/null
 ticket "$root" open v1/bug ACME-0002 second 'Second thing' > /dev/null
-ticket "$root" open v1/bug ACME-0003 third 'Third thing' > /dev/null
+ticket "$root" open v1/bug ACME-0003 third 'Third thing' 'wave: 2' > /dev/null
 roadmap_row "$root" 1 ACME-0001 'First thing'
 roadmap_row "$root" 2 ACME-0002 'Second thing'
 roadmap_wave "$root" 2
@@ -40,9 +40,9 @@ roadmap_row "$root" 3 ACME-0003 'Third thing'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/wave-status.sh"
 assert_eq 0 "$R_STATUS" "work remains: exit 0"
 assert_contains "$R_OUT" 'current wave: 1' "the earliest wave with remaining work"
-assert_contains "$(squeeze "$R_OUT")" '1 ACME-0001 [p1/s/open] First thing' \
+assert_contains "$(squeeze "$R_OUT")" 'ACME-0001 [p1/s/open] First thing' \
   "the load carries the fields the graph is planned from"
-assert_contains "$(squeeze "$R_OUT")" '2 ACME-0002 [p2/m/open] Second thing' \
+assert_contains "$(squeeze "$R_OUT")" 'ACME-0002 [p2/m/open] Second thing' \
   "…for every remaining ticket of the wave"
 assert_not_contains "$R_OUT" 'ACME-0003' "a later wave's tickets are not in the load"
 
@@ -62,16 +62,18 @@ run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/roadmap-check.sh"
 assert_eq 1 "$R_STATUS" "a filed-but-unslotted ticket is a violation, not a footnote"
 assert_contains "$R_OUT" 'MISSING FROM ROADMAP: ACME-0004' "and the check names it"
 
-test_case "the orchestrator slots the filed row into the current wave"
-# A row belongs to the wave heading above it, so slotting into wave 1 means
-# landing the row before the "## Wave 2" heading.
+test_case "the orchestrator slots the filed ticket into the current wave"
+# Slotting is a key in the ticket the worker already filed: the fixture wrote
+# `wave: 1` with it, which is the current wave, so the load picks it up with no
+# second file to edit. The roadmap row below is the rule-9 bookkeeping the drain
+# still owes until the table is retired.
 awk -v row='| 4 | ACME-0004 | Filed mid-run | - |' \
   '/^## Wave 2$/ && !done { print row; print ""; done = 1 } { print }' \
   "$root/.ai/sift/ROADMAP.md" > "$root/r.tmp" && mv "$root/r.tmp" "$root/.ai/sift/ROADMAP.md"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/roadmap-check.sh"
 assert_eq 0 "$R_STATUS" "the slotted row settles the debt"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/wave-status.sh"
-assert_contains "$(squeeze "$R_OUT")" '4 ACME-0004 [p3/s/open] Filed mid-run' \
+assert_contains "$(squeeze "$R_OUT")" 'ACME-0004 [p3/s/open] Filed mid-run' \
   "and the filed ticket joins the current wave's load"
 
 test_case "the sitting returns in one call and the orchestrator lands rule 9 per ticket"
@@ -99,7 +101,7 @@ assert_eq 0 "$R_STATUS" "the tail ticket lands"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/wave-status.sh"
 assert_eq 0 "$R_STATUS" "work remains in the next wave"
 assert_contains "$R_OUT" 'current wave: 2' "the load moves to the next wave, no human pause"
-assert_contains "$(squeeze "$R_OUT")" '3 ACME-0003 [p2/m/open] Third thing' \
+assert_contains "$(squeeze "$R_OUT")" 'ACME-0003 [p2/m/open] Third thing' \
   "and carries that wave's remaining ticket"
 
 test_case "the drained roadmap is an exit code, not a judgement call"
@@ -109,9 +111,9 @@ run_recipe "$root" "$(recipe_archive)" \
   PREFIX=ACME ID=ACME-0003 STATUS=done RESOLUTION='Landed by the orchestrator'
 assert_eq 0 "$R_STATUS" "the last ticket lands"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/wave-status.sh"
-assert_eq 1 "$R_STATUS" "exit 1: the run ends because the roadmap says so"
+assert_eq 1 "$R_STATUS" "exit 1: the run ends because the tickets say so"
 assert_contains "$R_OUT" 'current wave: none' "no wave is left to load"
-assert_contains "$R_OUT" '4/4 struck' "every ticket, the mid-run filing included, is struck"
+assert_contains "$R_OUT" '4/4 done' "every ticket, the mid-run filing included, is landed"
 
 test_case "drain-log.sh report reads the whole run back per sitting"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" report

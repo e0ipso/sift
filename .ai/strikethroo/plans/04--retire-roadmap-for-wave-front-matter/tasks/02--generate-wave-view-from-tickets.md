@@ -2,7 +2,7 @@
 id: 2
 group: "wave-data-model"
 dependencies: [1]
-status: "pending"
+status: "completed"
 created: 2026-08-31
 skills:
   - portable-shell
@@ -20,11 +20,11 @@ Rewrite `wave-status.sh` and its bounded parsing helpers so wave progress comes 
 Portable shell and awk implementation with integration-focused shell tests.
 
 ## Acceptance Criteria
-- [ ] `wave-status.sh` preserves its documented arguments, `--` handling, and exit codes while reading no ROADMAP file.
-- [ ] The report shows per-wave done and remaining counts, then the current wave's remaining IDs ordered by priority with effort, using archived tickets with `wave` for done counts.
-- [ ] Archived tickets without `wave` are counted and reported as unkeyed rather than assigned to a guessed wave.
-- [ ] Focused wave and selection tests exercise open, blocked, archived, dependency, ordering, and unkeyed-history cases and exit zero.
-- [ ] `tests/run.sh` exits zero with no failures or unexpected skips.
+- [x] `wave-status.sh` preserves its documented arguments, `--` handling, and exit codes while reading no ROADMAP file.
+- [x] The report shows per-wave done and remaining counts, then the current wave's remaining IDs ordered by priority with effort, using archived tickets with `wave` for done counts.
+- [x] Archived tickets without `wave` are counted and reported as unkeyed rather than assigned to a guessed wave.
+- [x] Focused wave and selection tests exercise open, blocked, archived, dependency, ordering, and unkeyed-history cases and exit zero.
+- [x] `tests/run.sh` exits zero with no failures or unexpected skips.
 
 Use your internal Todo tool to track these and keep on track.
 

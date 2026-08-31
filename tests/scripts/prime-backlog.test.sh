@@ -602,21 +602,11 @@ append "$d" 3 ACME-0002 'Cache & purge 50% of keys' ''
 assert_eq "| 1 | ACME-0002 | Cache & purge 50% of keys |  |" \
   "$(grep -F 'ACME-0002' "$(roadmap "$d")")" "on the new-wave path as well"
 
-# --- The row the drain has to be able to read --------------------------------
-
-test_case "sift-drain reads back the row sift-prime wrote"
-# The two skills meet at this file and nowhere else, so the write is only correct
-# if the reader agrees: wave-status.sh re-parses the roadmap as tab-separated
-# fields, which is exactly what an escaped tab would have broken.
-d="$(newdir)"; make_tree "$d" ACME
-ticket "$d" open v1/bug ACME-0001 alpha 'Cache \t tenant lookups' > /dev/null
-append "$d" 1 ACME-0001 'Cache \t tenant lookups' ''
-assert_eq 0 "$R_STATUS" "the row was appended"
-run_cmd "$d" env SIFT_ROOT="$d" "$DRAIN/wave-status.sh"
-assert_eq 0 "$R_STATUS" "wave-status.sh reads the roadmap"
-assert_contains "$(printf '%s\n' "$R_OUT" | tr -s ' ')" \
-  ' 1 ACME-0001 [p2/m/open] Cache \t tenant lookups' \
-  "and recovers the whole title, with the backslash-t intact"
+# The drain half of this hazard moved out with the reader it was asserted
+# through: wave-status.sh reads ticket front matter now, not this table, so the
+# round trip a title has to survive is pinned in
+# tests/scripts/drain-selection.test.sh beside that reader. What stays here is
+# the writer, above: the row bytes, the tab count, and the cell count.
 
 # --- The row rule, one of two across the skills: what a roadmap row is -------
 

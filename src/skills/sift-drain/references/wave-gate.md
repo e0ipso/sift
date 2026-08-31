@@ -185,10 +185,10 @@ REPORT (only this):
 
 ## 4. Knowledge capture — once, for the whole wave
 
-Run this template once after the last fix agent merges and the gate is green. Its input is
-the full set of collected worker reports, including their `deferred to the wave gate:`
-lines. If the project has no knowledge-base capture skill, skip the template and record that
-case in the wave summary.
+Run this template once you merge the last fix agent's commit and the gate is green.
+Its input is the full set of collected worker reports, including their
+`deferred to the wave gate:` lines. If the project has no knowledge-base capture
+skill, skip the template and record that case in the wave summary.
 
 ```
 You are the knowledge-capture pass closing Wave {{WAVE}} of the sift roadmap in
@@ -232,7 +232,7 @@ REPORT (only this):
 ## 5. Closing the wave
 
 The wave closes only when **all** full runs are green, with exact totals. Re-run them after
-the last fix agent merges — a fix agent only re-ran what its root cause touched.
+you merge the last fix agent's commit — a fix agent only re-ran what its root cause touched.
 
 Two membership rules decide what the gate certifies:
 

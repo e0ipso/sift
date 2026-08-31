@@ -54,13 +54,17 @@ contract_errors() {
       *) printf '%s\n' "$flattened" | grep -Fq 'Do not capture durable knowledge' ||
            printf '%s: does not defer durable knowledge capture\n' "$heading" ;;
     esac
-    without_bans="$(printf '%s\n' "$flattened" | sed \
-      -e 's/Do not merge//g' \
-      -e 's/Do not write tracker state//g')"
-    if printf '%s\n' "$without_bans" | grep -Eiq '(^|[^[:alnum:]_])merge([^[:alnum:]_]|$)'; then
+    # The required bans above match case-insensitively, so the exemptions must
+    # too: lowercase the prompt once, then strip the lowercase ban phrases.
+    # `has merged` is the one descriptive use a prompt makes of the word.
+    without_bans="$(printf '%s\n' "$flattened" | tr '[:upper:]' '[:lower:]' | sed \
+      -e 's/do not merge//g' \
+      -e 's/has merged//g' \
+      -e 's/do not write tracker state//g')"
+    if printf '%s\n' "$without_bans" | grep -Eq '(^|[^[:alnum:]_])merg(e|es|ed|ing)([^[:alnum:]_]|$)'; then
       printf '%s: assigns a merge to the gate agent\n' "$heading"
     fi
-    if printf '%s\n' "$without_bans" | grep -Eq 'ROADMAP\.md|file a sift ticket|tickets filed:|[Ww]rite tracker state'; then
+    if printf '%s\n' "$without_bans" | grep -Eq 'roadmap\.md|file a sift ticket|tickets filed:|write tracker state'; then
       printf '%s: assigns tracker state to the gate agent\n' "$heading"
     fi
   done
@@ -107,5 +111,29 @@ assert_not_contains "$prompt" 'NEVER `git push`' "the no-push rule is gone from 
 errors="$(contract_errors "$damaged")"
 assert_contains "$errors" '## 1. E2E specialist agent: does not prohibit git push' \
   "the ownership check rejects a rule left outside the dispatched prompt"
+
+# The required-ban greps match any case, so the exemption must too: a prompt
+# whose ban reads `do not merge` is compliant, not a merge assignment. This
+# control pins the recased phrase against a regression to exact-case stripping.
+test_case "a recased ban phrase keeps its exemption"
+damaged="$(newdir)/wave-gate.md"
+sed 's/Do not merge\./do not merge./' \
+  "$repo/src/skills/sift-drain/references/wave-gate.md" > "$damaged"
+prompt="$(gate_prompt "$damaged" '## 4. Knowledge capture — once, for the whole wave')"
+assert_contains "$prompt" 'do not merge.' "the ban phrase is lowercased in the damaged copy"
+assert_eq "" "$(contract_errors "$damaged")" \
+  "a recased ban is still a ban, not a merge assignment"
+
+test_case "an inflected merge instruction is rejected"
+damaged="$(newdir)/wave-gate.md"
+awk -v damage='Ensure the branch is merged into main before reporting.' '
+  $0 == "## 1. E2E specialist agent" { section = 1 }
+  section && !inserted && /^```$/ { print; print damage; inserted = 1; next }
+  { print }
+' "$repo/src/skills/sift-drain/references/wave-gate.md" > "$damaged"
+assert_contains "$(gate_prompt "$damaged" '## 1. E2E specialist agent')" \
+  'is merged into main' "the inflected instruction is inside the prompt"
+assert_contains "$(contract_errors "$damaged")" \
+  '## 1. E2E specialist agent: assigns a merge' "the inflected form is caught"
 
 summary

@@ -107,7 +107,7 @@ scripts/tickets-by-label.sh <label>  # tickets carrying one label (--open, --pat
 scripts/drain-log.sh dispatch|phase|return|report  # per-dispatch runtime and idle attribution
 ```
 
-They find the project root by walking up from `$PWD` for `.ai/sift/ROADMAP.md` and read
+They find the project root by walking up from `$PWD` for a `.ai/sift/` directory and read
 the prefix from `.ai/sift/config/config.yaml`; override with `SIFT_ROOT` / `SIFT_PREFIX`.
 `wave-status.sh` is the wave load: current wave, remaining IDs, priority and effort.
 Read those ticket files. That set is what you graph. `next-ticket.sh --group` still
@@ -250,7 +250,8 @@ wave. You do.
 2. Build the batch coverage input from waived criteria in this wave's archived ticket
    resolutions and destructive sequences deferred by workers. Dispatch the batch coverage
    agent after the specialist decision. It may also carry the full-suite close.
-3. Run the full test suite, authoritative lint and static analysis, and full e2e suite when
+3. Merge every commit the specialist and batch coverage agents returned, then run the full
+   test suite, authoritative lint and static analysis, and the full e2e suite when
    that layer exists. This gate is the only phase that runs full suites. Record exact totals
    or the explicit no-e2e-layer status.
 4. Group fallout by root cause and dispatch one fix agent per cause. Merge each returned
@@ -261,8 +262,9 @@ wave. You do.
    slotted into an already-closed wave as the current wave's tail. Its deferred coverage
    belongs to the next gate; never reopen a closed one.
 6. After the gate is green, run one knowledge-capture pass over the collected worker
-   reports when the project has a capture skill. Then post the wave summary with tickets
-   done or blocked, tickets filed, tests added, and suite status.
+   reports when the project has a capture skill, and merge its returned commit. Then post
+   the wave summary with tickets done or blocked, tickets filed, tests added, and suite
+   status.
 
 Use `references/wave-gate.md` verbatim for every gate dispatch. Every gate agent branches,
 commits its scoped changes, and reports the commit. You merge those commits and remain the

@@ -119,7 +119,6 @@ scripts/sift-init.sh --root "$ROOT" --prefix ACME [--milestone <name>]
 ├── .gitignore             <- `*` and `!.gitignore`; fresh trees only
 ├── README.md              <- copied byte for byte from the skill assets
 ├── MILESTONES.md          <- generated with the first milestone
-├── ROADMAP.md             <- generated with `## Wave 1` and an empty table
 ├── config/config.yaml     <- generated with the prefix
 ├── schemas/*.xsd          <- copied byte for byte from the skill assets
 ├── open/<milestone>/      <- empty; the first ticket creates its category
@@ -182,7 +181,7 @@ into tracking. Ignore-aware search such as `rg` then skips an untracked sift tre
 `find` plus `command grep` when working inside it.
 
 Never edit the repository root `.gitignore`. Init owns `.ai/sift` only. It does not
-create a first ticket, populate `ROADMAP.md`, or perform any requested sift task after
+create a first ticket, file any backlog work, or perform any requested sift task after
 the gate becomes ready.
 
 ## 6. Maintain the shipped assets

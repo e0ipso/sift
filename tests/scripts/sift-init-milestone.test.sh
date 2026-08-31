@@ -124,7 +124,7 @@ victim_sandbox() {
   mkdir -p "$s/victim/.ai/sift/open/backlog/bug" "$s/repo"
   printf -- '---\nid: VIC-0001\n---\n\n# Someone else'\''s work\n' \
     > "$s/victim/.ai/sift/open/backlog/bug/VIC-0001--precious.md"
-  printf '# Roadmap\n\n## Wave 1\n' > "$s/victim/.ai/sift/ROADMAP.md"
+  printf '# Milestones\n\n## backlog\n' > "$s/victim/.ai/sift/MILESTONES.md"
   printf '%s\n' "$s"
 }
 

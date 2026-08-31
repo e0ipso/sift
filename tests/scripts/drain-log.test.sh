@@ -1036,7 +1036,7 @@ assert_eq "SFT-0007" "$(log_field "$idroot/.ai/sift/RUNLOG.md" 1 3)" "and lands 
 test_case "an ID wider than four digits is accepted (SFT-0025, SFT-0039)"
 # %04d is a minimum width, so IDs widen past 9999 and the digit run is matched
 # greedily. A check spelled as exactly four would refuse the first ticket over
-# the line, which is the defect SFT-0025 removed from the roadmap readers.
+# the line, which is the defect SFT-0025 removed from the table readers.
 idroot="$(newdir)"
 make_tree "$idroot" SFT
 run_cmd "$idroot" env SIFT_ROOT="$idroot" "$DRAINLOG" dispatch SFT-00011
@@ -1119,15 +1119,6 @@ assert_eq "ACME-0001" "$(log_field "$root/.ai/sift/RUNLOG.md" 1 3)" "with the ti
 run_cmd "$root/pkg/api/src/deep" env PATH="$PATH" "$DRAINLOG" report
 assert_eq 0 "$R_STATUS" "report resolves the same tree"
 assert_eq "ACME-0001 -" "$(group_field 1 tickets)" "and reads back what dispatch wrote"
-
-test_case "an initialised tree missing its roadmap reports that specifically"
-# A bookkeeping problem to repair, not a "there is no project here" — conflating the
-# two sends the operator to init.
-rm "$root/.ai/sift/ROADMAP.md"
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" dispatch ACME-0002
-assert_eq 2 "$R_STATUS" "exits 2"
-assert_contains "$R_ERR" 'has no ROADMAP.md' "naming the missing file"
-assert_contains "$R_ERR" 'every ticket needs a roadmap row' "and the rule behind it"
 
 test_case "a prefix that cannot be determined at all is an error, not a guess"
 root="$(newdir)"

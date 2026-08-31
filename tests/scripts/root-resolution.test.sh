@@ -2,8 +2,8 @@
 # lib.sh — the root and prefix resolution every skill script shares (SFT-0008).
 #
 # sift-drain and sift-prime each carry a lib.sh, and the top half of the two is
-# the same block: resolve the project root, insist on a ROADMAP.md, resolve the
-# prefix. Every case below is swept across scripts from BOTH skills, because two
+# the same block: resolve the project root, then resolve the prefix. Every case
+# below is swept across scripts from BOTH skills, because two
 # copies of a contract that drift apart is the failure this file exists to catch
 # — a skill that resolves a different root than its sibling allocates IDs into a
 # tree the other one cannot see. The sweep runs per SCRIPT rather than per skill:
@@ -81,7 +81,7 @@ test_case "a SIFT_ROOT with no tree under it is refused by every script"
 # The one place the two copies of the block deliberately differ: sift-prime sends
 # the operator to sift-init, because priming an uninitialized repository is a
 # thing people try, and sift-drain does not, because a drain with no tree has no
-# roadmap to have been draining. So the hint is asserted PRESENT on one skill and
+# backlog to have been draining. So the hint is asserted PRESENT on one skill and
 # ABSENT on the other — required of both, it would be satisfied by neither skill
 # emitting it; required of neither, the one message that tells the two apart
 # would be unguarded (SFT-0050).
@@ -124,7 +124,6 @@ make_tree "$root" ACME
 # ticket gives every swept script something real to read, so a 2 here can only
 # mean the root was not resolved.
 ticket "$root" open v1/bug ACME-0001 alpha 'Alpha' 'labels: [caching]' > /dev/null
-roadmap_row "$root" 1 ACME-0001 'Alpha' '-'
 mkdir -p "$root/pkg/api/src/deep"
 check_found() {
   if [ "$R_STATUS" -ne 2 ]
@@ -141,28 +140,12 @@ run_cmd "$root/pkg/api" env PATH="$PATH" "$DRAIN/ticket-check.sh"
 assert_eq 0 "$R_STATUS" "ticket-check.sh still resolves the parent tree"
 assert_contains "$R_OUT" 'OK: 1 ticket file(s) are consistent' "and reads it"
 
-test_case "a tree with no ROADMAP.md reports that specifically"
-# An initialised tree missing its roadmap is a bookkeeping problem to repair, not a
-# "there is no project here" — conflating the two sends the operator to init.
-root="$(newdir)"
-make_tree "$root" ACME
-rm "$root/.ai/sift/ROADMAP.md"
-check_no_roadmap() {
-  if [ "$R_STATUS" -eq 2 ] &&
-     case "$R_ERR" in *'has no ROADMAP.md'*) true ;; *) false ;; esac &&
-     case "$R_ERR" in *'every ticket needs a roadmap row'*) true ;; *) false ;; esac
-  then t_ok "$1 exits 2 naming the missing roadmap and the rule behind it"
-  else t_fail "$1 names the missing roadmap" "status=$R_STATUS" "stderr=$R_ERR"; fi
-}
-sweep "$root" check_no_roadmap SIFT_ROOT="$root"
-
 # --- Prefix resolution -------------------------------------------------------
 
 test_case "the configured prefix is what the scripts use"
 root="$(newdir)"
 make_tree "$root" ACME
 ticket "$root" open v1/bug ACME-0001 alpha 'Alpha' 'labels: [caching]' > /dev/null
-roadmap_row "$root" 1 ACME-0001 'Alpha' '-'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/ticket-check.sh"
 assert_eq 0 "$R_STATUS" "ticket-check.sh exits 0"
 assert_contains "$R_OUT" 'OK: 1 ticket file(s) are consistent' "it counted the ACME ticket"

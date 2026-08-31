@@ -2,8 +2,7 @@
 # Shared helpers for the sift-drain scripts. Sourced, never executed directly.
 #
 # Provides:
-#   ROOT / SIFT / ROADMAP / PREFIX  — resolved absolute paths and the ticket prefix
-#   roadmap_rows                    — TSV of every roadmap ticket row
+#   ROOT / SIFT / PREFIX            — resolved absolute paths and the ticket prefix
 #   ticket_rows                     — TSV of every ticket file, in dispatch order
 #   ticket_file <ID>                — absolute path of a ticket file, or empty
 #   fm_value <file> <key>           — one front-matter value
@@ -19,8 +18,9 @@
 #   SIFT_PREFIX  ticket prefix (default: .ai/sift/config/config.yaml, then inferred)
 
 # --- Project root -----------------------------------------------------------
-# Walk upward for the nearest `.ai/sift/` directory. ROADMAP.md is validated
-# separately so an incomplete tree reports its actual missing file.
+# Walk upward for the nearest `.ai/sift/` directory. That directory is the only
+# marker: every tracker fact lives in a ticket file, so no second file's absence
+# can mean "not initialized".
 _sift_find_root() {
   local dir parent
   dir="$PWD"
@@ -50,13 +50,6 @@ else
 fi
 
 SIFT="$ROOT/.ai/sift"
-ROADMAP="$SIFT/ROADMAP.md"
-
-if [ ! -f "$ROADMAP" ]; then
-  echo "error: sift tree at $SIFT has no ROADMAP.md" >&2
-  echo "hint: every ticket needs a roadmap row — create ROADMAP.md first" >&2
-  exit 2
-fi
 
 # --- Ticket prefix ----------------------------------------------------------
 PREFIX="${SIFT_PREFIX:-}"
@@ -78,6 +71,12 @@ if [ -z "$PREFIX" ]; then
 fi
 
 # --- Roadmap parsing --------------------------------------------------------
+# Vestigial. Wave membership is a ticket front-matter key and ticket_rows below
+# is the only reader the drain has; nothing in this skill calls this function.
+# It survives one step longer than its callers because AGENTS.md still inventories
+# the cross-skill row rule against the constructs in it, and the rule and its
+# inventory retire together.
+#
 # Print one TSV line per roadmap ticket row:
 #   wave <TAB> order <TAB> ID <TAB> struck(0|1) <TAB> title
 #
@@ -91,12 +90,11 @@ roadmap_rows() {
     # POSIX [[:space:]] avoids undefined backslashes in bracket expressions.
     function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
     # Greedy digits preserve IDs wider than %04d and provide the right whole-token
-    # boundary. Keep this rule in sync with sift-prime roadmap-append.sh and run
-    # the cross-skill roadmap-row agreement test.
+    # boundary. This is the last copy of the row rule; the sift-prime copy retired
+    # with the roadmap writer that held it.
     BEGIN { pat = prefix "-[0-9][0-9][0-9][0-9][0-9]*" }
     # Return the first whole-token ID in a cell. Walk past a left-glued match so a
-    # later valid ID remains visible. Keep this cell_id in sync with sift-prime
-    # roadmap-append.sh and run the same cross-skill agreement test.
+    # later valid ID remains visible.
     function cell_id(cs,   id, before) {
       while (match(cs, pat)) {
         id = substr(cs, RSTART, RLENGTH)
@@ -137,7 +135,7 @@ roadmap_rows() {
         printf "%d\t%s\t%s\t%d\t%s\n", wv, o[i], d[i], s[i], t[i]
       }
     }
-  ' "$ROADMAP"
+  ' "$SIFT/ROADMAP.md"
 }
 
 # --- Ticket files -----------------------------------------------------------

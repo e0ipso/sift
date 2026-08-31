@@ -3,10 +3,10 @@
 #
 # A deliberately slimmer sibling of sift-drain's lib.sh: priming only ever needs
 # to locate the tree, know the prefix, and read one front-matter value at a time.
-# Roadmap row parsing, label listing and ticket lookup by ID stay in sift-drain.
+# Ticket row parsing, label listing and lookup by ID stay in sift-drain.
 #
 # Provides:
-#   ROOT / SIFT / ROADMAP / PREFIX  — resolved absolute paths and the ticket prefix
+#   ROOT / SIFT / PREFIX            — resolved absolute paths and the ticket prefix
 #   fm_value <file> <key>           — one front-matter value
 #
 # Overrides:
@@ -17,8 +17,8 @@
 # Walk upward from $PWD for a directory holding `.ai/sift/`. Nested `.git`
 # folders are deliberately ignored, so running from a subproject of a monorepo
 # still resolves to the nearest parent sift tree. The `.ai/sift/` DIRECTORY is
-# the marker, not ROADMAP.md — an initialized tree missing its roadmap must
-# report that specifically rather than looking like "no project here".
+# the marker, and it is the only one: every other tracker fact lives in a ticket
+# file, so there is no second file whose absence means "not initialized".
 _sift_find_root() {
   local dir parent
   dir="$PWD"
@@ -49,13 +49,6 @@ else
 fi
 
 SIFT="$ROOT/.ai/sift"
-ROADMAP="$SIFT/ROADMAP.md"
-
-if [ ! -f "$ROADMAP" ]; then
-  echo "error: sift tree at $SIFT has no ROADMAP.md" >&2
-  echo "hint: every ticket needs a roadmap row — create ROADMAP.md first" >&2
-  exit 2
-fi
 
 # --- Ticket prefix ----------------------------------------------------------
 PREFIX="${SIFT_PREFIX:-}"

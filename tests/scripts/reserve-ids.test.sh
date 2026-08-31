@@ -6,12 +6,11 @@
 # undone by a later `mv`: hand out an ID that is already spoken for and two
 # tickets share it forever. Every case here therefore pins the high-water mark
 # rather than the "next number", and the central case asserts the invariant
-# directly — none of the reserved IDs may already exist anywhere in the tree or
-# the roadmap.
+# directly — none of the reserved IDs may already exist anywhere in the tree.
 #
-# The mark is the MAXIMUM of the highest ID among ticket filenames in open/ AND
-# archive/, and the highest ID mentioned in ROADMAP.md, because a tree mid-repair
-# carries an ID in one of those places and not the other.
+# The mark is the highest ID among ticket filenames in open/ AND archive/. Those
+# two buckets are the whole record: archiving moves a ticket rather than deleting
+# it, so an ID that was ever issued is still a filename somewhere.
 #
 # Sandboxing: SIFT_ROOT always points into TMPROOT, so no case can resolve the
 # repository running the suite. The upward walk is swept across this script and
@@ -33,7 +32,7 @@ reserve() {  # reserve <root> [args…]
 
 # tree_with <prefix> <tree-relative ticket path…> — a tree holding stub tickets.
 # reserve-ids.sh reads filenames, never bodies, so a content-free file is the
-# honest fixture for everything except the roadmap cases.
+# honest fixture throughout.
 tree_with() {
   local prefix="$1"; shift
   local d spec
@@ -91,20 +90,16 @@ expect "counting is numeric, not lexical, past the four-digit wall" SFT-10001 SF
 expect "9999 widens rather than wrapping into a collision" SFT-10000 SFT \
   'open/backlog/bug/SFT-9999--at-the-wall.md'
 
-test_case "a roadmap ID with no ticket file still raises the mark"
-# A tree mid-repair has the row and not yet the file. Allocating over that ID is
-# the unrecoverable case, so the roadmap counts even when nothing backs it.
+test_case "a leftover roadmap table does not raise the mark"
+# The mark is the ticket files and nothing else. A tree still holding a table
+# from before the file was retired must not push allocation past an ID no ticket
+# ever carried: the numbering would skip permanently, and rule 2 makes that
+# unrecoverable in the other direction too.
 d="$(tree_with SFT 'open/backlog/bug/SFT-0002--two.md')"
-roadmap_row "$d" 1 SFT-0009 'Reserved elsewhere' '-'
+printf '| 1 | SFT-0009 | Reserved elsewhere | - |\n' > "$d/.ai/sift/ROADMAP.md"
 reserve "$d" 1
 assert_eq 0 "$R_STATUS" "exits 0"
-assert_eq "SFT-0010" "$R_OUT" "the row's ID is skipped past, not re-issued"
-
-test_case "a ticket file with no roadmap row raises it too"
-d="$(tree_with SFT 'open/backlog/bug/SFT-0009--nine.md')"
-roadmap_row "$d" 1 SFT-0002 'Listed only' '-'
-reserve "$d" 1
-assert_eq "SFT-0010" "$R_OUT" "the file's ID wins when it is the higher of the two"
+assert_eq "SFT-0003" "$R_OUT" "the highest ticket filename is the whole mark"
 
 # --- Contiguous batches ------------------------------------------------------
 
@@ -135,29 +130,28 @@ assert_eq 8 "$(printf '%s\n' "$R_OUT" | wc -l | tr -d ' ')" "eight IDs were prin
 # --- The invariant itself ----------------------------------------------------
 
 test_case "no reserved ID is already spoken for, anywhere"
-# The point of the whole script. IDs are scattered across both buckets and the
-# roadmap, deliberately out of order and with a gap, and every reserved ID is
-# checked against the union of the two sources rather than against the number
+# The point of the whole script. IDs are scattered across both buckets and both
+# milestones, deliberately out of order and with a gap, and every reserved ID is
+# checked against the IDs the tree really holds rather than against the number
 # the test expected.
 d="$(tree_with SFT \
   'open/backlog/bug/SFT-0002--two.md' \
-  'open/v2/feature/SFT-0011--eleven.md' \
+  'open/v2/feature/SFT-0013--thirteen.md' \
   'archive/backlog/bug/SFT-0007--seven.md' \
   'archive/v2/docs/SFT-0004--four.md')"
-roadmap_row "$d" 1 SFT-0013 'Reserved by a row alone' '-'
 reserve "$d" 4
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "SFT-0014
 SFT-0015
 SFT-0016
-SFT-0017" "$R_OUT" "allocation starts above every known ID, file or row"
+SFT-0017" "$R_OUT" "allocation starts above every known ID, in either bucket"
 taken="$(find "$d/.ai/sift/open" "$d/.ai/sift/archive" -name 'SFT-*.md' |
-  sed 's#.*/##; s#--.*##'; command grep -o 'SFT-[0-9][0-9]*' "$d/.ai/sift/ROADMAP.md")"
+  sed 's#.*/##; s#--.*##')"
 collisions=''
 for id in $R_OUT; do
   printf '%s\n' "$taken" | command grep -qx "$id" && collisions="$collisions $id"
 done
-assert_eq "" "$collisions" "none of the reserved IDs collides with a file or a row"
+assert_eq "" "$collisions" "none of the reserved IDs collides with an existing ticket"
 
 test_case "reserving twice in a row hands out the same IDs"
 # Nothing is written, so the mark cannot move: two callers who both reserve

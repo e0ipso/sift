@@ -168,8 +168,8 @@ That call is the only allocator in the run, and each drafting agent receives its
 input. The consequence is the reason: IDs are sequential, immutable and never reused, so
 two agents that each pick "the next ID" collide — and unlike a wrong `priority`
 or a weak `## Direction`, a collision cannot be repaired afterwards by any `find`/`sed`
-migration. The script takes its high-water mark from the ticket filenames *and*
-`ROADMAP.md`, so an ID present in only one of them is still respected.
+migration. The script takes its high-water mark from the ticket filenames in both
+buckets, which is every ID the tree has ever issued.
 
 **Milestones.** Use the milestone assignments agreed in the slate; do not collapse them
 back to the names that happened to exist before analysis. A `milestone` value not listed

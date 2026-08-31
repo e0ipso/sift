@@ -34,6 +34,7 @@ check() { run_recipe "$1" "$RECIPE" PREFIX="${2:-SFT}"; }
 # consistent_tree <dir> <id> — one ticket with a matching roadmap row.
 consistent_tree() {
   make_tree "$1"
+  roadmap_new "$1"
   ticket "$1" open backlog/bug "$2" slug "Ticket $2" > /dev/null
   roadmap_row "$1" 1 "$2" "Ticket $2" '-'
 }
@@ -51,14 +52,14 @@ assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "" "$R_OUT" "SFT-10000 is not truncated to a phantom SFT-1000"
 
 test_case "a ticket with no roadmap row is reported"
-d="$(newdir)"; make_tree "$d"
+d="$(newdir)"; make_tree "$d"; roadmap_new "$d"
 ticket "$d" open backlog/bug SFT-0042 slug 'Unlisted' > /dev/null
 check "$d"
 assert_eq 0 "$R_STATUS" "the recipe itself exits 0 (it reports, it does not gate)"
 assert_contains "$R_OUT" 'NOT IN ROADMAP: SFT-0042' "names the unlisted ticket"
 
 test_case "a roadmap row with no ticket file is reported"
-d="$(newdir)"; make_tree "$d"
+d="$(newdir)"; make_tree "$d"; roadmap_new "$d"
 roadmap_row "$d" 1 SFT-0042 'Ghost' '-'
 check "$d"
 assert_contains "$R_OUT" 'STALE IN ROADMAP: SFT-0042' "names the stale row"
@@ -76,7 +77,7 @@ test_case "a row for SFT-00420 does not stand in for SFT-0042"
 # The regression: the forward grep matched SFT-0042 inside the string SFT-00420,
 # so an unlisted ticket was reported as listed — silence where rule 9 is broken,
 # which is the one answer this check must never give.
-d="$(newdir)"; make_tree "$d"
+d="$(newdir)"; make_tree "$d"; roadmap_new "$d"
 ticket "$d" open backlog/bug SFT-0042 short 'Short ID' > /dev/null
 ticket "$d" open backlog/bug SFT-00420 longer 'A longer ID sharing the digits' > /dev/null
 roadmap_row "$d" 1 SFT-00420 'A longer ID sharing the digits' '-'
@@ -89,7 +90,7 @@ test_case "neither direction is rescued by an ID that merely starts the same"
 # The mirror image, which exercises both loops in one tree: the roadmap lists
 # only SFT-0042 and only SFT-00420 has a file. An unanchored check would call
 # this consistent in both directions and print nothing at all.
-d="$(newdir)"; make_tree "$d"
+d="$(newdir)"; make_tree "$d"; roadmap_new "$d"
 ticket "$d" open backlog/bug SFT-00420 longer 'A longer ID sharing the digits' > /dev/null
 roadmap_row "$d" 1 SFT-0042 'Short ID' '-'
 check "$d"

@@ -34,7 +34,6 @@ assert_contains "$R_OUT" 'prefix=ACME' "and reads back the configured prefix"
 test_case "init writes the operating rules into its starter documents"
 config="$(sed 's/^#[[:space:]]*//' "$root/.ai/sift/config/config.yaml" | tr '\n' ' ')"
 milestones="$(tr '\n' ' ' < "$root/.ai/sift/MILESTONES.md")"
-roadmap="$(tr '\n' ' ' < "$root/.ai/sift/ROADMAP.md")"
 assert_contains "$config" \
   'The prefix is immutable. Changing it requires renaming every ticket file and rewriting every reference in the same change.' \
   "config records the full cost of changing a prefix"
@@ -44,22 +43,23 @@ assert_contains "$milestones" \
 assert_contains "$milestones" \
   'Rename a milestone by moving every ticket file and updating its `milestone:` in the same change.' \
   "and keeps path and front matter together on rename"
-assert_contains "$roadmap" \
-  "Advisory order; a ticket's \`depends_on\` takes precedence." \
-  "the roadmap starter names the dependency source of truth"
-assert_contains "$roadmap" \
-  'Strike a finished row and archive its ticket in the same change.' \
-  "and couples terminal ticket state to its roadmap row"
+assert_no_file "$root/.ai/sift/ROADMAP.md" \
+  "and there is no third starter document: wave order lives in the tickets"
 
 test_case "the cookbook allocates the first two IDs"
 run_recipe "$root" "$(recipe_allocate)" PREFIX=ACME
 assert_eq "ACME-0001" "$R_OUT" "the first ID on a fresh tree"
 ticket "$root" open v1-2/bug ACME-0001 first 'First thing' > /dev/null
-roadmap_row "$root" 1 ACME-0001 'First thing' '-'
 run_recipe "$root" "$(recipe_allocate)" PREFIX=ACME
 assert_eq "ACME-0002" "$R_OUT" "the second, once the first exists"
 ticket "$root" open v1-2/bug ACME-0002 second 'Second thing' \
   'depends_on: [ACME-0001]' > /dev/null
+
+# The archive recipe still strikes a ROADMAP.md row, so the workflow has to hand
+# it one the initialised tree no longer carries. This scaffolding and the strike
+# half of the recipe retire together.
+roadmap_new "$root"
+roadmap_row "$root" 1 ACME-0001 'First thing' '-'
 roadmap_row "$root" 2 ACME-0002 'Second thing' 'ACME-0001'
 
 test_case "ticket-check.sh passes on the populated tree"

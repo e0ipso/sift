@@ -78,10 +78,6 @@ assert_eq 0 "$R_STATUS" "init materialises the tree"
 ticket "$root" open v1/bug ACME-0001 first 'First thing' 'priority: p1' 'effort: s' > /dev/null
 ticket "$root" open v1/bug ACME-0002 second 'Second thing' > /dev/null
 ticket "$root" open v1/bug ACME-0003 third 'Third thing' 'wave: 2' > /dev/null
-roadmap_row "$root" 1 ACME-0001 'First thing'
-roadmap_row "$root" 2 ACME-0002 'Second thing'
-roadmap_wave "$root" 2
-roadmap_row "$root" 3 ACME-0003 'Third thing'
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/wave-status.sh"
 assert_eq 0 "$R_STATUS" "work remains: exit 0"
 assert_contains "$R_OUT" 'current wave: 1' "the earliest wave with remaining work"

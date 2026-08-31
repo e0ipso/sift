@@ -23,6 +23,18 @@ archive() {  # archive <dir> <id> <status> <resolution>
   run_recipe "$1" "$RECIPE" PREFIX=SFT ID="$2" STATUS="$3" RESOLUTION="$4"
 }
 
+# The recipe under test still strikes a ROADMAP.md row, so every case here builds
+# the table itself: an initialised tree carries none, because wave membership
+# moved into ticket front matter. The helper and the fixture builders behind it
+# retire with the strike half of the recipe.
+archive_tree() {  # archive_tree — print a fixture tree carrying an empty Wave 1 table
+  local d
+  d="$(newdir)"
+  make_tree "$d"
+  roadmap_new "$d"
+  printf '%s\n' "$d"
+}
+
 roadmap() { cat "$1/.ai/sift/ROADMAP.md"; }
 
 # changed_lines <before-copy> <dir> — how many roadmap lines the run rewrote
@@ -33,7 +45,7 @@ changed_lines() {
 
 # --- Happy path --------------------------------------------------------------
 
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0041 earlier 'Earlier thing' > /dev/null
 ticket "$d" open backlog/bug SFT-0042 tenant-caching 'tenant caching & sharding' > /dev/null
 roadmap_row "$d" 1 SFT-0041 'Earlier thing' '-'
@@ -63,7 +75,7 @@ assert_contains "$after" '| 3 | SFT-0043 | Later thing | SFT-0042 |' \
 # --- Refusing to guess -------------------------------------------------------
 
 test_case "no roadmap row for the ID: fails with the roadmap untouched"
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0042 orphan 'Orphan' > /dev/null
 roadmap_row "$d" 1 SFT-0041 'Someone else' '-'
 before="$d/roadmap.before"; roadmap "$d" > "$before"
@@ -75,7 +87,7 @@ assert_eq 0 "$(changed_lines "$before" "$d")" "ROADMAP.md is byte-identical"
 assert_no_file "$d/.ai/sift/ROADMAP.md.tmp" "no half-written temp file is left behind"
 
 test_case "the same ID in two waves: fails with the roadmap untouched"
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0042 dupe 'Dupe' > /dev/null
 roadmap_row "$d" 1 SFT-0042 'Dupe' '-'
 printf '\n## Wave 2\n\n| # | Ticket | Title | Needs |\n|---|---|---|---|\n' \
@@ -88,7 +100,7 @@ assert_contains "$R_ERR" '2 rows for SFT-0042, expected exactly 1' "reports the 
 assert_eq 0 "$(changed_lines "$before" "$d")" "ROADMAP.md is byte-identical"
 
 test_case "an already-struck row is a no-op, not a double strike"
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0042 again 'Again' > /dev/null
 roadmap_row "$d" 1 '~~SFT-0042~~' '~~Again~~ — done' '-'
 before="$d/roadmap.before"; roadmap "$d" > "$before"
@@ -99,7 +111,7 @@ assert_eq 0 "$(changed_lines "$before" "$d")" "ROADMAP.md is byte-identical"
 assert_not_contains "$(roadmap "$d")" '~~~~' "no doubled strike markers"
 
 test_case "SFT-00420 is not SFT-0042"
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0042 short 'Short id' > /dev/null
 ticket "$d" open backlog/bug SFT-00420 long 'Long id' > /dev/null
 roadmap_row "$d" 1 SFT-00420 'Long id' '-'
@@ -111,7 +123,7 @@ assert_contains "$after" '| 1 | SFT-00420 | Long id | - |' "the longer ID's row 
 assert_contains "$after" '| ~~SFT-0042~~ |' "only the exact ID is struck"
 
 test_case "prose mentions of the ID outside the table are ignored"
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0042 prose 'Prose' > /dev/null
 printf '\nSFT-0042 is discussed in the notes above.\n\n' >> "$d/.ai/sift/ROADMAP.md"
 roadmap_row "$d" 1 SFT-0042 'Prose' '-'
@@ -123,7 +135,7 @@ assert_contains "$(roadmap "$d")" 'SFT-0042 is discussed in the notes above.' \
   "the prose line is untouched"
 
 test_case "multi-wave roadmap: only the target wave's row moves"
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0050 w2 'Wave two work' > /dev/null
 roadmap_row "$d" 1 SFT-0041 'One' '-'
 roadmap_row "$d" 2 SFT-0042 'Two' '-'
@@ -139,7 +151,7 @@ assert_contains "$(roadmap "$d")" '| ~~SFT-0050~~ | ~~Wave two work~~ — done |
 
 for st in wontfix superseded; do
   test_case "STATUS=$st is written into the roadmap row"
-  d="$(newdir)"; make_tree "$d"
+  d="$(archive_tree)"
   ticket "$d" open backlog/bug SFT-0042 terminal 'Terminal' > /dev/null
   roadmap_row "$d" 1 SFT-0042 'Terminal' '-'
   archive "$d" SFT-0042 "$st" "Closed as $st"
@@ -156,7 +168,7 @@ test_case "a ticket with no resolution key gets exactly one"
 # below is that the default fixture carries no `resolution:` key. That is a
 # property of tests/lib/fixtures.sh, not of this recipe, so it is pinned in
 # static/suite-contract.test.sh (SFT-0065) and rested on here.
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0042 nores 'No resolution key' > /dev/null
 roadmap_row "$d" 1 SFT-0042 'No resolution key' '-'
 archive "$d" SFT-0042 'done' 'Landed'
@@ -167,7 +179,7 @@ assert_eq 'resolution: "Landed"' "$(awk '/^---$/ { n++; next } n == 1 && /^resol
   "the key sits inside the front-matter block"
 
 test_case "an empty resolution line is rewritten in place"
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0042 empty 'Empty resolution' 'resolution: ""' > /dev/null
 roadmap_row "$d" 1 SFT-0042 'Empty resolution' '-'
 archive "$d" SFT-0042 'done' 'Filled in'
@@ -177,7 +189,7 @@ assert_eq 1 "$(grep -c '^resolution:' "$dest")" "still exactly one resolution ke
 assert_eq '"Filled in"' "$(fm "$dest" resolution)" "the value was replaced"
 
 test_case "shell and sed metacharacters survive byte-for-byte"
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0042 specials 'Specials' > /dev/null
 roadmap_row "$d" 1 SFT-0042 'Specials' '-'
 special='Fixed & shipped | see s/foo/bar/ [x] \1 in a&b'
@@ -187,7 +199,7 @@ assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "\"$special\"" "$(fm "$dest" resolution)" "& | [ / and \\1 are all preserved"
 
 test_case "an empty RESOLUTION refuses and leaves the ticket untouched"
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 f="$(ticket "$d" open backlog/bug SFT-0042 refuse 'Refuse')"
 roadmap_row "$d" 1 SFT-0042 'Refuse' '-'
 digest_before="$(tree_digest "$d/.ai/sift")"
@@ -202,7 +214,7 @@ test_case "a ticket that does not exist changes nothing"
 # first thing reported is the absence of the ticket. Unguarded, awk got no file
 # operand and blamed the *front matter* of a file that is not there — and, with a
 # terminal on stdin, waited for one to be typed.
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0001 present 'Present' > /dev/null
 roadmap_row "$d" 1 SFT-0001 'Present' '-'
 digest_before="$(tree_digest "$d/.ai/sift")"
@@ -218,7 +230,7 @@ test_case "two files carrying one ID refuse rather than improvise"
 # Rule 2 makes a duplicate ID impossible, which is exactly why an unguarded `$f`
 # holding two paths would go unnoticed: the awk pass, the `sed` that derives
 # `dest` and `mv` would each read the two-line value their own way.
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0042 one 'One' > /dev/null
 ticket "$d" open platform/bug SFT-0042 two 'Two' > /dev/null
 roadmap_row "$d" 1 SFT-0042 'One' '-'
@@ -230,7 +242,7 @@ assert_contains "$R_ERR" 'archive: SFT-0042 does not match exactly one ticket' \
 assert_eq "$digest_before" "$(tree_digest "$d/.ai/sift")" "both tickets are where they were"
 
 test_case "a second archiving pass does not duplicate the key"
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 ticket "$d" open backlog/bug SFT-0042 twice 'Twice' > /dev/null
 roadmap_row "$d" 1 SFT-0042 'Twice' '-'
 archive "$d" SFT-0042 'done' 'First pass'
@@ -242,7 +254,7 @@ assert_eq 1 "$(grep -c '^resolution:' "$dest")" "still exactly one resolution ke
 assert_eq '"Second pass"' "$(fm "$dest" resolution)" "the second value won"
 
 test_case "a ticket with no front-matter fence fails loudly"
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 mkdir -p "$d/.ai/sift/open/backlog/bug"
 bare="$d/.ai/sift/open/backlog/bug/SFT-0042--bare.md"
 printf '# Just a heading\n\nNo front matter here.\nstatus: quoted in prose.\n' > "$bare"
@@ -262,7 +274,7 @@ test_case "body lines beginning with status: or updated: are left alone"
 # has that prose silently replaced by a front-matter line. The `---` horizontal
 # rule is in the fixture because it is legal markdown and must not re-open the
 # region; a ticket documenting this convention is the likeliest place for both.
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 # One shared adversarial body (SFT-0053), quoting every key either front-matter
 # rewrite touches. `move-milestone` builds the same one; neither recipe rewrites a
 # key the other does, so every line has to survive both.
@@ -293,7 +305,7 @@ test_case "an optional source: key survives the archive rewrite untouched"
 # and until now no fixture set it and no assertion read it. The recipe rewrites
 # three keys by name and inserts a fourth; an optional key it never names has to
 # come through byte for byte, wherever it sits in the block.
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 SOURCE_URL='"https://example.invalid/owner/repo/issues/7"'
 ticket "$d" open backlog/bug SFT-0042 sourced 'Sourced from a tracker' \
   "source: $SOURCE_URL" > /dev/null
@@ -313,7 +325,7 @@ test_case "a ticket whose fence markers carry a trailing space still archives"
 # walks opened on /^---[[:space:]]*$/, so `--- ` made one valid ticket front
 # matter to every reader and body to both writers. Archiving refused outright
 # with "no front-matter found to hold resolution" and never reached the roadmap.
-d="$(newdir)"; make_tree "$d"
+d="$(archive_tree)"
 f="$(ticket "$d" open backlog/bug SFT-0042 spaced 'Spaced fence')"
 space_the_fence "$f"
 roadmap_row "$d" 1 SFT-0042 'Spaced fence' '-'
@@ -345,7 +357,7 @@ assert_contains "$(roadmap "$d")" '| ~~SFT-0042~~ | ~~Spaced fence~~ — done |'
 
 matrix_case() {
   local d
-  d="$(newdir)"; make_tree "$d"
+  d="$(archive_tree)"
   ticket "$d" open backlog/bug SFT-0042 tenant 'tenant caching & sharding' > /dev/null
   roadmap_row "$d" 1 SFT-0042 'tenant caching & sharding' '-'
   archive "$d" SFT-0042 'done' 'Fixed & done'
@@ -365,7 +377,7 @@ for_matrix matrix_case
 # does under bash's, or the tree is only untouched on one of them.
 missing_case() {
   local d digest
-  d="$(newdir)"; make_tree "$d"
+  d="$(archive_tree)"
   ticket "$d" open backlog/bug SFT-0001 present 'Present' > /dev/null
   roadmap_row "$d" 1 SFT-0001 'Present' '-'
   digest="$(tree_digest "$d/.ai/sift")"

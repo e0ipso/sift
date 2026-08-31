@@ -2,12 +2,11 @@
 # reserve-ids.sh — print the next <count> contiguous sift ticket IDs.
 #
 # Prints one zero-padded <PREFIX>-NNNN per line, starting one above the tree's
-# high-water mark. The mark is the MAXIMUM of two numbers: the highest NNNN among
-# ticket filenames under .ai/sift/open and .ai/sift/archive, and the highest NNNN
-# mentioned anywhere in .ai/sift/ROADMAP.md. Both are read because an ID present
-# in one but not the other means the tree is mid-repair, and IDs are never reused
-# — allocating over such an ID is unrecoverable. An empty tree yields 0, so the
-# first ID handed out is 0001. Past 9999 this script widens the number rather than
+# high-water mark. The mark is the highest NNNN among ticket filenames under
+# .ai/sift/open and .ai/sift/archive. Those two buckets hold every ID the tree has
+# ever issued, because archiving moves a ticket rather than deleting it and an ID
+# is never reused. An empty tree yields 0, so the first ID handed out is 0001.
+# Past 9999 this script widens the number rather than
 # truncating it or refusing to allocate (`%04d` is a minimum width). The cookbook
 # reads IDs back with an open-ended digit run (SFT-0009); schemas/sift-common.xsd
 # still restricts a ticket ID to [A-Z][A-Z0-9]*-[0-9]{4}, so optional xmllint
@@ -65,18 +64,8 @@ TREE_MAX="$(find "$SIFT/open" "$SIFT/archive" -name "$PREFIX-*.md" 2>/dev/null |
   sed "s/^$PREFIX-//" |
   sort -n | tail -n 1)"
 
-# Highest ID mentioned in the roadmap, file or no file behind it.
-ROAD_MAX="$(command grep -oE "$PREFIX-[0-9]{4,}" "$ROADMAP" 2>/dev/null |
-  sed "s/^$PREFIX-//" |
-  sort -n | tail -n 1)"
-
 : "${TREE_MAX:=0}"
-: "${ROAD_MAX:=0}"
-TREE_MAX=$((10#$TREE_MAX))
-ROAD_MAX=$((10#$ROAD_MAX))
-
-HIGH="$TREE_MAX"
-[ "$ROAD_MAX" -gt "$HIGH" ] && HIGH="$ROAD_MAX"
+HIGH=$((10#$TREE_MAX))
 
 N="$HIGH"
 while [ "$N" -lt $((HIGH + COUNT)) ]; do

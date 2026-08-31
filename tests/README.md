@@ -93,7 +93,7 @@ Source the helpers the file needs, name each case, assert, and call `summary` la
 ```sh
 . "$DIR/../lib/harness.sh"    # assertions, temp dirs, run_cmd, tree_digest
 . "$DIR/../lib/recipes.sh"    # README extraction, recipe runners, matrix helpers
-. "$DIR/../lib/fixtures.sh"   # sift trees, tickets, roadmap rows, front matter
+. "$DIR/../lib/fixtures.sh"   # sift trees, tickets, front matter
 
 test_case "what is being pinned"
 assert_eq "$want" "$got" "why it matters"

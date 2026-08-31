@@ -97,7 +97,6 @@ make_tree() {
   printf 'prefix: %s\n' "$prefix" > "$dir/.ai/sift/config/config.yaml"
   printf '# sift\n' > "$dir/.ai/sift/README.md"
   printf '# Milestones\n\n## backlog\n' > "$dir/.ai/sift/MILESTONES.md"
-  roadmap_new "$dir"
 }
 
 # config_yaml <dir> <shape> [prefix] — rewrite the tree's config file in one of
@@ -139,7 +138,13 @@ config_yaml() {
   esac
 }
 
-# roadmap_new <dir> — an empty Wave 1 table, the shape sift-init writes.
+# A roadmap table is no longer part of an initialised tree: wave membership is a
+# ticket front-matter key, and make_tree above writes no such file. The two
+# builders below survive only for the cookbook recipes that still read a table —
+# the archive strike and the consistency check — and a case that wants one has to
+# ask for it by name. They retire with those recipes.
+
+# roadmap_new <dir> — an empty Wave 1 table.
 roadmap_new() {
   cat > "$1/.ai/sift/ROADMAP.md" <<'EOF'
 # Roadmap
@@ -154,21 +159,6 @@ EOF
 # roadmap_row <dir> <n> <id> <title> [needs]
 roadmap_row() {
   printf '| %s | %s | %s | %s |\n' "$2" "$3" "$4" "${5:--}" >> "$1/.ai/sift/ROADMAP.md"
-}
-
-# struck_row <dir> <n> <id> <title> — a finished row in the shape rule 9 asks
-# for: the ID and the title both struck, the resolution status appended.
-struck_row() {
-  printf '| %s | ~~%s~~ | ~~%s~~ — done |  |\n' "$2" "$3" "$4" >> "$1/.ai/sift/ROADMAP.md"
-}
-
-# roadmap_wave <dir> <n> — open another "## Wave <n>" section with its header.
-roadmap_wave() {
-  {
-    printf '\n## Wave %s\n\n' "$2"
-    printf '| # | Ticket | Title | Needs |\n'
-    printf '|---|---|---|---|\n'
-  } >> "$1/.ai/sift/ROADMAP.md"
 }
 
 # stub_ticket <dir> <bucket> <milestone/category> <filename> — content-free file,

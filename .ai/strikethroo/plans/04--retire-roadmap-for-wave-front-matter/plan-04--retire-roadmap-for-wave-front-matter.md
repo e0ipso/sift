@@ -380,12 +380,12 @@ graph TD
 - ✔️ Task 003: Rewire sift-drain (depends on: 002)
 - ✔️ Task 004: Rewire sift-prime (depends on: 002)
 
-### Phase 4: Retire file-backed runtime machinery
+### ✅ Phase 4: Retire file-backed runtime machinery
 
-**Status:** Pending
+**Status:** Completed
 
 **Parallel Tasks:**
-- Task 005: Remove roadmap assets and non-skill readers (depends on: 003, 004)
+- ✔️ Task 005: Remove roadmap assets and non-skill readers (depends on: 003, 004)
 
 ### Phase 5: Rewrite the convention
 

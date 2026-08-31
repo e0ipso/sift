@@ -256,19 +256,6 @@ the same change.
 Initial backlog for work not assigned to a named milestone.
 EOF
 
-write_file "ROADMAP.md" <<'EOF'
-# Roadmap
-
-Advisory order; a ticket's `depends_on` takes precedence.
-
-Strike a finished row and archive its ticket in the same change.
-
-## Wave 1
-
-| # | Ticket | Title | Needs |
-|---|---|---|---|
-EOF
-
 # No .gitkeep: this tree ignores itself.
 for d in "open/$milestone" "archive"; do
   if [ -d "$sift/$d" ]; then
@@ -289,7 +276,7 @@ printf '%s' "$kept"
 if [ -n "$stale" ]; then
   printf '%s' "$stale"
   printf '\nThose files are the convention itself, shipped whole — not repository state:\n'
-  printf 'no ticket, roadmap, milestone list or config lives in them, so they are the only\n'
+  printf 'no ticket, milestone list or config lives in them, so they are the only\n'
   printf 'two paths in the tree that are safe to overwrite. Nothing else here may be.\n'
   printf 'Take the current copy when you are ready (review first if you annotated either):\n\n'
   printf '  cp %s/README.md %s/README.md\n' "$assets" "$sift"

@@ -187,11 +187,11 @@ test_case "the uniqueness half of the obligation, and why it is not counted here
 # cannot see the failure it is named after is worse than none, because it is
 # believed.
 #
-# The exemption it would additionally need makes the same point from the other
-# side: `[0-9]{4,}` occurs twice in reserve-ids.sh on purpose — once per bucket
-# the high-water mark is read from — so the count would ship with a
-# hand-maintained exception list, which is the stale-record failure this file
-# exists to prevent rather than to reproduce.
+# The count would also have to be maintained against constructs that legitimately
+# repeat. `[0-9]{4,}` was written twice in reserve-ids.sh for as long as the mark
+# was read from two sources, so the count would have shipped with a hand-maintained
+# exception list — the stale-record failure this file exists to prevent rather than
+# to reproduce.
 #
 # Where the obligation IS guarded is behaviour, because that is where a
 # paraphrase shows: "every ID sift-prime allocates is one sift-drain will log

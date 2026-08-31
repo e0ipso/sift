@@ -410,3 +410,62 @@ graph TD
 ### Execution Summary
 - Total Phases: 6
 - Total Tasks: 7
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-08-31
+
+### Results
+
+- Made `wave` ticket-owned front matter across the XSDs, drafting flow, fixtures,
+  selection helpers, progress report, and consistency gate.
+- Rewired `sift-drain` and `sift-prime` to operate from ticket files, removed
+  `ROADMAP.md` initialization and readers, deleted row-rule guards, and retained the
+  shared ticket-ID agreement checks.
+- Rewrote the normative README and shipped mirror with the generated wave view,
+  simplified archive workflow, and front-matter consistency recipe.
+- Migrated the ignored live tracker after backing it up to
+  `/tmp/sift-backup.FCnrvy/sift`. The tree had 0 open and 109 archived tickets, so
+  no ticket required a wave assignment; archived tickets remained byte-identical.
+  The obsolete root `ROADMAP.md` was removed and the installed convention assets
+  were refreshed.
+- Final validation passed: 38 test files, 575 tests, 2264 assertions, 0 failures,
+  and the same 5 named expected skips. Scratch-tree archive/fault injection and the
+  live 109/109-drained report also passed.
+
+### Noteworthy Events
+
+- The initial branch gate found pre-existing Strikethroo skill changes. The user
+  authorized committing them before execution; baseline commits were `bcb6925` and
+  `ae6dc6`, and the code-review base was captured at `ae6dc6e74baa19549341b918e7bb251280410e02`.
+- The refreshed full-workflow skill initially duplicated stage procedures and failed
+  its delegating-orchestrator contract. Restoring its thin delegation shape made the
+  baseline suite green before feature work began.
+- Two external-worker output watchers waited on conditions their completed test runs
+  could never produce. Only the orphaned watcher processes were stopped; the routed
+  tasks then returned normally, and all evidence was rerun independently.
+- Task 5 retained README-coupled recipe helpers until the convention-retirement phase
+  so the normative spec and executable cookbook never disagreed between commits.
+- The live migration found a fully drained backlog. `wave-status.sh` correctly exits 1
+  for "no runnable wave is left", rather than the task's anticipated exit 0. The
+  acceptance record was clarified without fabricating an open ticket or changing that
+  established exit-code contract.
+- The independent review ran once on the Claude harness and certified 7 findings:
+  0 critical, 2 major, 5 minor, 0 info. Six defect findings were applied through the
+  implementer route: inline YAML comments, zero-byte ticket visibility, literal-tab
+  TSV safety, quoted dependency IDs, the stale AGENTS clause, and inaccurate
+  sift-prime verification prose. POST_EXECUTION was then rerun in full.
+- The remaining medium-confidence requirement-conformance finding identified stale
+  Kenkeep nodes about roadmap synchronization. It was not silently rewritten because
+  the plan explicitly requires curation; it is flagged under Necessary follow-ups.
+
+### Necessary follow-ups
+
+- Run `/kk-curate` to retire or supersede the stale rule-9, roadmap-row,
+  roadmap-check, and roadmap-synchronization Kenkeep records. In particular, review
+  the cross-skill row-rule nodes, the ticket roadmap-sync practice, and the drain skill
+  map that still lists `roadmap-check.sh`.
+- Keep `/tmp/sift-backup.FCnrvy/sift` until the migrated ignored tracker has been
+  accepted; it can then be removed. Restore, if needed, with
+  `cp -a /tmp/sift-backup.FCnrvy/sift/. .ai/sift/`.

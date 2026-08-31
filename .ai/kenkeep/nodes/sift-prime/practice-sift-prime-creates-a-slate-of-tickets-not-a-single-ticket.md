@@ -22,7 +22,7 @@ sift-prime's job is to fill the roadmap with a coherent slate of tickets that `/
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-prime-the-skill-that-fills-a-sift-backlog](/map-sift-prime-the-skill-that-fills-a-sift-backlog.md)
+- Related: [map-sift-prime-the-skill-that-fills-a-sift-backlog](/sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

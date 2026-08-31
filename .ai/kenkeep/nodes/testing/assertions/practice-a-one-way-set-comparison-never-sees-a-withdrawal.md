@@ -50,7 +50,7 @@ own — so it prints an `rm` with the path resolved and lets the operator run it
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-check-then-act-cp-is-not-a-create-if-absent](/practice-check-then-act-cp-is-not-a-create-if-absent.md)
-- Related: [practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version](/practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version.md)
-- Related: [practice-a-narrowing-list-is-a-claim-that-needs-its-own-case](/testing/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md)
+- Related: [practice-check-then-act-cp-is-not-a-create-if-absent](/shell/writes/practice-check-then-act-cp-is-not-a-create-if-absent.md)
+- Related: [practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version](/drift-detection/practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version.md)
+- Related: [practice-a-narrowing-list-is-a-claim-that-needs-its-own-case](/testing/case-set/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md)
 <!-- kk:related:end -->

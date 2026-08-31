@@ -29,6 +29,6 @@ When a worker reports a ticket done, the orchestrator lands that ticket as one c
 # Related
 
 - Related: [practice-keep-roadmap-in-sync-same-change](/tickets/practice-keep-roadmap-in-sync-same-change.md)
-- Related: [practice-orchestrate-sift-drain-never-implement](/sift-drain/practice-orchestrate-sift-drain-never-implement.md)
-- Related: [practice-the-drain-orchestrator-builds-a-wave-graph](/sift-drain/practice-the-drain-orchestrator-builds-a-wave-graph.md)
+- Related: [practice-orchestrate-sift-drain-never-implement](/sift-drain/orchestration/practice-orchestrate-sift-drain-never-implement.md)
+- Related: [practice-the-drain-orchestrator-builds-a-wave-graph](/sift-drain/orchestration/practice-the-drain-orchestrator-builds-a-wave-graph.md)
 <!-- kk:related:end -->

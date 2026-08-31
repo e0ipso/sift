@@ -25,7 +25,7 @@ Collapse the product to its factors and keep the *argument* rather than the case
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-a-narrowing-list-is-a-claim-that-needs-its-own-case](/testing/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md)
+- Related: [practice-a-narrowing-list-is-a-claim-that-needs-its-own-case](/testing/case-set/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

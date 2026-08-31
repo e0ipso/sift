@@ -34,5 +34,5 @@ anything about ticket shape.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-file-based-issue-tracker](/map-sift-file-based-issue-tracker.md)
+- Related: [map-sift-file-based-issue-tracker](/convention/map-sift-file-based-issue-tracker.md)
 <!-- kk:related:end -->

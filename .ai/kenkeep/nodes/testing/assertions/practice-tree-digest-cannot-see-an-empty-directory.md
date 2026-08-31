@@ -43,6 +43,6 @@ with `$f` empty.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-prove-a-rewrite-left-the-rest-of-the-file-alone-with-diff](/practice-prove-a-rewrite-left-the-rest-of-the-file-alone-with-diff.md)
+- Related: [practice-prove-a-rewrite-left-the-rest-of-the-file-alone-with-diff](/testing/assertions/practice-prove-a-rewrite-left-the-rest-of-the-file-alone-with-diff.md)
 - Related: [map-sift-test-suite-runs-the-readme-recipes-themselves](/convention/map-sift-test-suite-runs-the-readme-recipes-themselves.md)
 <!-- kk:related:end -->

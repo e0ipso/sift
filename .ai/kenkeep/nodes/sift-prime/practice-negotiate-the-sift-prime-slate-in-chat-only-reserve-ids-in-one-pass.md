@@ -25,10 +25,10 @@ Negotiation stays in the conversation — there is no persisted slate or scratch
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-prime-the-skill-that-fills-a-sift-backlog](/map-sift-prime-the-skill-that-fills-a-sift-backlog.md)
-- Related: [practice-orchestrate-sift-drain-never-implement](/practice-orchestrate-sift-drain-never-implement.md)
-- Related: [practice-keep-roadmap-in-sync-same-change](/practice-keep-roadmap-in-sync-same-change.md)
-- Related: [practice-never-renumber-or-reuse-a-ticket-id](/practice-never-renumber-or-reuse-a-ticket-id.md)
+- Related: [map-sift-prime-the-skill-that-fills-a-sift-backlog](/sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md)
+- Related: [practice-orchestrate-sift-drain-never-implement](/sift-drain/orchestration/practice-orchestrate-sift-drain-never-implement.md)
+- Related: [practice-keep-roadmap-in-sync-same-change](/tickets/practice-keep-roadmap-in-sync-same-change.md)
+- Related: [practice-never-renumber-or-reuse-a-ticket-id](/tickets/practice-never-renumber-or-reuse-a-ticket-id.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

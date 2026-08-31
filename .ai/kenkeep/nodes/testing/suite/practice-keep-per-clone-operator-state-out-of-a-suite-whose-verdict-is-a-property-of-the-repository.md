@@ -31,8 +31,8 @@ When a proposed guard turns out to be of that shape, do not ship it and do not o
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-a-narrowing-list-is-a-claim-that-needs-its-own-case](/testing/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md)
-- Related: [practice-never-edit-the-tree-while-the-suite-is-running](/testing/practice-never-edit-the-tree-while-the-suite-is-running.md)
+- Related: [practice-a-narrowing-list-is-a-claim-that-needs-its-own-case](/testing/case-set/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md)
+- Related: [practice-never-edit-the-tree-while-the-suite-is-running](/testing/suite/practice-never-edit-the-tree-while-the-suite-is-running.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

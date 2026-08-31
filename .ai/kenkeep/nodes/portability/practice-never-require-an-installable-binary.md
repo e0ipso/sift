@@ -40,5 +40,5 @@ optional binary.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-xsd-drafting-schemas](/map-sift-xsd-drafting-schemas.md)
+- Related: [map-sift-xsd-drafting-schemas](/tickets/map-sift-xsd-drafting-schemas.md)
 <!-- kk:related:end -->

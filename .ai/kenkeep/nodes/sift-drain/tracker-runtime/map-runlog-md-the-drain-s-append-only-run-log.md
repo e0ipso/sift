@@ -34,7 +34,7 @@ When changing this shape, the `## Run log` section of the normative README and i
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-drain-skill](/sift-drain/map-sift-drain-skill.md)
+- Related: [map-sift-drain-skill](/sift-drain/orchestration/map-sift-drain-skill.md)
 - Related: [map-sift-readme-normative-spec](/spec/map-sift-readme-normative-spec.md)
 - Related: [map-sift-ticket-tree-layout](/tickets/map-sift-ticket-tree-layout.md)
 - Related: [practice-keep-recipes-portable-gnu-and-bsd](/portability/practice-keep-recipes-portable-gnu-and-bsd.md)

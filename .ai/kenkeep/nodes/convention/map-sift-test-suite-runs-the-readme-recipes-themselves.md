@@ -65,7 +65,7 @@ name it. shellcheck is run only when present, never required.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-batch-test-authoring-at-the-wave-gate](/sift-drain/practice-batch-test-authoring-at-the-wave-gate.md)
+- Related: [practice-batch-test-authoring-at-the-wave-gate](/sift-drain/verification/practice-batch-test-authoring-at-the-wave-gate.md)
 - Related: [practice-keep-recipes-portable-gnu-and-bsd](/portability/practice-keep-recipes-portable-gnu-and-bsd.md)
 - Related: [practice-never-require-an-installable-binary](/portability/practice-never-require-an-installable-binary.md)
 <!-- kk:related:end -->

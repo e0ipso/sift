@@ -50,7 +50,7 @@ grows a new edge.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-match-a-sift-ticket-id-as-a-whole-token](/practice-match-a-sift-ticket-id-as-a-whole-token.md)
+- Related: [practice-match-a-sift-ticket-id-as-a-whole-token](/cross-skill/practice-match-a-sift-ticket-id-as-a-whole-token.md)
 - Related: [tickets/practice-keep-roadmap-in-sync-same-change](/tickets/practice-keep-roadmap-in-sync-same-change.md)
-- Related: [practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test](/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md)
+- Related: [practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test](/cross-skill/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md)
 <!-- kk:related:end -->

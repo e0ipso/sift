@@ -42,7 +42,7 @@ and buys no portability. Spell letter sets out, leave digit runs as `[0-9]`.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-the-collated-range-scan-targets-globs-not-usage-strings](/practice-the-collated-range-scan-targets-globs-not-usage-strings.md)
-- Related: [practice-hoisting-a-validation-regex-into-a-constant-trips-the-range-scan](/practice-hoisting-a-validation-regex-into-a-constant-trips-the-range-scan.md)
+- Related: [practice-the-collated-range-scan-targets-globs-not-usage-strings](/drift-detection/practice-the-collated-range-scan-targets-globs-not-usage-strings.md)
+- Related: [practice-hoisting-a-validation-regex-into-a-constant-trips-the-range-scan](/drift-detection/practice-hoisting-a-validation-regex-into-a-constant-trips-the-range-scan.md)
 - Related: [practice-never-write-a-z-glob-ranges-in-shell-validation](/portability/practice-never-write-a-z-glob-ranges-in-shell-validation.md)
 <!-- kk:related:end -->

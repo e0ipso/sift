@@ -38,5 +38,5 @@ from those lines, so an unrecorded sequence is never tested at all.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-batch-test-authoring-at-the-wave-gate](/practice-batch-test-authoring-at-the-wave-gate.md)
+- Related: [practice-batch-test-authoring-at-the-wave-gate](/sift-drain/verification/practice-batch-test-authoring-at-the-wave-gate.md)
 <!-- kk:related:end -->

@@ -42,5 +42,5 @@ dispatch to fix the bookkeeping.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-drain-skill](/map-sift-drain-skill.md)
+- Related: [map-sift-drain-skill](/sift-drain/orchestration/map-sift-drain-skill.md)
 <!-- kk:related:end -->

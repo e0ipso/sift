@@ -52,5 +52,5 @@ it stays exactly as it was.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-honour-with-a-second-loop-never-a-bare-break](/practice-honour-with-a-second-loop-never-a-bare-break.md)
+- Related: [practice-honour-with-a-second-loop-never-a-bare-break](/cli/practice-honour-with-a-second-loop-never-a-bare-break.md)
 <!-- kk:related:end -->

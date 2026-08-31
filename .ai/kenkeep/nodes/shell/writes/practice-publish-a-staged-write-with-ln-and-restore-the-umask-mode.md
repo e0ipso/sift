@@ -37,5 +37,5 @@ operator's umask instead of honouring it.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-check-then-act-cp-is-not-a-create-if-absent](/practice-check-then-act-cp-is-not-a-create-if-absent.md)
+- Related: [practice-check-then-act-cp-is-not-a-create-if-absent](/shell/writes/practice-check-then-act-cp-is-not-a-create-if-absent.md)
 <!-- kk:related:end -->

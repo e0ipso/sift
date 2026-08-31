@@ -36,8 +36,8 @@ fenced contract that also asks for findings from uninspected paths.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-prime-the-skill-that-fills-a-sift-backlog](/map-sift-prime-the-skill-that-fills-a-sift-backlog.md)
-- Related: [practice-write-atomic-evidence-based-tickets](/practice-write-atomic-evidence-based-tickets.md)
+- Related: [map-sift-prime-the-skill-that-fills-a-sift-backlog](/sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md)
+- Related: [practice-write-atomic-evidence-based-tickets](/tickets/practice-write-atomic-evidence-based-tickets.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

@@ -32,7 +32,7 @@ When changing this, note that a generic "do not edit the running skill's own fil
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-drain-skill](/sift-drain/map-sift-drain-skill.md)
+- Related: [map-sift-drain-skill](/sift-drain/orchestration/map-sift-drain-skill.md)
 - Related: [map-sift-prime-the-skill-that-fills-a-sift-backlog](/sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md)
 - Related: [map-sift-init-deterministic-project-root-gate-and-tree-materialization](/sift-init/map-sift-init-deterministic-project-root-gate-and-tree-materialization.md)
 <!-- kk:related:end -->

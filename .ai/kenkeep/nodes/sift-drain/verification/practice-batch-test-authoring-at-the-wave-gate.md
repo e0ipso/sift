@@ -48,5 +48,5 @@ specific enough that the batch agent can turn the line straight into a test.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-drain-skill](/map-sift-drain-skill.md)
+- Related: [map-sift-drain-skill](/sift-drain/orchestration/map-sift-drain-skill.md)
 <!-- kk:related:end -->

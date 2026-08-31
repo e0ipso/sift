@@ -35,5 +35,5 @@ change to the dependency contract made on purpose.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-prove-the-damage-before-asserting-the-guard](/practice-prove-the-damage-before-asserting-the-guard.md)
+- Related: [practice-prove-the-damage-before-asserting-the-guard](/testing/assertions/practice-prove-the-damage-before-asserting-the-guard.md)
 <!-- kk:related:end -->

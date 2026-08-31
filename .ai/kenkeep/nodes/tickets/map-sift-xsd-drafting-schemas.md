@@ -39,5 +39,5 @@ hand.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-ticket-body-sections](/map-sift-ticket-body-sections.md)
+- Related: [map-sift-ticket-body-sections](/tickets/map-sift-ticket-body-sections.md)
 <!-- kk:related:end -->

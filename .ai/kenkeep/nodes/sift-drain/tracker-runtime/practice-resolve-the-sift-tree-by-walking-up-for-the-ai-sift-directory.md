@@ -25,7 +25,7 @@ Marking on the directory (rather than probing for `ROADMAP.md`) keeps a ticket t
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-drain-skill](/map-sift-drain-skill.md)
+- Related: [map-sift-drain-skill](/sift-drain/orchestration/map-sift-drain-skill.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

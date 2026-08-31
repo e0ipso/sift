@@ -65,6 +65,6 @@ must not report clean" standard comes from SFT-0010.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-scope-front-matter-rewrites-to-the-fence](/practice-scope-front-matter-rewrites-to-the-fence.md)
-- Related: [practice-neutralise-greps-no-match-status-with-exit-code-1-not-true](/practice-neutralise-greps-no-match-status-with-exit-code-1-not-true.md)
+- Related: [practice-scope-front-matter-rewrites-to-the-fence](/shell/awk/practice-scope-front-matter-rewrites-to-the-fence.md)
+- Related: [practice-neutralise-greps-no-match-status-with-exit-code-1-not-true](/shell/practice-neutralise-greps-no-match-status-with-exit-code-1-not-true.md)
 <!-- kk:related:end -->

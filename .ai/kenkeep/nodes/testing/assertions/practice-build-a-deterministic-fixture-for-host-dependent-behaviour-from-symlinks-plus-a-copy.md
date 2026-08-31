@@ -31,7 +31,7 @@ Save and restore anything the fixture moves — `PATH`, the axis variables, and 
 # Related
 
 - Related: [practice-an-axis-of-names-is-not-an-axis-of-implementations](/portability/practice-an-axis-of-names-is-not-an-axis-of-implementations.md)
-- Related: [practice-prove-the-damage-before-asserting-the-guard](/testing/practice-prove-the-damage-before-asserting-the-guard.md)
+- Related: [practice-prove-the-damage-before-asserting-the-guard](/testing/assertions/practice-prove-the-damage-before-asserting-the-guard.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

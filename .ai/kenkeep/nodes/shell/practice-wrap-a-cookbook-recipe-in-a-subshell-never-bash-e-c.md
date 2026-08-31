@@ -60,6 +60,6 @@ is exactly why the wrapper is not optional.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-guard-a-recipe-before-its-first-write-not-its-last](/practice-guard-a-recipe-before-its-first-write-not-its-last.md)
-- Related: [practice-an-apostrophe-in-an-embedded-awk-comment-closes-the-shell-string](/practice-an-apostrophe-in-an-embedded-awk-comment-closes-the-shell-string.md)
+- Related: [practice-guard-a-recipe-before-its-first-write-not-its-last](/shell/writes/practice-guard-a-recipe-before-its-first-write-not-its-last.md)
+- Related: [practice-an-apostrophe-in-an-embedded-awk-comment-closes-the-shell-string](/shell/awk/practice-an-apostrophe-in-an-embedded-awk-comment-closes-the-shell-string.md)
 <!-- kk:related:end -->

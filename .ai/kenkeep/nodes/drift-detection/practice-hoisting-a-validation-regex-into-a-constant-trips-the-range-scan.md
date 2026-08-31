@@ -44,5 +44,5 @@ from a reader who needs to check the pattern against the convention.
 # Related
 
 - Related: [practice-never-write-a-z-glob-ranges-in-shell-validation](/portability/practice-never-write-a-z-glob-ranges-in-shell-validation.md)
-- Related: [practice-the-collated-range-scan-targets-globs-not-usage-strings](/practice-the-collated-range-scan-targets-globs-not-usage-strings.md)
+- Related: [practice-the-collated-range-scan-targets-globs-not-usage-strings](/drift-detection/practice-the-collated-range-scan-targets-globs-not-usage-strings.md)
 <!-- kk:related:end -->

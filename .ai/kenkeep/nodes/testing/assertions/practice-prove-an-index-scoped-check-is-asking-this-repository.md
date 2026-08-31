@@ -31,7 +31,7 @@ The same reasoning makes "git is not installed" a named gap rather than a failur
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-prove-the-damage-before-asserting-the-guard](/testing/practice-prove-the-damage-before-asserting-the-guard.md)
+- Related: [practice-prove-the-damage-before-asserting-the-guard](/testing/assertions/practice-prove-the-damage-before-asserting-the-guard.md)
 - Related: [practice-never-require-an-installable-binary](/portability/practice-never-require-an-installable-binary.md)
 <!-- kk:related:end -->
 

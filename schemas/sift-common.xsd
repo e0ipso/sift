@@ -101,6 +101,14 @@
       <xs:element name="milestone" type="tns:milestone" />
       <xs:element name="priority" type="tns:priority" />
       <xs:element name="effort" type="tns:effort" />
+      <!--
+        <wave> renders as YAML "wave". It is the ticket's wave membership, written
+        at drafting time. Every open ticket carries one; an archived ticket keeps
+        whatever wave it was drafted with, and the key is never required or edited
+        after resolution. XSD cannot inspect the ticket path, and a draft is always
+        open work, so the declaration here is unconditional.
+      -->
+      <xs:element name="wave" type="xs:positiveInteger" />
       <xs:element name="created" type="xs:date" />
       <xs:element name="updated" type="xs:date" />
       <xs:element name="labels" minOccurs="0">

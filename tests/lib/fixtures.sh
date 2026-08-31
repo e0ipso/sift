@@ -305,7 +305,9 @@ ticket_body() {
 #   `<key>: <value>`  front matter. A line naming one of the required keys
 #                     replaces that key's default; any other line is written
 #                     verbatim inside the fence, which is how an optional key
-#                     like `source:` gets set.
+#                     like `source:` gets set. `wave:` is required in `open/`,
+#                     where it defaults to 1, and optional in `archive/`, where
+#                     it is written only when the caller passes it.
 #   `body=<shape>`    the body, one of the shapes ticket_body names above.
 #                     Never derived from `type:`: the bug-backfill recipe's whole
 #                     subject is a `type: bug` ticket with no
@@ -331,11 +333,22 @@ ticket() {
     fm_line "milestone: $milestone" "$@"
     fm_line 'priority: p2' "$@"
     fm_line 'effort: m' "$@"
+    # The wave, keyed off the bucket rather than off `status:`, because the
+    # bucket is what the caller always passes and what the tree is read by. An
+    # open ticket carries a wave; an archived one keeps whichever wave it was
+    # drafted with and is never handed one it never had, so a fixture for a
+    # ticket resolved before the key existed stays buildable.
+    case "$bucket" in
+      open) fm_line 'wave: 1' "$@" ;;
+      *) for arg in "$@"; do
+           case "$arg" in wave:*) printf '%s\n' "$arg" ;; esac
+         done ;;
+    esac
     fm_line 'created: 2026-08-01' "$@"
     fm_line 'updated: 2026-08-01' "$@"
     for line in "$@"; do
       case "$line" in
-        id:*|title:*|status:*|type:*|milestone:*|priority:*|effort:*|created:*|updated:*) ;;
+        id:*|title:*|status:*|type:*|milestone:*|priority:*|effort:*|wave:*|created:*|updated:*) ;;
         # The shape selector, excluded here rather than passed through: this loop
         # writes any unrecognised argument verbatim inside the fence, so a
         # selector that fell through would land in the ticket as a bogus key.

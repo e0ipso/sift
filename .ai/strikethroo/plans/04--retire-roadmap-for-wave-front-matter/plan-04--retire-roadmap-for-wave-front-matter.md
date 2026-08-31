@@ -358,12 +358,12 @@ graph TD
     006 --> 007[Task 007: Migrate the live Sift tree]
 ```
 
-### Phase 1: Establish the wave field
+### ✅ Phase 1: Establish the wave field
 
-**Status:** Pending
+**Status:** Completed
 
 **Parallel Tasks:**
-- Task 001: Add the wave front-matter contract
+- ✔️ Task 001: Add the wave front-matter contract
 
 ### Phase 2: Build the generated wave view
 

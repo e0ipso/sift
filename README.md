@@ -192,6 +192,7 @@ Draft into a scratch file outside `.ai/sift/`, render the markdown ticket, then 
     <milestone>foundations</milestone>
     <priority>p2</priority>
     <effort>m</effort>
+    <wave>1</wave>
     <created>2026-08-07</created>
     <updated>2026-08-07</updated>
     <labels><label>api</label><label>caching</label></labels>

@@ -394,12 +394,12 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 006: Rewrite the spec and retire row guards (depends on: 005)
 
-### Phase 6: Migrate the repository tracker
+### ✅ Phase 6: Migrate the repository tracker
 
-**Status:** Pending
+**Status:** Completed
 
 **Parallel Tasks:**
-- Task 007: Migrate the live Sift tree (depends on: 006)
+- ✔️ Task 007: Migrate the live Sift tree (depends on: 006)
 
 ### Post-phase Actions
 

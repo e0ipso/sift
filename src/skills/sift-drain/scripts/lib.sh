@@ -197,7 +197,7 @@ ticket_search_dirs() {
 # one empty field would hand every field behind it to the wrong variable, and
 # `read` would report a title as a dependency rather than failing.
 ticket_rows() {
-  local files=() content_files=() empty_files=() f id done
+  local files=() content_files=() empty_files=() f id archived
   while IFS= read -r f; do
     [ -n "$f" ] && files+=("$f")
   done < <(find "$SIFT/open" "$SIFT/archive" -name "$PREFIX-*.md" 2>/dev/null)
@@ -296,10 +296,10 @@ ticket_rows() {
     for f in "${empty_files[@]}"; do
       id="${f##*/}"
       id="${id%%--*}"
-      done=0
-      case "$f" in */archive/*) done=1 ;; esac
+      archived=0
+      case "$f" in */archive/*) archived=1 ;; esac
       printf '999999\tzzz\t%s\t0\t-\t%s\t%d\t-\t-\t-\t-\t%s\n' \
-        "$id" "$id" "$done" "$f"
+        "$id" "$id" "$archived" "$f"
     done
   } | LC_ALL=C sort | cut -f4-
 }

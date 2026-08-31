@@ -100,8 +100,8 @@ SKIPPED=""
 # can be handed out now; every refusal that is not "already finished" is named
 # under skipped:, so a wave is never silently short.
 dispatchable() {
-  local wave="$1" id="$2" done="$3" status="$4" deps="$5" blocker
-  [ "$done" = "1" ] && return 1
+  local wave="$1" id="$2" archived="$3" status="$4" deps="$5" blocker
+  [ "$archived" = "1" ] && return 1
   if [ "$wave" = "0" ]; then
     SKIPPED="$SKIPPED$id (no wave key, so it is in no wave)"$'\n'
     return 1
@@ -118,8 +118,8 @@ dispatchable() {
   return 0
 }
 
-while IFS=$'\t' read -r wave _pri id done status _effort deps _title file; do
-  dispatchable "$wave" "$id" "$done" "$status" "$deps" || continue
+while IFS=$'\t' read -r wave _pri id archived status _effort deps _title file; do
+  dispatchable "$wave" "$id" "$archived" "$status" "$deps" || continue
   CHOSEN_WAVE="$wave"; CHOSEN_ID="$id"; CHOSEN_FILE="$file"
   break
 done <<< "$ROWS"
@@ -171,12 +171,12 @@ if [ -n "$LEAD_CLUSTER" ]; then
   # do not cross into the next wave while the current wave remains open.
   seen_lead=0
   gap=0
-  while IFS=$'\t' read -r wave _pri id done status effort deps _title file; do
+  while IFS=$'\t' read -r wave _pri id archived status effort deps _title file; do
     if [ "$seen_lead" = "0" ]; then
       [ "$id" = "$CHOSEN_ID" ] && seen_lead=1
       continue
     fi
-    [ "$done" = "1" ] && continue     # terminal work is nobody else's member
+    [ "$archived" = "1" ] && continue # terminal work is nobody else's member
     [ "$wave" != "$CHOSEN_WAVE" ] && [ "$gap" = "1" ] && break
     member=0
     # Membership is dispatchability, so a peer refused for its own reasons is a

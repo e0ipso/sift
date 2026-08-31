@@ -43,6 +43,7 @@ Plans and tasks are Markdown files with YAML front matter under
 
 ## Lifecycle
 
-Active plan directories stay under `plans/`. After `st-execute-blueprint`
-successfully executes a blueprint, move the entire plan directory, including
-its tasks and subdirectories, from `plans/` to `archive/`.
+Active plan directories stay under `plans/`. When `st-execute-blueprint`
+successfully executes a blueprint, that skill itself moves the entire plan
+directory, including its tasks and subdirectories, from `plans/` to
+`archive/`. No other skill archives a plan.

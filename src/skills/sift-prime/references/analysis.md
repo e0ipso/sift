@@ -45,10 +45,6 @@ code.
 @RULE: README.md 5 Claims about code cite
 ```
 
-```text
-@RULE: README.md 5 Claims about code cite
-```
-
 `absent: <path>` names the exact path checked. For example,
 `absent: .github/workflows/` is verifiable; "there is no CI" is not.
 

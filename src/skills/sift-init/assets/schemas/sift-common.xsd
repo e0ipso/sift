@@ -5,8 +5,9 @@
            elementFormDefault="qualified">
 
   <!--
-    <id> renders as YAML "id". The numeric suffix has a minimum width of four digits
-    and remains open-ended. XSD cannot bind <PREFIX> to the repository configuration.
+    <id> renders as YAML "id". The pattern accepts any digit run: the four-digit
+    %04d minimum is the allocation and tracker-script rule, which this pattern does
+    not enforce. XSD cannot bind <PREFIX> to the repository configuration.
   -->
   <xs:simpleType name="ticketId">
     <xs:restriction base="xs:string">

@@ -63,14 +63,11 @@ Read these files, in order:
 Read the entire plan. Identify all concrete deliverables **explicitly stated**.
 Decompose each deliverable into atomic tasks only when genuinely needed.
 
-**Requirement traceability and task minimization (mandatory):**
+**Task minimization (mandatory):**
 
-- Build a deliverable-to-task map before writing files. Every concrete
-  deliverable must map to at least one task, and every task must map back to at
-  least one concrete deliverable.
-- Create only the minimum number of tasks that preserves that complete mapping.
-  Combine related deliverables in one task when it stays atomic and verifiable;
-  split them when their dependencies or implementation ownership differ.
+- Create only the minimum number of tasks necessary. Target a 20–30%
+  reduction from comprehensive lists by questioning the necessity of each
+  candidate.
 - **Direct Implementation Only**: a task corresponds to an explicit
   requirement, not a "nice-to-have".
 - **DRY Task Principle**: each task has a unique, non-overlapping purpose.
@@ -93,7 +90,7 @@ Apply `<root>/config/shared/anti-rationalization.md` to this rationalization tab
 
 | You catch yourself thinking… | The binding rule |
 | --- | --- |
-| "One extra task won't hurt." | Every task maps back to an **explicitly stated** deliverable or it does not exist. |
+| "One extra task won't hurt." | It violates the 20–30% minimization target. Every task traces to an **explicitly stated** deliverable or it does not exist. |
 | "This edge case deserves its own task." | Fold it into the task that owns the behavior. Do not split trivially small operations into separate units. |
 | "I'll add a test suite to be safe." | Comprehensive tests for trivial functionality are gold-plating. Follow the test philosophy — meaningful tests only. |
 | "Future extensibility justifies this task." | YAGNI. The plan does not mention it, so it is not a task. |
@@ -259,11 +256,8 @@ Before declaring task generation complete, verify:
   verification step (command + expected output / observable signal), not a
   vague "works correctly".
 - Every **explicitly stated** deliverable in the plan is covered.
-- Every concrete deliverable maps to at least one task, and every task maps back
-  to at least one concrete deliverable.
 - No redundant or overlapping tasks.
-- The mapping uses the fewest atomic tasks that can cover the deliverables
-  without hiding distinct dependencies or implementation ownership.
+- Minimization applied (20–30% reduction target).
 - Test tasks focus on business logic, not framework functionality.
 - No gold-plating: only plan requirements are addressed.
 - After writing the task files, run
@@ -339,10 +333,11 @@ The summary is consumed by downstream automation; keep the format exact.
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop, instruct the user to initialize the
-  project. Do not write any files.
-- **Plan ID does not resolve.** Stop and surface the script's stderr to the
-  user. Do not guess a different ID and do not write any files.
+- **No strikethroo root found.** Stop and instruct the user to initialize the
+  project. Do not write any files or execute any tasks.
+- **Plan ID does not resolve, or the plan-ID script fails.** Re-check the
+  resolved root and re-run. If it continues to fail, surface the script's
+  stderr to the user and stop. Do not guess an ID and do not write any files.
 - **User declines to clarify a blocking ambiguity.** Mark the affected tasks
   with `status: "needs-clarification"` and document the open question in the
   task's "Implementation Notes". Do not invent answers.

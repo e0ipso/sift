@@ -27,6 +27,6 @@ That is fine from a context perspective because the orchestrator does none of th
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-orchestrate-sift-drain-never-implement](/sift-drain/practice-orchestrate-sift-drain-never-implement.md)
-- Related: [map-sift-drain-skill](/sift-drain/map-sift-drain-skill.md)
+- Related: [practice-orchestrate-sift-drain-never-implement](/sift-drain/orchestration/practice-orchestrate-sift-drain-never-implement.md)
+- Related: [map-sift-drain-skill](/sift-drain/orchestration/map-sift-drain-skill.md)
 <!-- kk:related:end -->

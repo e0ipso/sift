@@ -44,5 +44,5 @@ directory. Keep an `mv` fallback for filesystems with no hard links. See
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-assert-only-interleaving-invariant-properties-in-a-race-test](/practice-assert-only-interleaving-invariant-properties-in-a-race-test.md)
+- Related: [practice-assert-only-interleaving-invariant-properties-in-a-race-test](/testing/suite/practice-assert-only-interleaving-invariant-properties-in-a-race-test.md)
 <!-- kk:related:end -->

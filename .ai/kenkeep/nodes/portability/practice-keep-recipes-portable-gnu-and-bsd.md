@@ -48,5 +48,5 @@ rewrite is also spelled out in the README.md cookbook.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-never-require-an-installable-binary](/practice-never-require-an-installable-binary.md)
+- Related: [practice-never-require-an-installable-binary](/portability/practice-never-require-an-installable-binary.md)
 <!-- kk:related:end -->

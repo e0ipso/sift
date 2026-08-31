@@ -30,8 +30,8 @@ Drive the probe by matching on the `not ok` **line** the case emits, never on th
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-prove-the-damage-before-asserting-the-guard](/testing/practice-prove-the-damage-before-asserting-the-guard.md)
-- Related: [practice-guard-a-one-copy-rule-behaviourally-when-the-bug-would-be-a-paraphrase](/testing/practice-guard-a-one-copy-rule-behaviourally-when-the-bug-would-be-a-paraphrase.md)
+- Related: [practice-prove-the-damage-before-asserting-the-guard](/testing/assertions/practice-prove-the-damage-before-asserting-the-guard.md)
+- Related: [practice-guard-a-one-copy-rule-behaviourally-when-the-bug-would-be-a-paraphrase](/testing/case-set/practice-guard-a-one-copy-rule-behaviourally-when-the-bug-would-be-a-paraphrase.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

@@ -32,7 +32,7 @@ Workers die when their sitting ends. The wave gate runs only after the wave's re
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-drain-skill](/sift-drain/map-sift-drain-skill.md)
-- Related: [practice-orchestrate-sift-drain-never-implement](/sift-drain/practice-orchestrate-sift-drain-never-implement.md)
-- Related: [practice-the-drain-orchestrator-owns-tracker-writes](/practice-the-drain-orchestrator-owns-tracker-writes.md)
+- Related: [map-sift-drain-skill](/sift-drain/orchestration/map-sift-drain-skill.md)
+- Related: [practice-orchestrate-sift-drain-never-implement](/sift-drain/orchestration/practice-orchestrate-sift-drain-never-implement.md)
+- Related: [practice-the-drain-orchestrator-owns-tracker-writes](/sift-drain/orchestration/practice-the-drain-orchestrator-owns-tracker-writes.md)
 <!-- kk:related:end -->

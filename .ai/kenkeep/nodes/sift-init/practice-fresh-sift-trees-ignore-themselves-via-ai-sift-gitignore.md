@@ -25,8 +25,8 @@ Write the stub only when winning the creating `mkdir` (fresh tree). If the user 
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-account-for-ai-sift-being-gitignored](/practice-account-for-ai-sift-being-gitignored.md)
-- Related: [map-sift-init-deterministic-project-root-gate-and-tree-materialization](/map-sift-init-deterministic-project-root-gate-and-tree-materialization.md)
+- Related: [practice-account-for-ai-sift-being-gitignored](/sift-drain/tracker-runtime/practice-account-for-ai-sift-being-gitignored.md)
+- Related: [map-sift-init-deterministic-project-root-gate-and-tree-materialization](/sift-init/map-sift-init-deterministic-project-root-gate-and-tree-materialization.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

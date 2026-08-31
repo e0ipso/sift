@@ -89,7 +89,7 @@ brittle mechanism that fails on things nobody changed.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test](/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md)
-- Related: [practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version](/practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version.md)
-- Related: [practice-prove-the-damage-before-asserting-the-guard](/practice-prove-the-damage-before-asserting-the-guard.md)
+- Related: [practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test](/cross-skill/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md)
+- Related: [practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version](/drift-detection/practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version.md)
+- Related: [practice-prove-the-damage-before-asserting-the-guard](/testing/assertions/practice-prove-the-damage-before-asserting-the-guard.md)
 <!-- kk:related:end -->

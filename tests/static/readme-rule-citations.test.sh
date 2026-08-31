@@ -39,8 +39,9 @@ marker_lines_of() {
 
 # markers_of <document> — one
 # "<document><TAB><line><TAB><target><TAB><ordinal><TAB><substring>" record per
-# well-formed marker, in document order. Duplicate records stay duplicated:
-# the two rule-5 sentences in analysis.md are two independently guarded sites.
+# well-formed marker, in document order. Duplicate records stay duplicated: a
+# rule cited from more than one site keeps one marker per citing sentence, and
+# each is independently guarded.
 markers_of() {
   local document="$1" relative
   relative="${document#"$REPO_ROOT/"}"

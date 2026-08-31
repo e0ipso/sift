@@ -26,8 +26,8 @@ Delete it — but in the right order. The sweep usually asserts *less* per item 
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-a-narrowing-list-is-a-claim-that-needs-its-own-case](/testing/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md)
-- Related: [practice-a-sweep-claim-in-test-prose-is-an-assertion-with-no-test](/testing/practice-a-sweep-claim-in-test-prose-is-an-assertion-with-no-test.md)
+- Related: [practice-a-narrowing-list-is-a-claim-that-needs-its-own-case](/testing/case-set/practice-a-narrowing-list-is-a-claim-that-needs-its-own-case.md)
+- Related: [practice-a-sweep-claim-in-test-prose-is-an-assertion-with-no-test](/testing/case-set/practice-a-sweep-claim-in-test-prose-is-an-assertion-with-no-test.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

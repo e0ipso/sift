@@ -46,6 +46,6 @@ first.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-tree-digest-cannot-see-an-empty-directory](/testing/practice-tree-digest-cannot-see-an-empty-directory.md)
+- Related: [practice-tree-digest-cannot-see-an-empty-directory](/testing/assertions/practice-tree-digest-cannot-see-an-empty-directory.md)
 - Related: [practice-probe-in-a-copied-tree-never-restore-with-git-checkout](/convention/practice-probe-in-a-copied-tree-never-restore-with-git-checkout.md)
 <!-- kk:related:end -->

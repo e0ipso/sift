@@ -1,35 +1,6 @@
 #!/usr/bin/env bash
 # drain-log.sh — stamp one row per drain event into .ai/sift/RUNLOG.md.
 #
-# The unit of work is a DISPATCH GROUP, not a ticket. The orchestrator calls
-# `dispatch` once with every ticket it is handing to one sub-agent, marks the
-# phases that agent moves through, and calls `return` once with each ticket and
-# the status it came back with. Agent runtime therefore stays separable from the
-# operator idle time between dispatches, and the cost of a dispatch stays
-# divisible by the tickets it actually resolved.
-#
-# Every row carries both a human-readable UTC timestamp and an epoch-seconds
-# integer. The second column is not redundant: readers do all arithmetic on it
-# and never parse a date back into a number, which is exactly where GNU and BSD
-# `date` diverge. Only `date -u +%Y-%m-%dT%H:%M:%SZ` and `date +%s` are used.
-#
-# Every row of one dispatch shares one epoch, because that epoch is what groups
-# them: the clock is read once per command and the same pair of values is
-# written to every row the command appends. Stamping each row separately would
-# split one dispatch into as many groups as it carried tickets, and every one of
-# them would read as an interrupted run.
-#
-# The log is append-only: the header is written once, when the file does not yet
-# exist, and rows are appended with `>>` and never rewritten.
-#
-# `report` reads the log back and prints, per dispatch group, the tickets it
-# carried and how each ended, the agent runtime, the idle gap that preceded the
-# dispatch, where the time went inside it, and the runtime divided by the tickets
-# the group RESOLVED. Separating those is the point: a merge-timestamp gap folds
-# operator idle time and dropped connections into what looks like agent work, and
-# a cost stated per ticket carried reads a group that blocked half its work as
-# twice as cheap as it was.
-#
 # Usage:
 #   scripts/drain-log.sh dispatch <TICKET>...
 #   scripts/drain-log.sh phase orient|implement|verify|bookkeep
@@ -37,21 +8,13 @@
 #   scripts/drain-log.sh report
 #   scripts/drain-log.sh -- dispatch <TICKET>...   # -- ends the options
 #
-# `--` means one thing across the skill: the option list ends here and everything
-# behind it is positional. This script's first positional is a SUBCOMMAND, so
-# the option list ends at that subcommand whether or not the marker is spelled,
-# and the marker is only meaningful where an option could otherwise have stood —
-# in front of it. `-- dispatch <TICKET>` therefore records exactly the row
-# `dispatch <TICKET>` records, and never turns `dispatch` into an unknown mode.
+# The append-only log records a shared timestamp for every row emitted by one
+# command. `report` groups dispatches by epoch and reports runtime, phase timing,
+# idle gap, outcomes, and runtime per resolved ticket. Arithmetic uses epoch
+# seconds; UTC strings are display-only for GNU/BSD portability.
 #
-# Behind the subcommand there is no option list left to end: every argument
-# there is one of that subcommand's operands. `dispatch` is variadic, so a `--`
-# behind it stands in a ticket position and is refused as the non-ID it is.
-# Nothing is lost by that, because a ticket ID is `<PREFIX>-<NNNN>` under the
-# convention and can never begin with a hyphen, so no real operand ever needs
-# protecting from an option parser that stopped one argument earlier. That last
-# sentence is a claim about the input, so this script checks it rather than
-# assuming it: see require_ticket_id below (SFT-0039).
+# `--` is accepted only before the subcommand. Everything after the subcommand is
+# an operand, and ticket operands must match the configured ticket-ID shape.
 #
 # Exit codes: 0 success | 2 setup/usage error.
 
@@ -70,47 +33,14 @@ usage() {
 
 LOG="$SIFT/RUNLOG.md"
 
-# Refuse a ticket argument that is not a ticket ID, before anything is written.
+# Validate shape before the append-only log is created. Do not look up a ticket
+# file: a return may be stamped after its ticket has moved to archive/.
 #
-# The log is append-only and nothing in the skill rewrites a row, so a typo is
-# permanent. The cost is not the bad row but what `report` makes of it: it pairs
-# a return with its dispatch by string equality on this column, so
-# `dispatch <PREFIX>-004` followed by `return <PREFIX>-0040` splits one ticket
-# into an INCOMPLETE group and an ORPHAN record and drops the group out of the
-# median. The run then reads as an interrupted connection when it was a
-# keystroke. Every ticket argument of the variadic forms goes through this, not
-# just the first one: a batch is exactly where a typo in a later position would
-# otherwise ride along unchecked.
-#
-# SHAPE ONLY — never a lookup for a ticket file. This is the one skill script
-# that writes, and the orchestrator stamps `return` AFTER the sub-agent has
-# archived its ticket, so a check that insisted the ID name a file in open/
-# would fail the closing row of every ticket that actually completed. Archiving
-# also moves the file, so the check would depend on a path the log deliberately
-# does not record. The log states what was dispatched, not what still exists.
-#
-# The digit run is greedy rather than exactly four: %04d is a minimum width (see
-# reserve-ids.sh in sift-prime), IDs widen past 9999, and both roadmap_rows in
-# lib.sh and roadmap-append.sh already read them that way (SFT-0025). The outer
-# arm takes PREFIX, a hyphen and at least four characters; the inner one insists
-# every character after the hyphen is a digit, so the pair together accept
-# exactly PREFIX- plus four-or-more digits. This is byte-for-byte the check
-# roadmap-append.sh in sift-prime applies to its own ID argument, and that second
-# copy is a recorded decision rather than an accident: AGENTS.md under
-# "Duplication between skills" (SFT-0038, widened by SFT-0042) holds that the skills
-# install independently and neither directory may source a file from the other, so
-# a rule both need is written out once per skill and a drift between them is caught
-# by a test rather than by a tree that is already wrong. The test is "the two skills
-# classify every ID of one list alike" in tests/scripts/prime-backlog.test.sh, which
-# drives one fixture list of ID-shaped and not-ID-shaped strings through both — so
-# change this copy and roadmap-append.sh in the same commit, and run that test to
-# prove they still agree.
-#
-# The digit sets are spelled as [0-9] deliberately: static/portability.test.sh
-# bans a COLLATED LETTER range in a shell pattern, because [a-z] picks up B..Z
-# under a UTF-8 locale. A digit range has no such neighbours to collect, and
-# spelling one out would diverge from the pattern in roadmap-append.sh that this
-# one must stay byte-comparable with.
+# Accept PREFIX plus four-or-more digits; %04d is a minimum width. The outer arm
+# supplies the minimum and the inner arm rejects non-digits. Keep this rule in
+# sync with sift-prime/scripts/reserve-ids.sh and run the cross-skill ID test.
+# `[0-9]` is intentional and byte-comparable with that copy; the portability ban
+# applies to locale-collated letter ranges.
 require_ticket_id() {
   case "$1" in
     "$PREFIX"-[0-9][0-9][0-9][0-9]*)
@@ -125,15 +55,13 @@ require_ticket_id() {
   exit 2
 }
 
-# Read the clock once per command. Both values are written to every row the
-# command appends, so a group is one epoch and the grouping the reader does is
-# an integer comparison rather than a guess about proximity.
+# Read the clock once so every row from one command shares an epoch.
 stamp() {
   UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   EPOCH="$(date +%s)"
 }
 
-# The header is laid down lazily, by the first write of a drain, and never again.
+# Create the header lazily on the first write.
 ensure_log() {
   [ -f "$LOG" ] || {
     {
@@ -159,11 +87,8 @@ append_row() {
   }
 }
 
-# Read the log back and print the per-group attribution blocks.
-#
-# All arithmetic is integer arithmetic on the `epoch` column. The `utc` column is
-# never parsed back into a number and `date` is never used for arithmetic, since
-# `date -d` is GNU-only and `date -v` is BSD-only.
+# Report groups using integer arithmetic on epoch; never parse UTC with
+# platform-specific `date -d` or `date -v`.
 report() {
   [ -f "$LOG" ] || {
     echo "error: no run log at $LOG" >&2
@@ -171,21 +96,12 @@ report() {
     exit 2
   }
 
-  # The log path reaches awk through the environment and ENVIRON rather than -v,
-  # the rule roadmap-append.sh states and SFT-0037 finished applying to the label
-  # warning: -v re-scans its argument for ANSI escapes, so a path holding the two
-  # characters "\" and "t" arrives inside awk as one real tab, and the message
-  # below would name a file that is not on disk. Today the value is relative to
-  # the project root and so is always the fixed string .ai/sift/RUNLOG.md, with
-  # nothing in it to mangle; the point is that the one script whose whole job is
-  # to say where the run's state lives never rests on that staying true. Read
-  # once in BEGIN, so the report still spends one awk. -F is a flag, not a value.
+  # Pass path data through ENVIRON; awk -v re-scans backslash escapes.
   SIFT_LOG_PATH="${LOG#"$ROOT/"}" awk -F'|' '
+    # This is a single-quoted shell string; keep awk comments free of apostrophes.
     BEGIN { logpath = ENVIRON["SIFT_LOG_PATH"] }
 
-    # Every character class here is [[:space:]]. POSIX leaves a backslash inside
-    # a bracket expression undefined, so a strict awk reads a space-backslash-t
-    # class as {space, backslash, t} and eats the leading "t" of a value.
+    # POSIX [[:space:]] avoids undefined backslashes in bracket expressions.
     function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
 
     # Seconds, plus a human-readable form once the figure stops being obvious.
@@ -200,12 +116,8 @@ report() {
       rnote[k] = (rnote[k] == "") ? text : rnote[k] "; " text
     }
 
-    # runtime < 0 means "no duration": incomplete, orphaned or corrupt. Such a
-    # record is never counted in the median and never yields a cost figure, so
-    # the division below is guarded by the same test that hides the runtime.
-    #
-    # Integer division throughout: POSIX awk arithmetic is floating point, and
-    # an unrounded per-ticket figure prints unreadably.
+    # Negative runtime means no measurable duration and is excluded from cost
+    # and median figures. Render per-ticket time with integer division.
     function push(tickets, runtime, idle_text, phases, resolved, note,   k) {
       k = ++nrec
       rtick[k] = tickets; rrt[k] = runtime; ridle[k] = idle_text
@@ -217,9 +129,7 @@ report() {
       return k
     }
 
-    # Close the open group into one record. A ret_epoch below zero means no
-    # return row ever arrived, which is the signature of an interrupted
-    # connection and must read as incomplete rather than inherit a duration.
+    # A negative return epoch closes an incomplete group without a duration.
     function close_group(ret_epoch,
                          i, d, k, tickets, phases, runtime, resolved,
                          idle, idle_text, idle_note, note) {
@@ -230,9 +140,7 @@ report() {
         if (og_s[i] == "done") resolved++
       }
 
-      # Each phase runs to the next phase mark, and the last one runs to the
-      # return that closed the group. A last phase with no return has no end, so
-      # it reports a dash rather than a number nothing measured.
+      # Each phase ends at the next phase or the closing return.
       for (i = 1; i <= og_np; i++) {
         if (i < og_np) d = og_pe[i + 1] - og_pe[i]
         else if (ret_epoch >= 0) d = ret_epoch - og_pe[i]
@@ -277,8 +185,7 @@ report() {
       }
       epoch = epoch + 0
 
-      # A dispatch under a new epoch is a new group, so any group still open
-      # never got its return row.
+      # A new dispatch epoch closes any still-open group as incomplete.
       if (event == "dispatch") {
         if (og && epoch != og_epoch) close_group(-1)
         if (!og) { og = 1; og_epoch = epoch; og_n = 0; og_np = 0 }
@@ -295,10 +202,8 @@ report() {
         next
       }
 
-      # A return names one member of the open group. One that names anything
-      # else is an orphan on its own account, and the group it interrupted is
-      # left open: group membership is explicit, so a stray return says nothing
-      # about whether the real members will still come back.
+      # A return outside the open group membership is an orphan; keep the real
+      # group open for its own returns.
       matched = 0
       if (og) {
         for (i = 1; i <= og_n; i++) {
@@ -323,10 +228,7 @@ report() {
         exit 0
       }
 
-      # Median definition: sort the completed group runtimes ascending and take
-      # element int((n + 1) / 2) counting from 1 — that is,
-      # the LOWER of the two middle values when the count is even. Incomplete,
-      # orphaned and corrupt records contribute nothing to n.
+      # Use the lower middle completed runtime for an even-sized median.
       n = 0
       for (i = 1; i <= nrec; i++) if (rrt[i] >= 0) v[++n] = rrt[i]
       for (i = 2; i <= n; i++) {           # insertion sort: POSIX awk has no asort
@@ -340,10 +242,7 @@ report() {
         if (rrt[i] >= 0 && median > 0 && rrt[i] > 10 * median)
           note_add(i, "SLOW (" int(rrt[i] / median) "x median)")
 
-      # The aggregate the batching is measured against: every second a completed
-      # group spent, over every ticket those groups resolved. A group that
-      # resolved nothing still contributes its runtime, because that time was
-      # spent whether or not anything came of it.
+      # Completed groups contribute runtime even when they resolved no tickets.
       total = 0; resolved_total = 0
       for (i = 1; i <= nrec; i++)
         if (rrt[i] >= 0) { total += rrt[i]; resolved_total += rres[i] }
@@ -375,11 +274,7 @@ report() {
   ' "$LOG"
 }
 
-# The option loop. There are no options to read today, so it ends at the first
-# argument either way — but it ends at `--` by CONSUMING the marker, and at
-# anything else by leaving that argument in place as the subcommand. Consuming
-# it is the whole point: the case arms below match a mode name, and a marker
-# left in $1 would be reported as an unknown one.
+# Consume an optional `--` before the subcommand; leave the subcommand in $1.
 while [ $# -gt 0 ]; do
   case "$1" in
     --)
@@ -393,9 +288,7 @@ done
 MODE="${1:-}"
 [ $# -gt 0 ] && shift
 
-# Both writing gates ahead of the header write as well as the append: a refused
-# command line must leave the tree exactly as it found it, and the log is
-# append-only, so there is no second command that could take a bad row back out.
+# Validate the entire command before creating the header or appending a row.
 case "$MODE" in
   dispatch)
     [ $# -ge 1 ] || usage
@@ -418,9 +311,7 @@ case "$MODE" in
     append_row phase - "$1" "$UTC" "$EPOCH" -
     ;;
   return)
-    # Pairs, so an odd count means one ticket has no status — and since the
-    # columns are positional, a missing status would silently shift every
-    # remaining ticket into the status column.
+    # Return operands are ticket/status pairs; reject a shifted odd list.
     [ $# -ge 2 ] || usage
     [ $(( $# % 2 )) -eq 0 ] || usage
     pos=0

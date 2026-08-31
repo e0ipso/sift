@@ -25,7 +25,7 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILL="$REPO_ROOT/src/skills/sift-init/scripts"
 INIT="$SKILL/sift-init.sh"
 GATE="$SKILL/sift-gate.sh"
-CHECK="$REPO_ROOT/src/skills/sift-drain/scripts/roadmap-check.sh"
+CHECK="$REPO_ROOT/src/skills/sift-drain/scripts/ticket-check.sh"
 DRAIN_LIB="$REPO_ROOT/src/skills/sift-drain/scripts/lib.sh"
 PRIME_LIB="$REPO_ROOT/src/skills/sift-prime/scripts/lib.sh"
 
@@ -85,8 +85,8 @@ materialised() {
 # make_tree stays hand-built: 277 setups use it to isolate the one script or
 # recipe they mean to drive. This one comparison makes that safe by deriving the
 # other side from a real initializer run. It compares entries and the parsed
-# shapes below rather than bytes, because README content, ROADMAP/MILESTONES
-# preambles and config comments deliberately differ between a minimal fixture
+# shapes below rather than bytes, because README content, the MILESTONES.md
+# preamble and config comments deliberately differ between a minimal fixture
 # and a shipped tree.
 FIXTURE_MS=backlog
 
@@ -142,19 +142,9 @@ skill_prefix() {
   )
 }
 
-# drain_rows <root> — the real reader's parsed roadmap rows.
-drain_rows() {
-  (
-    # DRAIN_LIB is a repository constant declared above.
-    # shellcheck disable=SC1090
-    SIFT_ROOT="$1" . "$DRAIN_LIB"
-    roadmap_rows
-  )
-}
-
-# roadmap_verdict <root> — status and stdout together, so a caller compares a
+# check_verdict <root> — status and stdout together, so a caller compares a
 # result without relying on run_cmd's mutable return channel.
-roadmap_verdict() {
+check_verdict() {
   local out status
   out="$(cd "$1" && SIFT_ROOT="$1" "$CHECK" 2>&1)"
   status=$?
@@ -206,29 +196,23 @@ done
 for tree in "$initialized" "$fixture"; do
   kind=fixture
   [ "$tree" = "$initialized" ] && kind=initialized
-  roadmap="$(cat "$tree/.ai/sift/ROADMAP.md")"
-  assert_contains "$roadmap" '## Wave 1' "$kind roadmap opens Wave 1"
-  assert_contains "$roadmap" '| # | Ticket | Title | Needs |' \
-    "$kind roadmap has the reader's header"
-  assert_contains "$roadmap" '|---|---|---|---|' \
-    "$kind roadmap has the header separator"
-  assert_eq "" "$(drain_rows "$tree")" "$kind roadmap parses as zero rows"
+  assert_no_file "$tree/.ai/sift/ROADMAP.md" "$kind tree carries no shared roadmap table"
   assert_contains "$(cat "$tree/.ai/sift/MILESTONES.md")" "## $FIXTURE_MS" \
     "$kind milestone file names the shared milestone"
 done
 
 expected_verdict='0
-OK: 0 roadmap rows / 0 ticket files are rule-9 consistent'
-assert_eq "$expected_verdict" "$(roadmap_verdict "$initialized")" \
-  "roadmap-check reports the initialized tree as 0/0"
-assert_eq "$expected_verdict" "$(roadmap_verdict "$fixture")" \
-  "roadmap-check reports the fixture tree with the same 0/0 verdict"
+OK: 0 ticket file(s) are consistent'
+assert_eq "$expected_verdict" "$(check_verdict "$initialized")" \
+  "ticket-check reports the initialized tree as zero"
+assert_eq "$expected_verdict" "$(check_verdict "$fixture")" \
+  "ticket-check reports the fixture tree with the same zero verdict"
 
 fixture_copy="$(newdir)"
 cp -R "$fixture/.ai" "$fixture_copy/"
-rm "$fixture_copy/.ai/sift/ROADMAP.md"
+rm "$fixture_copy/.ai/sift/MILESTONES.md"
 fixture_damage="$(tree_pair_differences "$initialized" "$fixture_copy")"
-assert_contains "$fixture_damage" 'initializer-only unexpected: ROADMAP.md' \
+assert_contains "$fixture_damage" 'initializer-only unexpected: MILESTONES.md' \
   "fixture-side negative control reports the required entry it removed"
 
 initialized_copy="$(newdir)"
@@ -297,19 +281,20 @@ assert_eq '*
 !.gitignore' "$(cat "$root/.ai/sift/.gitignore")" "the tree's own .gitignore opts it out of git"
 
 test_case "the scaffolding files carry the shapes the recipes parse"
-assert_contains "$(cat "$root/.ai/sift/ROADMAP.md")" '## Wave 1' "ROADMAP.md opens a first wave"
-assert_contains "$(cat "$root/.ai/sift/ROADMAP.md")" '| # | Ticket | Title | Needs |' \
-  "with the table header roadmap_rows reads"
+# Wave membership is a ticket front-matter key, so there is no shared table to
+# scaffold and init writes no file for one. A tree that carries one anyway is a
+# tree an operator has to reconcile by hand, which is the state this pins shut.
+assert_no_file "$root/.ai/sift/ROADMAP.md" "no shared roadmap table is materialised"
 assert_contains "$(cat "$root/.ai/sift/MILESTONES.md")" '## v1-2' \
   "MILESTONES.md documents the milestone in the same change that creates its folder"
 assert_contains "$(cat "$root/.ai/sift/config/config.yaml")" 'prefix: ACME' "the prefix is configured"
 
-test_case "a fresh tree is already rule-9 consistent"
-# An initialised tree has no tickets and no roadmap rows, which is the empty
+test_case "a fresh tree is already consistent"
+# An initialised tree has no tickets at all, which is the empty
 # case every consistency check has to survive rather than divide by.
 run_cmd "$root" env SIFT_ROOT="$root" "$CHECK"
-assert_eq 0 "$R_STATUS" "roadmap-check.sh exits 0 on a freshly initialised tree"
-assert_contains "$R_OUT" 'OK: 0 roadmap rows / 0 ticket files' "counting nothing, both ways"
+assert_eq 0 "$R_STATUS" "ticket-check.sh exits 0 on a freshly initialised tree"
+assert_contains "$R_OUT" 'OK: 0 ticket file(s) are consistent' "counting nothing at all"
 
 test_case "--root, not \$PWD, decides where the tree lands"
 elsewhere="$(newdir)"
@@ -414,14 +399,12 @@ assert_eq "" "$(find "$root/.ai/sift" -name '.sift-init.*')" \
   "the consumed staging file leaves no residue"
 
 test_case "a repair recreates only what is missing"
-rm "$root/.ai/sift/ROADMAP.md"
 rm -rf "$root/.ai/sift/config"
 marker='# operator note'
 printf '%s\n' "$marker" >> "$root/.ai/sift/MILESTONES.md"
 init "$root"
 assert_eq 0 "$R_STATUS" "the repair run exits 0"
-assert_contains "$R_OUT" '  created  .ai/sift/ROADMAP.md' "the deleted roadmap is created"
-assert_contains "$R_OUT" '  created  .ai/sift/config/config.yaml' "so is the deleted config"
+assert_contains "$R_OUT" '  created  .ai/sift/config/config.yaml' "the deleted config is created"
 assert_contains "$R_OUT" '  kept     .ai/sift/MILESTONES.md' "the edited file is kept"
 assert_contains "$(cat "$root/.ai/sift/MILESTONES.md")" "$marker" "with the operator's edit intact"
 assert_contains "$R_OUT" 'gate: READY' "and the repaired tree passes the gate"
@@ -522,18 +505,19 @@ root="$(newdir)"
 run_cmd "$root" "$INIT" --help
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_contains "$R_OUT" 'sift-init.sh --root PATH --prefix ABCD' "the usage line is shown"
-# --help prints a fixed line range out of the header comment, so a paragraph
-# added above the last one silently truncates the usage text unless the range
-# moves with it. Anchoring on the final paragraph is what catches that.
-assert_contains "$R_OUT" 'must never make on its own.' "through to the end of the header block"
+# --help prints the leading comment block through to its end, so a stray
+# non-comment line inside the header silently truncates the usage text.
+# Anchoring on the final header line is what catches that.
+assert_contains "$R_OUT" 'never make on its own.' "the schema-deletion caveat is shown"
+assert_contains "$R_OUT" '2  usage or environment error' "through to the end of the header block"
 assert_no_dir "$root/.ai" "asking for help materialises nothing"
 
 # --- Rejected arguments arriving at a tree with real work in it (SFT-0008) ---
 #
 # The cases above run every refusal against an empty root, where "nothing was
 # written" costs nothing to be true. The sequence that would actually cost
-# something is the same refusal reaching a tree that already holds tickets, a
-# roadmap and an operator's edits — a repeat init in a live repository, typed
+# something is the same refusal reaching a tree that already holds tickets and an
+# operator's edits — a repeat init in a live repository, typed
 # with one argument wrong. So this builds that tree for real and diffs it, paths
 # and bytes, after each refusal.
 
@@ -548,7 +532,6 @@ init "$root"
 mkdir -p "$root/.ai/sift/open/backlog/bug"
 printf -- '---\nid: ACME-0001\nstatus: open\n---\n\n# Real work\n' \
   > "$root/.ai/sift/open/backlog/bug/ACME-0001--real.md"
-printf '| 1 | ACME-0001 | Real work | - |\n' >> "$root/.ai/sift/ROADMAP.md"
 printf '\n## v2\n' >> "$root/.ai/sift/MILESTONES.md"
 live_paths="$(inventory "$root")"
 live_bytes="$(tree_digest "$root")"

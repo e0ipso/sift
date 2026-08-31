@@ -47,6 +47,6 @@ the two paths classify the same input the same way instead.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test](/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md)
-- Related: [practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts](/practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts.md)
+- Related: [practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test](/cross-skill/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md)
+- Related: [practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts](/testing/case-set/practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts.md)
 <!-- kk:related:end -->

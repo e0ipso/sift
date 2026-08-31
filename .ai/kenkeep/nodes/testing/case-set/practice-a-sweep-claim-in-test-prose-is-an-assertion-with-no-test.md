@@ -39,6 +39,6 @@ the file making it, a tagged marker a test extracts is the shape to reach for.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts](/testing/practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts.md)
-- Related: [practice-prove-the-damage-before-asserting-the-guard](/testing/practice-prove-the-damage-before-asserting-the-guard.md)
+- Related: [practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts](/testing/case-set/practice-pin-a-documents-claim-with-a-tagged-marker-a-test-extracts.md)
+- Related: [practice-prove-the-damage-before-asserting-the-guard](/testing/assertions/practice-prove-the-damage-before-asserting-the-guard.md)
 <!-- kk:related:end -->

@@ -2,8 +2,8 @@
 # Shared helpers for the sift-drain scripts. Sourced, never executed directly.
 #
 # Provides:
-#   ROOT / SIFT / ROADMAP / PREFIX  — resolved absolute paths and the ticket prefix
-#   roadmap_rows                    — TSV of every roadmap ticket row
+#   ROOT / SIFT / PREFIX            — resolved absolute paths and the ticket prefix
+#   ticket_rows                     — TSV of every ticket file, in dispatch order
 #   ticket_file <ID>                — absolute path of a ticket file, or empty
 #   fm_value <file> <key>           — one front-matter value
 #   fm_labels <file>                — one label per line from labels: [...]
@@ -14,15 +14,13 @@
 #   ticket_search_dirs [--open]     — .ai/sift/open [and archive/]
 #
 # Overrides:
-#   SIFT_ROOT    project root (default: nearest ancestor of $PWD with .ai/sift/ROADMAP.md)
+#   SIFT_ROOT    project root (default: nearest ancestor of $PWD with .ai/sift/)
 #   SIFT_PREFIX  ticket prefix (default: .ai/sift/config/config.yaml, then inferred)
 
 # --- Project root -----------------------------------------------------------
-# Walk upward from $PWD for a directory holding `.ai/sift/`. Nested `.git`
-# folders are deliberately ignored, so running from a subproject of a monorepo
-# still resolves to the nearest parent sift tree. The `.ai/sift/` DIRECTORY is
-# the marker, not ROADMAP.md — an initialized tree missing its roadmap must
-# report that specifically rather than looking like "no project here".
+# Walk upward for the nearest `.ai/sift/` directory. That directory is the only
+# marker: every tracker fact lives in a ticket file, so no second file's absence
+# can mean "not initialized".
 _sift_find_root() {
   local dir parent
   dir="$PWD"
@@ -52,13 +50,6 @@ else
 fi
 
 SIFT="$ROOT/.ai/sift"
-ROADMAP="$SIFT/ROADMAP.md"
-
-if [ ! -f "$ROADMAP" ]; then
-  echo "error: sift tree at $SIFT has no ROADMAP.md" >&2
-  echo "hint: every ticket needs a roadmap row — create ROADMAP.md first" >&2
-  exit 2
-fi
 
 # --- Ticket prefix ----------------------------------------------------------
 PREFIX="${SIFT_PREFIX:-}"
@@ -67,7 +58,7 @@ if [ -z "$PREFIX" ] && [ -f "$SIFT/config/config.yaml" ]; then
     "$SIFT/config/config.yaml" | head -n 1)"
 fi
 if [ -z "$PREFIX" ]; then
-  # Fall back to the most common prefix among existing ticket filenames.
+  # Infer from the most common existing ticket prefix.
   PREFIX="$(find "$SIFT/open" "$SIFT/archive" -name '*--*.md' 2>/dev/null |
     sed 's#.*/##' |
     sed -n 's/^\([A-Z][A-Z0-9]*\)-[0-9][0-9][0-9][0-9].*/\1/p' |
@@ -79,114 +70,6 @@ if [ -z "$PREFIX" ]; then
   exit 2
 fi
 
-# --- Roadmap parsing --------------------------------------------------------
-# Print one TSV line per roadmap ticket row:
-#   wave <TAB> order <TAB> ID <TAB> struck(0|1) <TAB> title
-#
-# Only markdown table rows count, and only the FIRST cell holding a whole-token
-# ID is the ticket cell — so ID mentions in a Title or Needs column never
-# register as rows, and neither does a cell whose ID is glued to a longer word.
-# Rows under "## Wave <n>" headings are grouped by wave; a roadmap with no wave
-# headings is reported as a single wave 1.
-roadmap_rows() {
-  awk -F'|' -v prefix="$PREFIX" '
-    # [[:space:]], not [ \t]: POSIX leaves a backslash inside a bracket
-    # expression undefined, so a strict awk reads [ \t] as {space, \, t} and
-    # eats the leading "t" of a title like "tenant caching".
-    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
-    # No apostrophe below: this awk program is one single-quoted shell string,
-    # so an "it is" spelled with one would close it mid-comment.
-    #
-    # The digit run is greedy rather than exactly four, because the ID handed
-    # back below is substr($cell, RSTART, RLENGTH) — as narrow as the pattern
-    # that matched. With a fixed four, ACME-00011 surrenders the ID ACME-0001,
-    # which belongs to a different ticket or to none: the reader invents a
-    # stale row and never checks the real one. %04d is a minimum width (see
-    # reserve-ids.sh in sift-prime), so IDs widen past 9999 rather than
-    # stopping there. Greedy also supplies the right-hand whole-token guard
-    # for free: a run of digits cannot stop mid-number, so ACME-0001 and
-    # ACME-00011 stay distinct rows in either order. This is byte-for-byte the
-    # ROW_ID_PAT that roadmap-append.sh in sift-prime matches a ticket cell
-    # with, and that second copy is a recorded decision rather than an accident:
-    # AGENTS.md under "Duplication between skills" (SFT-0038) holds that the skills
-    # install independently and neither directory may source a file from the
-    # other, so the rule is written out once per skill and a drift between them is
-    # caught by a test rather than by a tree that is already wrong. The test is
-    # "the reader and the writer classify every cell of one table alike" in
-    # tests/scripts/prime-backlog.test.sh, which drives one fixture table through
-    # both skills — change this rule and roadmap-append.sh in the same commit, and
-    # run that test to prove they still agree.
-    BEGIN { pat = prefix "-[0-9][0-9][0-9][0-9][0-9]*" }
-    # The ID a cell holds, or "" when it holds none. Whole-token on the left so a
-    # suffix of a longer word is not an ID, and [[:alnum:]] rather than a spelled
-    # range so a UTF-8 locale cannot re-collate the set; whole-token on the right
-    # comes free from the greedy digit run, which cannot stop mid-number.
-    #
-    # A match starting at the very first character has no preceding character,
-    # and substr(cs, 0, 1) is not one either — awk returns the empty string from
-    # a start index below 1 rather than erroring, which would read as "a
-    # character that is not alphanumeric" only by accident. RSTART > 1 is
-    # therefore tested first, and the empty string it falls back to matches
-    # nothing in the class, so an ID at position 1 is accepted deliberately.
-    #
-    # A rejected match is walked past rather than abandoning the cell, so a cell
-    # reading XACME-0001 ACME-0002 still yields ACME-0002.
-    #
-    # This is cell_id from roadmap-append.sh in sift-prime, restated by the same
-    # recorded decision as the pattern above: AGENTS.md under "Duplication
-    # between skills" (SFT-0038) keeps one copy of the rule per skill and pays for
-    # it with the agreement test, "the reader and the writer classify every cell
-    # of one table alike" in tests/scripts/prime-backlog.test.sh, which drives one
-    # fixture table through both skills. Change this copy and the sift-prime one in
-    # the same commit, and run that test to prove they still agree. Only the
-    # parameter is renamed here, so it does not shadow the struck-flag array s
-    # below.
-    function cell_id(cs,   id, before) {
-      while (match(cs, pat)) {
-        id = substr(cs, RSTART, RLENGTH)
-        before = (RSTART > 1) ? substr(cs, RSTART - 1, 1) : ""
-        if (before !~ /[[:alnum:]]/) return id
-        cs = substr(cs, RSTART + RLENGTH)
-      }
-      return ""
-    }
-    /^##[[:space:]]*[Ww]ave[[:space:]]/ {
-      seen_wave = 1
-      h = $0
-      sub(/^##[[:space:]]*[Ww]ave[[:space:]]+/, "", h)
-      sub(/[^0-9].*$/, "", h)
-      wave = h + 0
-      next
-    }
-    /^##[[:space:]]/ { wave = 0; next }         # any other heading closes the wave
-    !/^[[:space:]]*\|/ { next }                 # table rows only
-    NF < 3 { next }
-    {
-      # The ticket cell is the first cell that HOLDS an ID, not the first cell
-      # the pattern matches somewhere inside. Selecting on the bare pattern lets
-      # a mistyped XACME-0001 in column 2 shadow the real ticket cell to its
-      # right, and reports a row for a cell that holds no ID at all.
-      cell = 0
-      rid = ""
-      for (i = 1; i <= NF; i++) { rid = cell_id($i); if (rid != "") { cell = i; break } }
-      if (!cell) next
-      n++
-      w[n] = wave
-      d[n] = rid
-      o[n] = (cell > 2) ? trim($2) : n
-      t[n] = trim($(cell + 1)); gsub(/~~/, "", t[n])
-      s[n] = ($cell ~ /~~/ || $(cell + 1) ~ /~~/) ? 1 : 0
-    }
-    END {
-      for (i = 1; i <= n; i++) {
-        wv = seen_wave ? w[i] : 1
-        if (wv == 0) continue                   # row outside every wave section
-        printf "%d\t%s\t%s\t%d\t%s\n", wv, o[i], d[i], s[i], t[i]
-      }
-    }
-  ' "$ROADMAP"
-}
-
 # --- Ticket files -----------------------------------------------------------
 # Absolute path of the ticket file for an ID (open/ first, then archive/).
 ticket_file() {
@@ -196,12 +79,37 @@ ticket_file() {
 # One front-matter value, unquoted, or empty when the key is absent.
 fm_value() {
   awk -v key="$2" '
+    # Strip a YAML inline comment only outside quotes. A hash inside a quoted
+    # title is data; a hash after whitespace and a closed quote is commentary.
+    function strip_comment(s,   q, i, c, prev, single, double) {
+      q = sprintf("%c", 39)
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        prev = (i > 1) ? substr(s, i - 1, 1) : ""
+        if (c == q && !double) { single = !single; continue }
+        if (c == "\"" && !single && prev != "\\") { double = !double; continue }
+        if (c == "#" && !single && !double && (i == 1 || prev ~ /[[:space:]]/)) {
+          s = substr(s, 1, i - 1)
+          sub(/[[:space:]]+$/, "", s)
+          break
+        }
+      }
+      return s
+    }
+    function dequote(s,   q, first, last) {
+      q = sprintf("%c", 39)
+      if (length(s) < 2) return s
+      first = substr(s, 1, 1)
+      last = substr(s, length(s), 1)
+      if (first == last && (first == "\"" || first == q))
+        return substr(s, 2, length(s) - 2)
+      return s
+    }
     NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
     infm && /^---[[:space:]]*$/ { exit }
     infm && $0 ~ "^" key ":" {
       sub("^" key ":[[:space:]]*", "")
-      gsub(/^["'"'"']|["'"'"']$/, "")
-      print
+      print dequote(strip_comment($0))
       exit
     }
   ' "$1"
@@ -227,46 +135,18 @@ fm_labels() {
 }
 
 # --- Labels -----------------------------------------------------------------
-# One definition of a well-formed label, read by both halves of the label index.
-# README.md specifies `labels:` as free-form kebab-case, so this is a convention
-# rule and not a per-script preference — and a second copy of it is exactly how
-# list-labels.sh comes to advertise a label tickets-by-label.sh then refuses.
-#
-# An extended regex, handed to `grep -E` below and to awk in list-labels.sh,
-# never to a shell glob. The character sets are written out rather than as
-# collated ranges: a bracket range is locale-dependent, so under a UTF-8 locale
-# it can accept characters the set never named, and this pattern is what decides
-# whether a value is accepted. static/portability.test.sh bans the short form in
-# a shell pattern for that reason, and the reason carries to a regex that judges
-# a value. It reaches awk through the environment rather than -v, which re-scans
-# its argument for ANSI escapes: no backslash appears below today, and a future
-# one must not be silently rewritten on the way in.
+# Shared kebab-label regex for grep and awk consumers. Spell out character sets
+# to avoid locale-collated ranges; pass to awk through ENVIRON, not escape-reading -v.
 SIFT_LABEL_RE='^[abcdefghijklmnopqrstuvwxyz0123456789]+(-[abcdefghijklmnopqrstuvwxyz0123456789]+)*$'
 
-# True when one label is well-formed. tickets-by-label.sh tests a single
-# argument and fits this; list-labels.sh sweeps every label of every ticket and
-# reads SIFT_LABEL_RE inside its awk pass instead, so no process is spent per
-# label.
+# True when one label is well formed.
 label_is_kebab() {
   printf '%s\n' "$1" | grep -qE "$SIFT_LABEL_RE"
 }
 
 # --- Clusters ---------------------------------------------------------------
-# A ticket's optional `cluster` front-matter value: the advisory name of a root
-# cause several tickets share, which next-ticket.sh --group batches into a
-# single dispatch. Empty when the key is absent, and empty when the value is
-# not a well-formed kebab label — `cluster` widens a dispatch and never
-# authorises one, so a malformed value degrades to a group of one rather than
-# stopping a run over a field nothing else in the convention requires.
-#
-# It is one namespace with `labels:`, so it is judged by SIFT_LABEL_RE through
-# label_is_kebab rather than by a second pattern: a value list-labels.sh would
-# warn about must not be a value the drain silently batches on.
-#
-# The read goes through fm_value's fence walk and never through a `^cluster:`
-# grep, because a body line reading "cluster: caching" matches that anchor
-# exactly as a front-matter line does — the defect SFT-0016 and SFT-0020 fixed
-# elsewhere on this skill.
+# Return a valid optional cluster or empty. Malformed advisory values degrade to
+# a group of one. Reuse the label regex and the front-matter fence walker.
 ticket_cluster() {
   local value
   value="$(fm_value "$1" cluster)"
@@ -276,16 +156,8 @@ ticket_cluster() {
 }
 
 # --- Effort -----------------------------------------------------------------
-# The dispatch weight of one `effort` value — the unit next-ticket.sh --group
-# sizes a batch in, so that four extra-large tickets can never ride out on one
-# dispatch just because four is the count bound.
-#
-# README.md fixes the closed set xs|s|m|l|xl. Anything else — an absent key, a
-# typo, a value from a spec newer than this script — weighs what `m` weighs,
-# because refusing to size an unrecognised effort would stop a drain over a
-# front-matter value the selection path otherwise only echoes. A case statement
-# rather than an associative array: this file is sourced by whatever bash the
-# machine has, and nothing else in it needs bash 4.
+# Dispatch weight for xs|s|m|l|xl. Unknown values degrade to m instead of
+# blocking selection; use a case statement for pre-bash-4 compatibility.
 effort_weight() {
   case "${1:-}" in
     xs) echo 1 ;;
@@ -304,4 +176,130 @@ ticket_search_dirs() {
   else
     printf '%s\n' "$SIFT/open" "$SIFT/archive"
   fi
+}
+
+# --- Ticket front matter ----------------------------------------------------
+# Print one TSV line per ticket file, open/ and archive/ alike:
+#   wave <TAB> priority <TAB> ID <TAB> done(0|1) <TAB> status <TAB> effort
+#     <TAB> depends_on <TAB> title <TAB> file
+#
+# The wave is the ticket's own `wave:` key; a ticket carrying none is reported
+# as wave 0, never assigned to a guessed one. `done` is the bucket, which is the
+# only place resolution is recorded once a ticket is archived.
+#
+# Rows come out in dispatch order: wave ascending with the unkeyed ones last,
+# then `priority` — the intra-wave order — then ID. The sort key is built as a
+# leading field and cut back off, so a missing priority sorts behind p0..p9
+# instead of in front of it.
+#
+# An absent optional value is written as a single hyphen, never as an empty
+# field. A tab is IFS whitespace, so bash collapses a run of them: a row holding
+# one empty field would hand every field behind it to the wrong variable, and
+# `read` would report a title as a dependency rather than failing.
+ticket_rows() {
+  local files=() content_files=() empty_files=() f id archived
+  while IFS= read -r f; do
+    [ -n "$f" ] && files+=("$f")
+  done < <(find "$SIFT/open" "$SIFT/archive" -name "$PREFIX-*.md" 2>/dev/null)
+  [ "${#files[@]}" -gt 0 ] || return 0
+  for f in "${files[@]}"; do
+    if [ -s "$f" ]; then
+      content_files+=("$f")
+    else
+      empty_files+=("$f")
+    fi
+  done
+  {
+    if [ "${#content_files[@]}" -gt 0 ]; then
+      awk '
+    # This is a single-quoted shell string; keep awk comments free of apostrophes.
+    # POSIX classes avoid both undefined backslashes and collated ranges.
+    # A YAML comment starts at a hash outside quotes after whitespace. Remove it
+    # before dequoting so documented values such as `wave: 1 # required` and
+    # `depends_on: [] # optional` reach consumers as `1` and `[]`.
+    function strip_comment(s,   q, i, c, prev, single, double) {
+      q = sprintf("%c", 39)
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        prev = (i > 1) ? substr(s, i - 1, 1) : ""
+        if (c == q && !double) { single = !single; continue }
+        if (c == "\"" && !single && prev != "\\") { double = !double; continue }
+        if (c == "#" && !single && !double && (i == 1 || prev ~ /[[:space:]]/)) {
+          s = substr(s, 1, i - 1)
+          sub(/[[:space:]]+$/, "", s)
+          break
+        }
+      }
+      return s
+    }
+    BEGIN { tab = sprintf("%c", 9) }
+    # A quoted scalar is unwrapped by comparing the two ends, so the quote
+    # characters never have to appear inside a regex literal here.
+    function dequote(s,   q, first, last) {
+      q = sprintf("%c", 39)
+      if (length(s) < 2) return s
+      first = substr(s, 1, 1)
+      last = substr(s, length(s), 1)
+      if (first == last && (first == "\"" || first == q))
+        return substr(s, 2, length(s) - 2)
+      return s
+    }
+    # The ID falls back to the filename so a ticket whose front matter is being
+    # repaired is still reported rather than silently dropped.
+    function basename(p,   n, parts) {
+      n = split(p, parts, "/")
+      return parts[n]
+    }
+    function given(s) { return (s == "") ? "-" : s }
+    function flush(   w, key) {
+      if (path == "") return
+      if (id == "") { id = basename(path); sub(/--.*$/, "", id) }
+      w = (wave ~ /^[0-9][0-9]*$/) ? wave + 0 : 0
+      key = sprintf("%06d\t%s\t%s", (w > 0) ? w : 999999, (pri == "") ? "zzz" : pri, id)
+      printf "%s\t%d\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
+        key, w, given(pri), id, done, given(status), given(effort),
+        given(deps), given(title), path
+      path = ""
+    }
+    FNR == 1 {
+      flush()
+      path = FILENAME
+      id = ""; title = ""; status = ""; pri = ""; effort = ""; wave = ""; deps = ""
+      done = (index(FILENAME, "/archive/") > 0) ? 1 : 0
+      infm = ($0 ~ /^---[[:space:]]*$/) ? 1 : 0
+      next
+    }
+    infm && /^---[[:space:]]*$/ { infm = 0; next }
+    infm {
+      if ($0 !~ /^[[:alpha:]_][[:alnum:]_]*:/) next
+      k = $0; sub(/:.*$/, "", k)
+      v = $0; sub(/^[^:]*:[[:space:]]*/, "", v)
+      v = strip_comment(v)
+      v = dequote(v)
+      # Tabs are the record delimiter. Keep one malformed scalar from shifting
+      # every field behind it in the shared TSV consumed by the drain scripts.
+      gsub(tab, " ", v)
+      if (k == "id") id = v
+      else if (k == "title") title = v
+      else if (k == "status") status = v
+      else if (k == "priority") pri = v
+      else if (k == "effort") effort = v
+      else if (k == "wave") wave = v
+      else if (k == "depends_on") deps = v
+    }
+    END { flush() }
+      ' "${content_files[@]}"
+    fi
+    # awk receives no record for a zero-byte file. Emit the same fallback row
+    # explicitly so every ticket file remains visible and its filename ID can
+    # still satisfy dependency lookups while ticket-check reports its defects.
+    for f in "${empty_files[@]}"; do
+      id="${f##*/}"
+      id="${id%%--*}"
+      archived=0
+      case "$f" in */archive/*) archived=1 ;; esac
+      printf '999999\tzzz\t%s\t0\t-\t%s\t%d\t-\t-\t-\t-\t%s\n' \
+        "$id" "$id" "$archived" "$f"
+    done
+  } | LC_ALL=C sort | cut -f4-
 }

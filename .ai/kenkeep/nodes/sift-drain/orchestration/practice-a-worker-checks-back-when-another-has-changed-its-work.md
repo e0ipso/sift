@@ -27,6 +27,6 @@ This is the exception to worker autonomy. Ordinary judgment calls still get deci
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-sift-drain-sub-agents-decide-for-themselves](/sift-drain/practice-sift-drain-sub-agents-decide-for-themselves.md)
-- Related: [practice-the-drain-orchestrator-builds-a-wave-graph](/sift-drain/practice-the-drain-orchestrator-builds-a-wave-graph.md)
+- Related: [practice-sift-drain-sub-agents-decide-for-themselves](/sift-drain/orchestration/practice-sift-drain-sub-agents-decide-for-themselves.md)
+- Related: [practice-the-drain-orchestrator-builds-a-wave-graph](/sift-drain/orchestration/practice-the-drain-orchestrator-builds-a-wave-graph.md)
 <!-- kk:related:end -->

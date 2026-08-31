@@ -39,5 +39,5 @@ run.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-orchestrate-sift-drain-never-implement](/practice-orchestrate-sift-drain-never-implement.md)
+- Related: [practice-orchestrate-sift-drain-never-implement](/sift-drain/orchestration/practice-orchestrate-sift-drain-never-implement.md)
 <!-- kk:related:end -->

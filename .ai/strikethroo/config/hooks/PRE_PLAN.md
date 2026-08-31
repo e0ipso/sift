@@ -1,24 +1,21 @@
 # PRE_PLAN Hook
 
-## Scope Control Guidelines
+## Scope rule
 
-**Critical: Implement ONLY what is explicitly requested**
+The work order and approved plan are the only scope authority. During initial planning,
+the work order sets the boundary until the user approves the plan. A draft may interpret
+the work order, but it may not expand or narrow it.
 
-- **Minimal Viable Implementation**: Build exactly what the user asked for, nothing more
-- **Question Everything Extra**: If not directly mentioned by the user, don't add it
-- **Avoid Feature Creep**: Resist the urge to add "helpful" features or "nice-to-have" additions
-- **YAGNI Principle**: _You Aren't Gonna Need It_ - don't build for hypothetical future needs
-- **Do NOT add backwards compatibility, unless requested**: If there is a potential BC break, ask the user if they want to BC support. Do not assume the want it.
-
-**Common Scope Creep Anti-Patterns to Avoid:**
-1. Adding extra commands or features "for completeness"
-2. Creating infrastructure for future features that weren't requested
-3. Building abstractions or frameworks when simple solutions suffice
-4. Adding configuration options not specifically mentioned
-5. Implementing error handling beyond what's necessary for the core request
-6. Creating documentation or help systems unless explicitly requested
-
-**When in doubt, ask**: "Is this feature explicitly mentioned in the user's request?"
+- Include error handling that an acceptance criterion or a contract named by the work
+  order requires.
+- Exclude speculative failure handling that has no traceable requirement in the work
+  order or approved plan.
+- Preserve, replace, or remove legacy behaviour only when the work order or approved plan
+  declares that compatibility decision.
+- If the work order and approved plan conflict, or a required compatibility decision is
+  undeclared, return the decision to planning and obtain approval before implementation.
+- Exclude commands, infrastructure, abstractions, configuration, and documentation that
+  the work order or approved plan does not authorize.
 
 ## Simplicity Principles
 

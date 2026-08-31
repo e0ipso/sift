@@ -5,9 +5,9 @@
 #
 # Pins SFT-0010 whole: a validation recipe run from the wrong directory must
 # diagnose and fail, never print a clean report for a tree it never read. All
-# four guarded recipes are swept below from the `GUARDED` list, the roadmap
+# four guarded recipes are swept below from the `GUARDED` list, the front-matter
 # consistency check among them, so this file owns the rule for every one of them
-# and roadmap-consistency.test.sh holds no half of it (SFT-0077).
+# and frontmatter-consistency.test.sh holds no half of it (SFT-0077).
 #
 # What binds these recipes together is that silence means "clean". That makes an
 # audit that reads nothing indistinguishable from a tree with nothing wrong, so
@@ -26,8 +26,8 @@ RESOLUTION="$(recipe_resolution)"
 # is why shellcheck calls this one unused while it sees SETUP and FRONTMATTER used
 # directly further down.
 # shellcheck disable=SC2034
-ROADMAP="$(recipe_roadmap_check)"
-GUARDED='SETUP FRONTMATTER RESOLUTION ROADMAP'
+WAVECHECK="$(recipe_wave_check)"
+GUARDED='SETUP FRONTMATTER RESOLUTION WAVECHECK'
 
 test_case "no guarded recipe uses bash-only test syntax"
 # A class-level ban rather than a pin on today's spelling: `[[` is bash's, and a

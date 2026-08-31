@@ -30,9 +30,9 @@ A helper stating a claim about the sandbox belongs in `harness.sh` even when onl
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-never-edit-the-tree-while-the-suite-is-running](/testing/practice-never-edit-the-tree-while-the-suite-is-running.md)
+- Related: [practice-never-edit-the-tree-while-the-suite-is-running](/testing/suite/practice-never-edit-the-tree-while-the-suite-is-running.md)
 - Related: [map-sift-test-suite-runs-the-readme-recipes-themselves](/convention/map-sift-test-suite-runs-the-readme-recipes-themselves.md)
-- Related: [practice-tree-digest-cannot-see-an-empty-directory](/testing/practice-tree-digest-cannot-see-an-empty-directory.md)
+- Related: [practice-tree-digest-cannot-see-an-empty-directory](/testing/assertions/practice-tree-digest-cannot-see-an-empty-directory.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

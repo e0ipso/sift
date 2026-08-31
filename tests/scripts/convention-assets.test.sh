@@ -56,7 +56,7 @@ assert_contains "$R_OUT" 'stale    .ai/sift/README.md' \
 
 # --- An installed spec that has fallen behind (SFT-0032) ---------------------
 #
-# install_file keeps whatever it finds. That is right for a ROADMAP the
+# install_file keeps whatever it finds. That is right for a MILESTONES.md the
 # repository writes to and wrong for the two paths that are NOT the repository's
 # to own: README.md and schemas/ are the convention, shipped whole, so the
 # installed copy freezes on the day the tree was created and every cookbook fix

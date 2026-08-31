@@ -37,5 +37,5 @@ a sift-drain run, `roadmap-check.sh` is the arbiter and must exit 0.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-move-tickets-and-edit-front-matter-together](/practice-move-tickets-and-edit-front-matter-together.md)
+- Related: [practice-move-tickets-and-edit-front-matter-together](/tickets/practice-move-tickets-and-edit-front-matter-together.md)
 <!-- kk:related:end -->

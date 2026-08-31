@@ -1,31 +1,19 @@
 #!/usr/bin/env bash
 # next-ticket.sh — print the next sift ticket to dispatch.
 #
-# Walks .ai/sift/ROADMAP.md in wave order and prints the first ticket row that
-# is not ~~struck~~ (i.e. not archived) and not `status: blocked`, together with
-# its file path and the front-matter the orchestrator needs to size the work.
-#
-# The lookup reports its own state under `result: found|none`, never under
-# `status:` — that key belongs to the echoed front-matter, and one key meaning
-# two things in one report is how a first-match parser reads "found" as a ticket
-# status. Every key printed here is unique within an invocation; keep it so.
-#
 # Usage:
 #   scripts/next-ticket.sh                 # next dispatchable ticket
 #   scripts/next-ticket.sh --include-blocked
 #   scripts/next-ticket.sh --group         # …plus its whole dispatch group
 #   scripts/next-ticket.sh --include-blocked --   # -- ends the options
 #
-# `--` means one thing across the skill: the option list ends here and everything
-# behind it is positional. This script has no positional to take, so the marker
-# is accepted and anything following it is a usage error. `--group` is a flag,
-# so it belongs in front of the marker like every other option.
+# Reads ticket front matter in dispatch order — `wave` ascending, then
+# `priority` within the wave — and reports the first dispatchable open ticket
+# plus selected front matter. The lookup state is `result: found|none`;
+# `status:` remains the ticket's value and every report key is unique.
 #
-# --group adds `group_size:`, `group_tickets:` and a `group_files:` block naming
-# the tickets that may be dispatched together with the lead: those carrying the
-# same `cluster` front-matter value, bounded by GROUP_MAX_TICKETS and
-# GROUP_MAX_WEIGHT below. The lead is unchanged, and so is every other line of
-# the report — without the flag this script prints exactly what it always did.
+# `--group` adds same-cluster tickets within the count and effort bounds below,
+# without changing the lead. `--` ends options; this command takes no operands.
 #
 # Exit codes: 0 found | 1 nothing left to dispatch | 2 setup/usage/consistency error.
 
@@ -39,9 +27,7 @@ usage() {
   exit 2
 }
 
-# The bounds on one dispatch group. Four tickets is what a reviewer can hold in
-# one diff; eight effort points is one `xl` — so a group is at most one xl-sized
-# piece of work however it is spelled, and four tickets never add up to more.
+# Bound one dispatch to four tickets and one xl-sized effort budget.
 GROUP_MAX_TICKETS=4
 GROUP_MAX_WEIGHT=8
 
@@ -60,64 +46,103 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-# Behind the marker every argument is positional, and there is no positional to
-# be: `next-ticket.sh -- --include-blocked` named a ticket, not the flag, and
-# answering with the blocked ones included would be the plausible wrong answer.
+# No positional arguments are accepted after the marker.
 [ $# -eq 0 ] || usage
 
-ROWS="$(roadmap_rows)"
-[ -n "$ROWS" ] || { echo "error: no ticket rows parsed from $ROADMAP" >&2; exit 2; }
+ROWS="$(ticket_rows)"
+[ -n "$ROWS" ] || {
+  echo "error: no ticket files under $SIFT/open or $SIFT/archive" >&2
+  echo "hint: a tree with no tickets has nothing to dispatch, not an empty wave" >&2
+  exit 2
+}
+
+# --- Dependencies ------------------------------------------------------------
+# `depends_on` is the dispatch truth: `priority` orders a wave, but a ticket
+# whose blocker is still open is not next however early it sorts. A dependency
+# is met when its ticket is archived — the bucket is where resolution lives.
+
+# dep_ids <depends_on-value> — one ID per line from a `[A, B]` flow list. A row
+# with no dependencies carries ticket_rows' absent-value hyphen, not an ID.
+dep_ids() {
+  [ "$1" = "-" ] && return 0
+  printf '%s\n' "$1" | awk '
+    # Match ticket-check: flow punctuation and either quote style wrap values,
+    # while whitespace only separates IDs and never becomes part of one.
+    {
+      gsub(/[][,"'"'"']/, " ")
+      for (i = 1; i <= NF; i++) print $i
+    }
+  '
+}
+
+# unmet_dep <depends_on-value> — the first dependency that is not archived, or
+# empty. An ID with no ticket file behind it counts as unmet: it cannot have
+# been resolved, and dispatching past it would work the wave out of order.
+unmet_dep() {
+  local dep
+  for dep in $(dep_ids "$1"); do
+    printf '%s\n' "$ROWS" | SIFT_DEP="$dep" awk -F'\t' '
+      BEGIN { want = ENVIRON["SIFT_DEP"] }
+      $3 == want && $4 == 1 { found = 1 }
+      END { exit found ? 0 : 1 }
+    ' && continue
+    printf '%s\n' "$dep"
+    return 0
+  done
+}
 
 CHOSEN_WAVE=""
-CHOSEN_ORDER=""
 CHOSEN_ID=""
 CHOSEN_FILE=""
 SKIPPED=""
 
-while IFS=$'\t' read -r wave order id struck _title; do
-  [ "$struck" = "1" ] && continue
-  file="$(ticket_file "$id")"
-  if [ -z "$file" ]; then
-    echo "error: roadmap row $order lists $id but no ticket file exists" >&2
-    echo "hint: run scripts/roadmap-check.sh" >&2
-    exit 2
+# dispatchable <wave> <id> <done> <status> <depends_on> — true when this ticket
+# can be handed out now; every refusal that is not "already finished" is named
+# under skipped:, so a wave is never silently short.
+dispatchable() {
+  local wave="$1" id="$2" archived="$3" status="$4" deps="$5" blocker
+  [ "$archived" = "1" ] && return 1
+  if [ "$wave" = "0" ]; then
+    SKIPPED="$SKIPPED$id (no wave key, so it is in no wave)"$'\n'
+    return 1
   fi
-  case "$file" in
-    */archive/*)
-      # Archived but not struck: a rule-9 violation, not a dispatchable ticket.
-      SKIPPED="$SKIPPED$id (archived but roadmap row not struck)"$'\n'
-      continue
-      ;;
-  esac
-  if [ "$INCLUDE_BLOCKED" = "0" ] && [ "$(fm_value "$file" status)" = "blocked" ]; then
+  if [ "$INCLUDE_BLOCKED" = "0" ] && [ "$status" = "blocked" ]; then
     SKIPPED="$SKIPPED$id (status: blocked)"$'\n'
-    continue
+    return 1
   fi
-  CHOSEN_WAVE="$wave"; CHOSEN_ORDER="$order"; CHOSEN_ID="$id"; CHOSEN_FILE="$file"
+  blocker="$(unmet_dep "$deps")"
+  if [ -n "$blocker" ]; then
+    SKIPPED="$SKIPPED$id (depends_on $blocker, which is not resolved)"$'\n'
+    return 1
+  fi
+  return 0
+}
+
+while IFS=$'\t' read -r wave _pri id archived status _effort deps _title file; do
+  dispatchable "$wave" "$id" "$archived" "$status" "$deps" || continue
+  CHOSEN_WAVE="$wave"; CHOSEN_ID="$id"; CHOSEN_FILE="$file"
   break
 done <<< "$ROWS"
 
 if [ -z "$CHOSEN_ID" ]; then
   echo "result: none"
-  echo "note: every roadmap row is struck or skipped — the roadmap is drained"
+  echo "note: every ticket is archived or skipped — there is nothing to dispatch"
   [ -n "$SKIPPED" ] && printf 'skipped:\n%s' "$SKIPPED"
   exit 1
 fi
 
-REMAINING="$(printf '%s\n' "$ROWS" | awk -F'\t' -v w="$CHOSEN_WAVE" '$1 == w && $4 == 0 { printf "%s ", $3 }')"
-REMAINING_COUNT="$(printf '%s\n' "$ROWS" | awk -F'\t' -v w="$CHOSEN_WAVE" '$1 == w && $4 == 0' | wc -l | tr -d ' ')"
+REMAINING="$(printf '%s\n' "$ROWS" | CHOSEN_WAVE="$CHOSEN_WAVE" awk -F'\t' '
+  BEGIN { want = ENVIRON["CHOSEN_WAVE"] + 0 }
+  $1 == want && $4 == 0 { printf "%s ", $3 }')"
+REMAINING_COUNT="$(printf '%s\n' "$ROWS" | CHOSEN_WAVE="$CHOSEN_WAVE" awk -F'\t' '
+  BEGIN { want = ENVIRON["CHOSEN_WAVE"] + 0 }
+  $1 == want && $4 == 0' | wc -l | tr -d ' ')"
 
 # --- The dispatch group ------------------------------------------------------
-# Everything below runs only under --group, which is what keeps the default
-# report byte-identical: the lead was already chosen above, by the loop that has
-# always chosen it, so priority and row order still decide what runs next.
+# Grouping runs after lead selection, preserving the default order and output.
 
-# read_cluster <id> <file> — the ticket's cluster into CLUSTER, empty when it
-# has none. A value that is not a well-formed label is treated as absent and
-# named under skipped:, never as a hard error: `cluster` is advisory, so a typo
-# has to cost the batching and nothing else. It cannot return the value through
-# a command substitution, because the skipped: line it appends is a side effect
-# a subshell would throw away.
+# read_cluster <id> <file> — set CLUSTER or record a malformed advisory value.
+# Avoid command substitution because the skipped: update must survive.
 CLUSTER=''
 read_cluster() {
   local raw
@@ -128,9 +153,7 @@ read_cluster() {
   SKIPPED="$SKIPPED$1 (cluster: $raw is not kebab-case, so it groups alone)"$'\n'
 }
 
-# A group of one, until a cluster says otherwise: the lead alone is always a
-# legal answer, so `--group` on a ticket that names no cluster reports the same
-# three keys rather than omitting them.
+# Start with the lead so group output is present even without a cluster.
 GROUP_IDS="$CHOSEN_ID"
 GROUP_FILES="$CHOSEN_FILE"
 GROUP_SIZE=1
@@ -144,50 +167,33 @@ if [ "$GROUP" = "1" ]; then
 fi
 
 if [ -n "$LEAD_CLUSTER" ]; then
-  # A second pass over the same rows, starting behind the lead. Membership is
-  # exactly dispatchability plus a matching cluster, so a group can never hold a
-  # ticket the script would refuse to hand out on its own.
-  #
-  # `gap` records that an unstruck row went by that is not a member — unfinished
-  # work sitting between the lead and whatever comes next. Once one has been
-  # seen, the group stops at the wave boundary rather than crossing it: reaching
-  # into wave n+1 while wave n still has open rows would start the next wave
-  # early, which is the one thing the wave gate exists to prevent.
-  #
-  # Nothing here is reported beyond the malformed cluster above. Every row this
-  # pass steps over is a row a later dispatch reaches as its own lead, and the
-  # loop above names it then; the cluster is the exception because no other pass
-  # ever reads it.
+  # Scan behind the lead for dispatchable cluster peers. After a non-member gap,
+  # do not cross into the next wave while the current wave remains open.
   seen_lead=0
   gap=0
-  while IFS=$'\t' read -r wave _order id struck _title; do
+  while IFS=$'\t' read -r wave _pri id archived status effort deps _title file; do
     if [ "$seen_lead" = "0" ]; then
       [ "$id" = "$CHOSEN_ID" ] && seen_lead=1
       continue
     fi
-    [ "$struck" = "1" ] && continue
+    [ "$archived" = "1" ] && continue # terminal work is nobody else's member
     [ "$wave" != "$CHOSEN_WAVE" ] && [ "$gap" = "1" ] && break
     member=0
-    file="$(ticket_file "$id")"
-    if [ -n "$file" ]; then
-      case "$file" in
-        */archive/*) ;;   # terminal work, and a rule-9 violation besides
-        *)
-          if [ "$INCLUDE_BLOCKED" = "1" ] || [ "$(fm_value "$file" status)" != "blocked" ]; then
-            read_cluster "$id" "$file"
-            [ "$CLUSTER" = "$LEAD_CLUSTER" ] && member=1
-          fi
-          ;;
-      esac
+    # Membership is dispatchability, so a peer refused for its own reasons is a
+    # gap rather than a member — and the refusal is recorded once, by the pass
+    # that would have dispatched it as a lead.
+    if [ "$wave" != "0" ] &&
+       { [ "$INCLUDE_BLOCKED" = "1" ] || [ "$status" != "blocked" ]; } &&
+       [ -z "$(unmet_dep "$deps")" ]; then
+      read_cluster "$id" "$file"
+      [ "$CLUSTER" = "$LEAD_CLUSTER" ] && member=1
     fi
     if [ "$member" = "0" ]; then
       gap=1
       continue
     fi
-    # Both bounds are tested before the ticket is added, and the first breach
-    # BREAKS. Continuing past it would skip a large ticket in favour of a
-    # smaller one further down the roadmap, which reorders the roadmap silently.
-    weight="$(effort_weight "$(fm_value "$file" effort)")"
+    # Stop at the first bound breach to preserve dispatch order.
+    weight="$(effort_weight "$effort")"
     [ $((GROUP_SIZE + 1)) -gt "$GROUP_MAX_TICKETS" ] && break
     [ $((GROUP_WEIGHT + weight)) -gt "$GROUP_MAX_WEIGHT" ] && break
     GROUP_SIZE=$((GROUP_SIZE + 1))
@@ -199,7 +205,6 @@ fi
 
 echo "result: found"
 echo "wave: $CHOSEN_WAVE"
-echo "order: $CHOSEN_ORDER"
 echo "ticket: $CHOSEN_ID"
 echo "file: $CHOSEN_FILE"
 for key in id title status type milestone priority effort depends_on labels; do
@@ -208,11 +213,7 @@ done
 echo "remaining_in_wave: $REMAINING_COUNT"
 echo "remaining_ids: ${REMAINING% }"
 if [ "$GROUP" = "1" ]; then
-  # Three keys, none of them colliding with one already printed above: `id` is
-  # the lead's own, echoed from its front matter, so nothing here is a group_id
-  # (SFT-0018 — one key means one thing per invocation). group_files is a block
-  # rather than one line because a path may hold a blank, which a
-  # space-separated list could not survive.
+  # Keep group keys distinct from ticket keys. Paths use a block so spaces survive.
   echo "group_size: $GROUP_SIZE"
   echo "group_tickets: $GROUP_IDS"
   printf 'group_files:\n%s\n' "$GROUP_FILES"

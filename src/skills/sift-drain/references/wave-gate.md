@@ -8,41 +8,29 @@ fallout unit-level tests miss), then batch coverage, then fix agents, then the w
 knowledge-capture pass, then the close. One agent may carry the batch coverage **and** the
 close; the e2e specialist always runs alone, first.
 
-## Rules for every gate agent
-
-State these in each prompt — they are what keep the gate trustworthy:
-
-- **A test agent never fixes product code.** A test failing because the product is
-  genuinely wrong gets a sift ticket plus an annotation naming it (a skip/fixme referencing
-  the ticket ID), so suites stay green-with-known-issues. Test-side problems it fixes
-  itself.
-- **Extend, do not duplicate.** Fold new coverage into the existing test files and test
-  classes that already drive the relevant surface.
-- **Report what you skipped**, one line per behaviour with the reason. A gate's value comes
-  as much from its stated blind spots as from its assertions.
-- Discover the project's commands and conventions from AGENTS.md / CLAUDE.md, the knowledge
-  base, or the manifests; verify named paths against the live tree.
-- Never `git push`; never edit the sift-drain skill's files; never file anything on an
-  external tracker — an upstream proposal becomes a `type: dx` sift ticket.
-- **Do not capture durable knowledge.** Capture happens once per wave, in the pass below,
-  and an agent that also runs it fragments the wave into competing entries.
+Every gate-agent rule is inside the fenced prompt that receives it. Prose outside the fences
+only tells the orchestrator when to select a template, what inputs to substitute, and how to
+close the wave. Dispatch a template verbatim after replacing its placeholders.
 
 ## 1. E2E specialist agent
 
-Use a strong model tier. There are two skip cases, and both must appear in the wave summary:
+Use a strong model tier. The orchestrator decides between this template and two skip cases,
+and records either skip in the wave summary:
 
 - If the project has no e2e layer at all, skip the specialist and say that no layer exists.
 - If the project has an e2e layer but this wave shipped nothing the layer can reach, skip the
   authoring pass and say which behaviours were unreachable and why.
 
-Skipping the specialist never skips the full e2e run. Whenever the project has an e2e
-layer, the wave close still runs its full suite and reports the exact totals.
+Whenever an e2e layer exists, its full run remains part of the close even if the authoring
+template is skipped.
 
 ```
 You are the e2e specialist closing Wave {{WAVE}} of the sift roadmap in {{PROJECT_ROOT}}.
 
-Read the repository's agent instructions and the e2e suite's own conventions before
-writing anything.
+Read the repository's agent instructions, the matching knowledge-base entries, and the e2e
+suite's own conventions before writing anything. If those sources are silent, inspect the
+manifests and continuous-integration configuration. Verify every named path against the live
+tree.
 
 WAVE {{WAVE}} SHIPPED:
 {{PER_TICKET_ONE_LINE_SUMMARIES}}
@@ -54,7 +42,8 @@ lifecycle test. Walk the list behaviour by behaviour and decide for each whether
 e2e surface at all. Some low-level behaviour may not (for example config-layer guards,
 dependency calculation, or storage schema) and belongs to the batch coverage agent instead,
 but those same categories may be reachable through a project's CLI, API, or lifecycle layer.
-You will report both lists: covered, and skipped-as-no-e2e-surface with the reason.
+Report every behaviour on one of two lists: covered, or skipped as having no e2e surface.
+Give the reason for every skip.
 
 Extend the existing suite: reuse its helpers and fixtures rather than inventing new ones,
 follow the layer's own test conventions, and deduplicate against what existing e2e tests
@@ -63,26 +52,32 @@ setup so the fixture environment still builds.
 
 Iterate on a single e2e test file while developing; the deliverable is a GREEN FULL e2e run.
 
-If a genuine product bug blocks green, do NOT paper over it: file a sift ticket per
-.ai/sift/README.md (including its ROADMAP.md placement, in the same change), skip the
-e2e test with an explicit fixme referencing the ticket ID, and report the ticket.
+If a genuine product bug blocks green, do NOT paper over it. Report a ticket-worthy defect
+with the failing behaviour, reproduction evidence, and proposed scope. The orchestrator will
+create the ticket, wave included, then dispatch any skip/fixme annotation that needs its ID.
+Test-side problems are yours to fix.
 
-Branch off local {{BASE_BRANCH}}, commit, merge back locally. NEVER `git push`.
+Do not capture durable knowledge in this pass. Do not edit the sift-drain skill or file a
+ticket locally. Never file, comment on, or patch an external tracker. Report an upstream
+proposal as a `type: dx` ticket-worthy defect for the orchestrator.
+
+Branch off local {{BASE_BRANCH}}, commit your scoped changes, and report the commit. Do not
+merge and NEVER `git push`. Do not write tracker state, including ticket files, archive
+moves, or wave keys.
 
 REPORT (only this):
   status: done | blocked
-  merge commit: <hash>
+  commit: <hash>
   summary: <one paragraph>
   verification: e2e <N passed / M failed / K skipped> across <e2e test files>
   behaviours covered: <one line each>
   behaviours skipped (no e2e surface): <one line each, with the reason>
-  tickets filed: <IDs> | none
+  ticket-worthy defects: <one line each with evidence and proposed scope> | none
 ```
 
 ## 2. Batch coverage agent
 
-The doctrine, verbatim: **"write tests, not too many, mostly integration."** Use a strong
-model tier — this is where coverage actually increases, since ticket agents wrote none.
+Use a strong model tier for this template.
 
 **Build the coverage list before dispatching.** It is not a fresh audit: it is the waived
 and deferred criteria collected from the `resolution` line of every ticket archived in this
@@ -93,8 +88,10 @@ environment. Paste it into `{{WAIVED_CRITERIA}}`.
 You are the batch coverage agent closing Wave {{WAVE}} of the sift roadmap in
 {{PROJECT_ROOT}}.
 
-Read the repository's agent instructions for the test layout, base classes, and the exact
-test/lint/e2e commands. Verify named paths against the live tree.
+Read the repository's agent instructions and matching knowledge-base entries for the test
+layout, base classes, and exact test, lint, static-analysis, and e2e commands. If those
+sources are silent, inspect the manifests and continuous-integration configuration. Verify
+every named path against the live tree.
 
 WAVE {{WAVE}} SHIPPED (no ticket agent wrote tests; several had test criteria waived —
 this batch pays that debt):
@@ -103,8 +100,8 @@ this batch pays that debt):
 
 TASK
 Write tests, not too many, mostly integration. YOUR COVERAGE LIST IS THE DEFERRED CRITERIA
-ABOVE — work it item by item and report which items you covered and which you deliberately
-did not.
+ABOVE. Work it item by item and report which items you covered and which you deliberately
+did not, with one reason for every item skipped.
   - Integration tests are the workhorse; unit tests only for genuinely pure logic; the
     heaviest end-to-end test type sparingly.
   - Fold new cases into EXISTING test classes wherever they belong; add a new class only
@@ -118,22 +115,28 @@ whenever the project has an e2e layer, the full e2e suite. Every run must be gre
 exact totals reported for each; if there is no e2e layer, report that status explicitly.
 
 If a full-suite failure is a product bug rather than a test bug, do NOT fix product code
-here — report it precisely so the orchestrator can dispatch a fix agent, file a sift
-ticket, and annotate the assertion with the ticket ID so suites stay green-with-known-
-issues. Test-side problems you fix yourself.
+here. Report it precisely as a ticket-worthy defect so the orchestrator can create the
+ticket, wave included, then dispatch a fix agent and any assertion annotation that needs
+the ticket ID. Test-side problems you fix yourself.
 
-Branch off local {{BASE_BRANCH}}, commit, merge back locally. NEVER `git push`.
+Do not capture durable knowledge in this pass. Do not edit the sift-drain skill or file a
+ticket locally. Never file, comment on, or patch an external tracker. Report an upstream
+proposal as a `type: dx` ticket-worthy defect for the orchestrator.
+
+Branch off local {{BASE_BRANCH}}, commit your scoped changes, and report the commit. Do not
+merge and NEVER `git push`. Do not write tracker state, including ticket files, archive
+moves, or wave keys.
 
 REPORT (only this):
   status: done | blocked
-  merge commit: <hash>
+  commit: <hash>
   summary: <one paragraph: what is now covered>
   verification: tests <N tests, M assertions> full suite; lint <result>; static analysis
                 <result>; e2e <N passed / M failed / K skipped> | no e2e layer; tests
                 added: <count and class names>
   deferred criteria: covered <list> | not covered <list and why>
   failures needing a fix agent: <root-cause list> | none
-  tickets filed: <IDs> | none
+  ticket-worthy defects: <one line each with evidence and proposed scope> | none
 ```
 
 ## 3. Fix agents — one per root cause
@@ -146,38 +149,46 @@ Fix one root cause of Wave {{WAVE}} gate fallout in {{PROJECT_ROOT}}.
 ROOT CAUSE: {{ROOT_CAUSE_DESCRIPTION}}
 FAILING: {{FAILING_TESTS_OR_SPECS}}
 
+Read the repository's agent instructions and matching knowledge-base entries for the
+affected code, tests, and exact verification commands. If those sources are silent, inspect
+the manifests and continuous-integration configuration. Verify every named path against the
+live tree.
+
 Fix the cause, not the symptom. Do not weaken or delete assertions to make tests pass; if a
 test encodes wrong expectations, say so explicitly and justify the change.
 
 Verify scoped to the affected area first, then re-run whichever full suite this root cause
-touched, plus the authoritative lint run.
+touched, plus the authoritative lint run. If any required verification cannot run, state it
+in the verification field with the reason.
 
-Branch off local {{BASE_BRANCH}}, commit, merge back locally. NEVER `git push`.
+If the work exposes a separate ticket-worthy defect, report its failing behaviour, evidence,
+and proposed scope. The orchestrator creates its ticket, wave included, and dispatches any
+follow-up that needs the new ID.
+
+Fold test changes into the existing files and classes that own the behaviour. Do not create
+duplicate coverage. Do not capture durable knowledge in this pass. Do not edit the
+sift-drain skill or file a ticket locally. Never file, comment on, or patch an external
+tracker. Report an upstream proposal as a `type: dx` ticket-worthy defect for the
+orchestrator.
+
+Branch off local {{BASE_BRANCH}}, commit your scoped changes, and report the commit. Do not
+merge and NEVER `git push`. Do not write tracker state, including ticket files, archive
+moves, or wave keys.
 
 REPORT (only this):
   status: done | blocked
-  merge commit: <hash>
+  commit: <hash>
   summary: <one paragraph: the root cause and the fix>
   verification: <exact suite results>
-  tickets filed: <IDs> | none
+  ticket-worthy defects: <one line each with evidence and proposed scope> | none
 ```
 
 ## 4. Knowledge capture — once, for the whole wave
 
-Run exactly one capture pass here, after the last fix agent merges and before the wave
-summary, over the sub-agent reports the wave collected. This is the **only** place a drain
-captures knowledge: neither ticket agents nor the gate agents above do it. The candidates
-arrive on each report's `deferred to the wave gate:` line, which carries durable knowledge
-alongside the waived criteria — a ticket agent names what it learned and this pass decides
-what survives the wave.
-
-The reason a future editor needs: a per-ticket agent can only see its own dispatch, so it
-writes what was true mid-wave and the rest of the wave then overtakes it — three of the last
-drain's captured nodes were stale on arrival for exactly that. One pass that has read every
-report writes fewer entries and fewer wrong ones.
-
-Skip it if the project has no knowledge-base capture skill; say so in the summary rather
-than silently omitting it.
+Run this template once you merge the last fix agent's commit and the gate is green.
+Its input is the full set of collected worker reports, including their
+`deferred to the wave gate:` lines. If the project has no knowledge-base capture
+skill, skip the template and record that case in the wave summary.
 
 ```
 You are the knowledge-capture pass closing Wave {{WAVE}} of the sift roadmap in
@@ -187,21 +198,32 @@ WAVE {{WAVE}} REPORTS (their `deferred to the wave gate:` lines name the candida
 {{COLLECTED_SUB_AGENT_REPORTS}}
 
 TASK
+Read the repository's agent instructions, its knowledge-base index, and the capture skill's
+full instructions before writing anything. Verify every named path, command, and interface
+against the live tree.
+
+Branch off local {{BASE_BRANCH}} before writing.
+
 Run the project's knowledge-base capture skill ONCE over the material above, for the wave
 as a whole. Capture what stays true after this wave: conventions, gotchas that cost an
 agent real time, and named things that now exist. Do not capture ticket-by-ticket
 narration, and do not capture a fact one later ticket of this same wave has already
-overtaken — you can see the whole wave, which is precisely why this runs here.
+overtaken. You can see the whole wave, which is why this runs here.
 
 Resolve any curation conflict YOURSELF, conservatively: prefer the live tree and the newest
 user directives over an older entry's claim. Never pause for user input. Zero durable
 candidates from a routine wave is a valid outcome, not a failure.
 
 Verify against the live tree before writing an entry that names a path, a command or an
-interface. Never `git push`; never edit the sift-drain skill's files.
+interface. Never edit the sift-drain skill's files and do not file, comment on, or patch an
+external tracker. Identify an upstream proposal in the summary as a `type: dx` candidate
+for the orchestrator. After the capture, commit your scoped changes and report the commit.
+Do not merge. Never `git push`. Do not write tracker state, including ticket files, archive
+moves, or wave keys.
 
 REPORT (only this):
   status: done | blocked
+  commit: <hash>
   summary: <one paragraph: what the wave taught that outlives it>
   entries captured: <one line each> | none
   conflicts resolved: <older claim -> what the live tree says> | none
@@ -210,7 +232,7 @@ REPORT (only this):
 ## 5. Closing the wave
 
 The wave closes only when **all** full runs are green, with exact totals. Re-run them after
-the last fix agent merges — a fix agent only re-ran what its root cause touched.
+you merge the last fix agent's commit — a fix agent only re-ran what its root cause touched.
 
 Two membership rules decide what the gate certifies:
 
@@ -218,7 +240,7 @@ Two membership rules decide what the gate certifies:
 - **A ticket slotted into an already-closed wave is worked as the current wave's tail.**
   The closed gate is never reopened; that ticket's deferred criteria ride the next gate.
 
-Run `roadmap-check.sh` (must exit 0), then post:
+Run `ticket-check.sh` (must exit 0), then post:
 
 ```
 Wave {{WAVE}} closed.
@@ -227,5 +249,5 @@ Wave {{WAVE}} closed.
   tickets filed:   <IDs and titles> | none
   tests added:     <classes/counts; e2e test files/counts>
   suite status:    tests <N, M assertions> green; e2e <N> green | no e2e layer; lint clean
-  roadmap:         <wave-status.sh, summarised in one line>
+  waves:           <wave-status.sh, summarised in one line>
 ```

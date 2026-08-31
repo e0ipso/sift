@@ -1,7 +1,7 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:e46737c78b915752e9e8fbe08b3157104ecba0d61405d8cd97c0f886038b1155'
-node_count: 94
+nodes_hash: 'sha256:c511e3af417a708c7619a886ec532893336b47d6f42b2b6fe81064e85afdd878'
+node_count: 98
 ---
 # kenkeep
 
@@ -18,5 +18,9 @@ node_count: 94
 - Load [`sift-init/`](nodes/sift-init/index.md) for more information on sift-init root gate and tree materialization; read when initializing .ai/sift, changing the project-root algorithm, or editing the tree-local gitignore.
 - Load [`sift-prime/`](nodes/sift-prime/index.md) for more information on sift-prime backlog-priming practices and skill map; read when priming or seeding the backlog, or changing proposal/dedupe/drafting behavior.
 - Load [`spec/`](nodes/spec/index.md) for more information on normative README/AGENTS.md API and how the shipping spec may change; read when editing README.md or AGENTS.md convention text.
+- Load [`strikethroo/`](nodes/strikethroo/index.md) for more information on Strikethroo plan and task layout contracts; read before changing IDs, paths, or lifecycle rules.
 - Load [`testing/`](nodes/testing/index.md) for more information on test-design rules for this suite — positive controls, interleaving-invariant assertions, diff-based proofs and document pins; read when adding or changing a case under tests/.
 - Load [`tickets/`](nodes/tickets/index.md) for more information on ticket shape, lifecycle, and bookkeeping rules; read when creating, moving, archiving, or drafting tickets or changing front-matter/body schemas.
+
+## Components (what exists)
+- Open [**Kenkeep knowledge-admission authority**](nodes/map-kenkeep-knowledge-admission-authority.md) to learn about: knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills. #kenkeep #prompts #ownership

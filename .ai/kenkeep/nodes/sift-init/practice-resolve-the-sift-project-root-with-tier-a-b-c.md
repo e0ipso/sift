@@ -30,8 +30,8 @@ Stop when `parent == dir`. Drop hits at `$HOME` or `/`. Honor `SIFT_ROOT` when s
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-never-renumber-or-reuse-a-ticket-id](/practice-never-renumber-or-reuse-a-ticket-id.md)
-- Related: [map-sift-init-deterministic-project-root-gate-and-tree-materialization](/map-sift-init-deterministic-project-root-gate-and-tree-materialization.md)
+- Related: [practice-never-renumber-or-reuse-a-ticket-id](/tickets/practice-never-renumber-or-reuse-a-ticket-id.md)
+- Related: [map-sift-init-deterministic-project-root-gate-and-tree-materialization](/sift-init/map-sift-init-deterministic-project-root-gate-and-tree-materialization.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

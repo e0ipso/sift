@@ -57,5 +57,5 @@ fixture is the wrong size — the product is not what needs changing.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-tree-digest-cannot-see-an-empty-directory](/practice-tree-digest-cannot-see-an-empty-directory.md)
+- Related: [practice-tree-digest-cannot-see-an-empty-directory](/testing/assertions/practice-tree-digest-cannot-see-an-empty-directory.md)
 <!-- kk:related:end -->

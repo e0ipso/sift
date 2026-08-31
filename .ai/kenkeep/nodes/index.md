@@ -18,6 +18,7 @@ okf_version: '0.1'
 - Load [`sift-init/`](sift-init/index.md) for more information on sift-init root gate and tree materialization; read when initializing .ai/sift, changing the project-root algorithm, or editing the tree-local gitignore.
 - Load [`sift-prime/`](sift-prime/index.md) for more information on sift-prime backlog-priming practices and skill map; read when priming or seeding the backlog, or changing proposal/dedupe/drafting behavior.
 - Load [`spec/`](spec/index.md) for more information on normative README/AGENTS.md API and how the shipping spec may change; read when editing README.md or AGENTS.md convention text.
+- Load [`strikethroo/`](strikethroo/index.md) for more information on Strikethroo plan and task layout contracts; read before changing IDs, paths, or lifecycle rules.
 - Load [`testing/`](testing/index.md) for more information on test-design rules for this suite — positive controls, interleaving-invariant assertions, diff-based proofs and document pins; read when adding or changing a case under tests/.
 - Load [`tickets/`](tickets/index.md) for more information on ticket shape, lifecycle, and bookkeeping rules; read when creating, moving, archiving, or drafting tickets or changing front-matter/body schemas.
 
@@ -25,8 +26,14 @@ okf_version: '0.1'
 _None yet._
 
 ## Components (what exists)
-_None yet._
+- Open [**Kenkeep knowledge-admission authority**](map-kenkeep-knowledge-admission-authority.md) to learn about: knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills. #kenkeep #prompts #ownership
 
 ## By topic
 
-_No tags yet._
+### #kenkeep
+- Open [**Kenkeep knowledge-admission authority**](map-kenkeep-knowledge-admission-authority.md) — knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills.
+### #ownership
+- Open [**Kenkeep knowledge-admission authority**](map-kenkeep-knowledge-admission-authority.md) — knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills.
+### #prompts
+- Open [**Kenkeep knowledge-admission authority**](map-kenkeep-knowledge-admission-authority.md) — knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills.
+- Open [**Platform plan-creator contract**](strikethroo/map-platform-plan-creator-contract.md) — Claude and Cursor use byte-identical ordered plan-creator contracts with the same seven execution phases.

@@ -97,7 +97,6 @@ make_tree() {
   printf 'prefix: %s\n' "$prefix" > "$dir/.ai/sift/config/config.yaml"
   printf '# sift\n' > "$dir/.ai/sift/README.md"
   printf '# Milestones\n\n## backlog\n' > "$dir/.ai/sift/MILESTONES.md"
-  roadmap_new "$dir"
 }
 
 # config_yaml <dir> <shape> [prefix] — rewrite the tree's config file in one of
@@ -137,38 +136,6 @@ config_yaml() {
     *)
       echo "config_yaml: unknown shape: $shape" >&2; return 2 ;;
   esac
-}
-
-# roadmap_new <dir> — an empty Wave 1 table, the shape sift-init writes.
-roadmap_new() {
-  cat > "$1/.ai/sift/ROADMAP.md" <<'EOF'
-# Roadmap
-
-## Wave 1
-
-| # | Ticket | Title | Needs |
-|---|---|---|---|
-EOF
-}
-
-# roadmap_row <dir> <n> <id> <title> [needs]
-roadmap_row() {
-  printf '| %s | %s | %s | %s |\n' "$2" "$3" "$4" "${5:--}" >> "$1/.ai/sift/ROADMAP.md"
-}
-
-# struck_row <dir> <n> <id> <title> — a finished row in the shape rule 9 asks
-# for: the ID and the title both struck, the resolution status appended.
-struck_row() {
-  printf '| %s | ~~%s~~ | ~~%s~~ — done |  |\n' "$2" "$3" "$4" >> "$1/.ai/sift/ROADMAP.md"
-}
-
-# roadmap_wave <dir> <n> — open another "## Wave <n>" section with its header.
-roadmap_wave() {
-  {
-    printf '\n## Wave %s\n\n' "$2"
-    printf '| # | Ticket | Title | Needs |\n'
-    printf '|---|---|---|---|\n'
-  } >> "$1/.ai/sift/ROADMAP.md"
 }
 
 # stub_ticket <dir> <bucket> <milestone/category> <filename> — content-free file,
@@ -305,7 +272,9 @@ ticket_body() {
 #   `<key>: <value>`  front matter. A line naming one of the required keys
 #                     replaces that key's default; any other line is written
 #                     verbatim inside the fence, which is how an optional key
-#                     like `source:` gets set.
+#                     like `source:` gets set. `wave:` is required in `open/`,
+#                     where it defaults to 1, and optional in `archive/`, where
+#                     it is written only when the caller passes it.
 #   `body=<shape>`    the body, one of the shapes ticket_body names above.
 #                     Never derived from `type:`: the bug-backfill recipe's whole
 #                     subject is a `type: bug` ticket with no
@@ -331,11 +300,22 @@ ticket() {
     fm_line "milestone: $milestone" "$@"
     fm_line 'priority: p2' "$@"
     fm_line 'effort: m' "$@"
+    # The wave, keyed off the bucket rather than off `status:`, because the
+    # bucket is what the caller always passes and what the tree is read by. An
+    # open ticket carries a wave; an archived one keeps whichever wave it was
+    # drafted with and is never handed one it never had, so a fixture for a
+    # ticket resolved before the key existed stays buildable.
+    case "$bucket" in
+      open) fm_line 'wave: 1' "$@" ;;
+      *) for arg in "$@"; do
+           case "$arg" in wave:*) printf '%s\n' "$arg" ;; esac
+         done ;;
+    esac
     fm_line 'created: 2026-08-01' "$@"
     fm_line 'updated: 2026-08-01' "$@"
     for line in "$@"; do
       case "$line" in
-        id:*|title:*|status:*|type:*|milestone:*|priority:*|effort:*|created:*|updated:*) ;;
+        id:*|title:*|status:*|type:*|milestone:*|priority:*|effort:*|wave:*|created:*|updated:*) ;;
         # The shape selector, excluded here rather than passed through: this loop
         # writes any unrecognised argument verbatim inside the fence, so a
         # selector that fell through would land in the ticket as a bogus key.

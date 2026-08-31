@@ -41,5 +41,5 @@ change.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-readme-normative-spec](/map-sift-readme-normative-spec.md)
+- Related: [map-sift-readme-normative-spec](/spec/map-sift-readme-normative-spec.md)
 <!-- kk:related:end -->

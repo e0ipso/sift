@@ -152,7 +152,7 @@ assert_no_dir "$root/.ai" "and still nothing is written"
 # --- Tree state --------------------------------------------------------------
 
 test_case "every required entry is required, one at a time"
-for entry in README.md MILESTONES.md ROADMAP.md config/config.yaml open archive schemas; do
+for entry in README.md MILESTONES.md config/config.yaml open archive schemas; do
   root="$(newdir)"
   make_tree "$root" ACME
   rm -rf "${root:?}/.ai/sift/$entry"
@@ -245,12 +245,12 @@ gate_at "$root" SIFT_ROOT="$root"
 assert_eq 0 "$R_STATUS" "READY run"
 assert_eq "$before" "$(tree_digest "$root")" "a READY tree is untouched"
 
-rm "$root/.ai/sift/ROADMAP.md"
+rm "$root/.ai/sift/MILESTONES.md"
 before="$(tree_digest "$root")"
 gate_at "$root" SIFT_ROOT="$root"
 assert_eq 6 "$R_STATUS" "INCOMPLETE run"
 assert_eq "$before" "$(tree_digest "$root")" "an INCOMPLETE tree is not repaired by the gate"
-assert_no_file "$root/.ai/sift/ROADMAP.md" "specifically, the missing entry stays missing"
+assert_no_file "$root/.ai/sift/MILESTONES.md" "specifically, the missing entry stays missing"
 
 root="$(newdir)"
 mkdir "$root/.git"

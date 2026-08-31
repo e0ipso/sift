@@ -1,13 +1,11 @@
 # sift — file-based ticketing
 
-sift is this repository's ticket system. It is plain markdown files on disk, operated
-with ordinary terminal tools (`find`, `grep`, `mv`, `sed`). There is no daemon, no
-database, and no CLI to install. Agents and humans follow the same rules.
+sift stores tickets as markdown files. Agents and humans operate the same tree with
+ordinary terminal tools. There is no daemon, database, or CLI to install.
 
 ## Configuration
 
-Two things are per-repository configuration rather than part of the convention: the
-ticket **prefix** and the set of **milestones**.
+Each repository configures its ticket **prefix** and **milestones**.
 
 The prefix lives in `.ai/sift/config/config.yaml`:
 
@@ -15,14 +13,12 @@ The prefix lives in `.ai/sift/config/config.yaml`:
 prefix: ABCD      # uppercase; stable for the life of the repository
 ```
 
-Every ticket ID is `<PREFIX>-<NNNN>`, and that file is the single place the value is
-defined. Milestones are named and ordered in `MILESTONES.md`.
+Every ticket ID is `<PREFIX>-<NNNN>`. `config.yaml` is the single source for the prefix;
+`MILESTONES.md` names and orders milestones.
 
-`<PREFIX>` and `<milestone>` below are placeholders: substitute the configured prefix and
-a name from `MILESTONES.md` when you read them, and write the substituted form in real
-tickets and filenames, never the literal placeholder. The cookbook reads the prefix into
-`$PREFIX`, so changing that one declaration (and renaming existing files) is the whole
-migration.
+`<PREFIX>` and `<milestone>` below are placeholders. Real tickets and filenames use the
+configured values. Cookbook commands read the prefix into `$PREFIX`. Changing a prefix
+requires changing `config.yaml` and renaming every existing ticket file and ID.
 
 ## Directory layout
 
@@ -31,7 +27,6 @@ migration.
 ├── .gitignore                 ← ignores the tree by default; delete it to track tickets
 ├── README.md                  ← this convention (read it before touching tickets)
 ├── MILESTONES.md              ← what each milestone means, in intended order
-├── ROADMAP.md                 ← advisory resolution order (tickets' depends_on is the truth)
 ├── RUNLOG.md                  ← append-only drain run log; diagnostic, never ticket state
 ├── config/                    ← per-repository configuration (see "Configuration" above)
 │   └── config.yaml            ← the ticket prefix; the single place the value is defined
@@ -48,20 +43,18 @@ migration.
     └── <milestone>/<category>/<PREFIX>-0001--short-slug.md   (mirrors open/)
 ```
 
-- **One file = one ticket.** Never put two problems in one file; file a second ticket
-  and link it with `depends_on` or a `[[<PREFIX>-XXXX]]` mention in the body.
+- **One file = one ticket.** Split separate problems and link them with `depends_on` or a
+  `[[<PREFIX>-XXXX]]` body mention.
 - **Two buckets only.** `open/` holds anything still actionable (including
   `in-progress` and `blocked`). `archive/` holds anything terminal. The bucket is the
   coarse lifecycle; the `status` front-matter key is the fine-grained truth.
 - **The hierarchy below the bucket is `<milestone>/<category>/`.** Both values are
   duplicated in front-matter so `grep` works even when a file has been moved.
-- **`RUNLOG.md` is written by the drain, never by hand.** The first dispatch creates it and
-  every later write appends, so a freshly initialized tree has none. It is diagnostic
-  timing only — never read ticket state out of it. The row schema is under *Run log* below.
-- **The tree is untracked by default.** The shipped `.gitignore` is `*` and `!.gitignore`,
-  so the backlog stays local; delete that file to track tickets instead. Either way,
-  ignore-aware search tools (`rg`, editor and agent search) skip an ignored tree silently,
-  which is why the recipes below use `find` and `grep` directly.
+- **`RUNLOG.md` is drain-written, append-only diagnostic data.** A fresh tree has none. Do
+  not write it by hand or read ticket state from it. See *Run log* for its schema.
+- **The tree is untracked by default.** The shipped `.gitignore` contains `*` and
+  `!.gitignore`; delete it to track tickets. Ignore-aware search tools skip the default
+  tree, so the recipes use `find` and `grep` directly.
 
 ## File naming
 
@@ -91,6 +84,7 @@ updated: 2026-08-05    # ✱ bump on every meaningful edit
 labels: [api, caching] # free-form kebab tags
 cluster: whole-token-ids  # optional kebab name of a root cause shared with other tickets
 depends_on: []         # list of ticket IDs that must land first, e.g. [<PREFIX>-0041]
+wave: 1                # required positive integer while open; see rule 9
 resolution: ""         # required non-empty when archived: one line on how it ended
 source: ""             # where the ticket came from (session, issue URL, review)
 ---
@@ -101,56 +95,29 @@ Statuses `open | in-progress | blocked` live in `open/`. Statuses
 
 ## Dispatch groups and the cluster key
 
-`cluster` is an **optional** front-matter key: a kebab-case value naming the root cause a
-ticket shares with others. It draws on the same namespace as `labels:` and is held to the
-same shape — lowercase letters and digits, single hyphens between them.
-
-The key is **advisory, and nothing more**. No consistency check reads it, no ticket state
-depends on it, and no recipe in this file requires it. `sift-drain`'s orchestrator may use
-it as a relatedness hint when building the current wave's worker graph. A ticket carrying
-no `cluster`, or whose value is not well-formed kebab-case, simply offers no hint. The key
-never authorises a worker and never reorders a wave, so a missing, misspelled or wrongly
-assigned value costs the hint and nothing else — it can never fail a run.
+`cluster` is an optional kebab-case value naming a shared root cause. It uses lowercase
+letters and digits with single internal hyphens, like `labels:`. The drain may use it as a
+relatedness hint when building a worker graph. It never authorizes work, reorders a wave,
+changes ticket state, or causes a run to fail. An absent or malformed value provides no hint.
 
 ### Two bars, and which is which
 
-Two questions look alike and are settled by different tests. Answering one with the other's
-test is exactly how `cluster` gets assigned wrongly.
+Use two separate tests:
 
-**Merging findings into ONE ticket is the strict bar, and it belongs to drafting time —
-the `sift-prime` skill owns it: several sites become one ticket only when one `## Direction`,
-a single statement of approach, holds unchanged at every one of them.** A candidate needing
-an "and at the third site, instead …" states two Directions, so it is two tickets.
+- Merge findings into one ticket only when one `## Direction` applies unchanged at every
+  site. Otherwise, keep separate tickets.
+- Give separate tickets the same `cluster` when they share a root cause and one worker can
+  orient to them together, even if their fixes differ.
 
-**Carrying the same `cluster` value so drain's orchestrator can treat tickets as related
-is the looser bar, and it belongs to dispatch time: tickets share a value when one
-worker's orientation serves all of them — same root cause — and their fixes may differ.**
-They are still several tickets: each keeps its own `## Direction`, and each is archived
-and struck from `ROADMAP.md` in its own change under rule 9. Write-scope overlap (the
-same product files) is a sequential edge in the orchestrator's graph, whether or not the
-tickets share a `cluster`.
-
-Everything that clears the merge bar would also be related, but not the reverse. Judge
-`cluster` by the merge bar and related tickets never share a hint, so the key does
-nothing. Judge a merge by the relatedness bar and the result is one ticket whose
-`## Direction` cannot cover its own sites — which a drafting agent will not report; it
-will invent something plausible, and the implementing worker reads that invention as its
-brief.
-
-*Worked example.* Five tickets shared one root cause — a ticket ID read as a substring
-instead of a whole token — but needed five unrelated fixes: a recipe's digit count, another
-recipe's `grep` anchor, an XSD pattern facet, a library's row pattern, and the loop *around*
-that pattern. No one statement of approach covers all five, so they stay five tickets. They
-still share a `cluster`, and pairs that share a file get a sequential edge.
+Each clustered ticket keeps its own `## Direction` and archive operation. Tickets that touch
+the same product files run sequentially whether or not they share a `cluster`.
 
 ### The bounds a helper group is formed under
 
-`next-ticket.sh --group` is a helper, not the drain loop. The drain orchestrator loads
-the current wave and builds a worker graph; it may consult this walk when partitioning a
-sitting. The helper picks a lead — roadmap wave order, then row order within the wave —
-and only then walks forward for tickets carrying the lead's `cluster` value. Every member
-must be dispatchable on its own account: struck rows, archived tickets and
-`status: blocked` are never pulled in. `cluster` never reorders a wave.
+`next-ticket.sh --group` is a helper, not the drain loop. It picks the lead by dispatch order —
+`wave` ascending, then `priority` within the wave — then walks forward through dispatchable
+tickets with the lead's `cluster`. It excludes archived tickets and `status: blocked`;
+`cluster` never reorders a wave.
 
 A group holds **at most 4 tickets** and **at most 8 combined effort weight**:
 
@@ -158,22 +125,14 @@ A group holds **at most 4 tickets** and **at most 8 combined effort weight**:
 |---|---|---|---|---|---|
 | weight | 1 | 2 | 3 | 5 | 8 |
 
-Eight is one `xl`, and four is what a reviewer can hold in one diff. The front-matter
-schema above fixes `effort` as `s | m | l | xl`; `xs` is weighted alongside them so a tree
-that writes it is sized rather than defaulted. Any other value — an absent key, a typo, a
-value from a newer spec — weighs what `m` weighs, because refusing to size an unrecognised
-effort would stop a drain over a field the selection path otherwise only echoes.
-
-The first ticket that would breach either bound **ends** the group rather than being stepped
-over: skipping a large member to reach a smaller one further down would reorder the roadmap
-silently. And once the walk has passed an unstruck row that is not a member, the group stops
-at the wave boundary rather than crossing it — reaching into the next wave while this one
-still has open rows is the one thing the wave gate exists to prevent.
+The schema allows `s | m | l | xl`. The helper also assigns `xs` weight 1 and defaults an
+absent or unrecognized effort to `m` weight 3. The first ticket that would exceed either
+bound ends the group; it is not skipped. The group also ends at the first dispatchable
+non-member, so it cannot cross a wave boundary.
 
 ## Ticket body
 
-Every body is built from four canonical sections, in this order, omitting ones that are
-genuinely empty:
+Every body is built from four canonical sections in this order. Omit only empty sections:
 
 ```markdown
 # <title, repeated>
@@ -191,10 +150,8 @@ The proposed approach, alternatives considered, known constraints.
 - [ ] Checkable statements that define "done".
 ```
 
-Two types add sections to that skeleton, because the four alone let a drafter skip the
-question that type most needs answered.
-
-**`type: bug`** — a bug ticket that does not say what *should* happen is not actionable:
+Two types add sections. **`type: bug`** — a bug ticket that does not say what *should*
+happen is not actionable:
 
 ```markdown
 ## Problem
@@ -205,8 +162,7 @@ question that type most needs answered.
 ## Acceptance criteria
 ```
 
-**`type: feature`** — `Problem` carries the motivation and `Direction` the proposal, so
-only the discarded options need a home of their own:
+**`type: feature`** — `Problem` carries the motivation and `Direction` the proposal:
 
 ```markdown
 ## Problem                   ← the motivation: why this is needed, whose use case
@@ -221,13 +177,8 @@ sections unchanged.
 
 ## Drafting a ticket
 
-`schemas/` holds one XSD per body shape. A drafter writing markdown straight into the file
-skips the awkward field — the expected behaviour it has not pinned down, the alternative it
-did not weigh — and the omission is invisible afterwards; filling a structure that names
-every field forces the gap to surface while it can still be closed.
-
-Draft into a scratch file outside `.ai/sift/`, then render it to the markdown ticket and
-throw the draft away:
+`schemas/` holds one XSD per body shape. Use it as a field checklist.
+Draft into a scratch file outside `.ai/sift/`, render the markdown ticket, then delete it:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -240,6 +191,7 @@ throw the draft away:
     <milestone>foundations</milestone>
     <priority>p2</priority>
     <effort>m</effort>
+    <wave>1</wave>
     <created>2026-08-07</created>
     <updated>2026-08-07</updated>
     <labels><label>api</label><label>caching</label></labels>
@@ -271,28 +223,18 @@ throw the draft away:
 | `<alternatives-considered>` | `## Alternatives considered` |
 | `<acceptance-criteria><criterion>` | `## Acceptance criteria`, one `- [ ]` per criterion |
 
-Which root element to use: `<bug-ticket>` for `type: bug`, `<feature-ticket>` for
-`type: feature`, `<task-ticket>` for the other five types.
+Use `<bug-ticket>` for `type: bug`, `<feature-ticket>` for `type: feature`, and
+`<task-ticket>` for the other five types. XML is drafting scaffolding, never storage. Sift
+reads and writes only markdown with YAML front-matter. Render by hand; `xmllint` is optional
+and no workflow may require it.
 
-**The XML is scaffolding, not storage, and no tool is required to use it.** The ticket on
-disk is markdown with YAML front-matter, exactly as specified above; nothing in sift reads,
-writes, or validates XML on the way in or out. Read `schemas/*.xsd` as a checklist and
-render by hand — that is the supported path, and it works with nothing but a text editor.
-The cookbook's `xmllint` recipe is an optional convenience; never make a ticket, a recipe,
-or a workflow depend on it.
-
-Two rules the schemas cannot carry, because XSD 1.0 has no cross-field assertions:
-a non-empty `resolution` is required once `status` is terminal, and `milestone` must name a
-milestone from `MILESTONES.md` that matches the ticket's folder. Check both by hand.
+XSD 1.0 cannot assert two cross-field rules. Check them by hand: terminal tickets require a
+non-empty `resolution`, and `milestone` must match both `MILESTONES.md` and the ticket folder.
 
 ## Mapping to a remote tracker
 
-When a ticket mirrors an issue on GitHub, GitLab or Gitea, record the issue URL in
-`source:` and translate the dimensions below. Sift keeps them as separate front-matter keys
-rather than as label strings — a tracker with one flat label field has to encode scope in
-the label name (`priority::major`), which sift does not need and must not duplicate. **A
-fact stored in both a front-matter key and a label has two sources of truth and will drift;
-front-matter wins.**
+For a mirrored GitHub, GitLab, or Gitea issue, put its URL in `source:` and use this mapping.
+Do not duplicate scoped front-matter values as Sift labels. Front-matter is authoritative.
 
 | Sift front-matter | Scoped label on the tracker |
 |---|---|
@@ -304,19 +246,14 @@ front-matter wins.**
 | `resolution:` on an archived ticket | `why::*` plus the closing comment |
 | `labels:` | plain topic labels, unscoped |
 
-`labels:` stays free-form kebab-case precisely because the scoped dimensions already have
-keys. Use it for topic tags (`api`, `caching`, `onboarding`), never to restate `type`,
-`priority` or `status`.
+Use free-form kebab-case `labels:` for topics such as `api` or `caching`, never for `type`,
+`priority`, or `status`.
 
 ## Run log
 
-`RUNLOG.md` is written by `sift-drain` and never by hand. The first dispatch of a drain
-creates it; every write after that appends, so the header is laid down once and no row is
-ever rewritten. It is **diagnostic timing only** — ticket state is read from the ticket and
-never from here.
-
-The unit it records is a **dispatch group**, not a ticket. Six columns, and a literal `-`
-in every cell an event has no use for:
+`sift-drain` creates `RUNLOG.md` on first dispatch and only appends after that. Never write
+it by hand or use it as ticket state. It records dispatch groups. Six columns, and a literal
+`-` in every cell an event has no use for:
 
 ```markdown
 # Run log
@@ -335,24 +272,14 @@ Append-only. One row per drain event; rows are never rewritten.
 | return | <PREFIX>-0031 | - | 2026-08-10T09:41:12Z | 1786354872 | done |
 ```
 
-Three event kinds:
+- `dispatch`: one row per ticket. All rows from one command share a `utc`/`epoch` pair.
+- `phase`: one ticketless row for `orient`, `implement`, `verify`, or `bookkeep`.
+- `return`: one row per ticket with its final status. All rows from one command share a
+  `utc`/`epoch` pair.
 
-- **`dispatch`** — one row per ticket the group carries, written when the group is handed to
-  the sub-agent. Every row of one dispatch shares one `utc`/`epoch` pair.
-- **`phase`** — one row marking that the dispatch entered `orient`, `implement`, `verify` or
-  `bookkeep`. It names no ticket: a phase belongs to the dispatch, not to any one member.
-- **`return`** — one row per ticket, written as the group comes back, carrying in `status`
-  the state that ticket ended in. These rows share one `utc`/`epoch` pair as well.
-
-**Group membership is "rows sharing a dispatch epoch".** The clock is read once per command
-and the same pair goes on every row that command appends, so grouping is an integer
-comparison rather than a guess about proximity; stamping each row separately would split one
-dispatch into as many groups as it carried tickets.
-
-The epoch integer is not redundant with the stamp beside it: readers do all arithmetic on
-the integer and never parse a date back into a number, which is exactly where GNU and BSD
-`date` diverge. Writing the log needs nothing but `date -u +%Y-%m-%dT%H:%M:%SZ` and
-`date +%s`.
+Rows with the same dispatch epoch form one group. Readers calculate with the epoch integer
+and never parse `utc`. Writers use `date -u +%Y-%m-%dT%H:%M:%SZ` and `date +%s`, which work
+across GNU and BSD systems.
 
 ## Rules for agents
 
@@ -369,14 +296,12 @@ the integer and never parse a date back into a number, which is exactly where GN
 8. New milestone or category folders are allowed, but document new milestones in
    `MILESTONES.md` in the same change. Categories are a closed set; propose additions
    by editing this README.
-9. **Keep `ROADMAP.md` in sync — in the same change.** When you create a ticket, slot
-   it into the appropriate wave (respecting its `depends_on`; add a new wave row, don't
-   renumber existing ones). When you archive a ticket (done/wontfix/superseded), mark
-   its roadmap row with `~~strikethrough~~` and the resolution status rather than
-   deleting it. When you change a ticket's `depends_on` or move it between milestones,
-   re-check its wave placement. Then run the roadmap consistency check below — a
-   ticket missing from the roadmap, or a roadmap entry pointing at nothing, is a
-   convention violation.
+9. **Give every open ticket a `wave: <n>` — set once, at drafting time.** Choose a wave no
+   earlier than the latest wave among tickets it `depends_on`. Archiving does not touch it:
+   an archived ticket keeps whatever wave it was drafted with, and the key is never required
+   or edited after resolution. Then run the front-matter consistency check below — an open
+   ticket with no `wave:`, or a `depends_on` ID pointing at nothing, is a convention
+   violation.
 10. **Use the body template for the ticket's `type`.** A `bug` states its expected
     behaviour and cites `file:line`; a `feature` states its motivation. Draft against
     `schemas/` when writing a new ticket — but never make anything depend on `xmllint`
@@ -384,37 +309,27 @@ the integer and never parse a date back into a number, which is exactly where GN
 
 ## Operations cookbook (terminal)
 
-All commands assume you run them from the repository root
-(`.ai/sift/...` paths) — adjust if elsewhere.
+Run these commands from the repository root.
 
-**Run the writing recipes under `set -e`.** Every recipe that writes fails closed with
-`<test> || { echo "…" >&2; false; }`. `false` rather than `exit` is deliberate — these
-blocks get pasted, and `exit` closes the shell you pasted them into — but `false` only
-*reports*: in a plain interactive shell the rest of the block runs on regardless, moving a
-ticket it never found. Wrap the block so it dies with the subshell:
+**Run the writing recipes under `set -e`.** Their guards use `false` so pasted commands do
+not close the caller's shell. Without `set -e`, `false` reports the error but later commands
+still run. Use a subshell:
 ```sh
 ( set -e
   <paste the recipe here>
 )
 ```
-`bash -e block.sh` on a saved copy does the same; `bash -e -c '…'` does not, because the
-recipes' single-quoted `awk` programs end the `-c` string early. No guard in this cookbook
-ends the shell it was pasted into, the `[ -d .ai/sift ]` tree check included, so every block
-carrying one wants the wrapper — without it, the front-matter validation run from the wrong
-directory prints its diagnosis and then nine clean-looking headers anyway. A recipe carrying
-no guard needs none of this.
+`bash -e block.sh` also works. Do not use `bash -e -c '…'`; the recipes contain single-quoted
+`awk` programs. Recipes without guards do not need the wrapper.
 
-**Set the prefix once per shell.** Every recipe below reads `$PREFIX`; export it first and
-nothing else needs editing when the prefix changes. The tree guard on the next line fails
-closed when `.ai/sift` is missing, so a validation recipe run from the wrong directory
-cannot report a clean bill of health for a tree it never read:
+**Set the prefix once per shell.** Every recipe reads `$PREFIX`. The tree guard prevents a
+wrong-directory run from reporting success without reading a Sift tree:
 ```sh
 export PREFIX=$(grep -m1 '^prefix:' .ai/sift/config/config.yaml | awk '{print $2}' | tr -d "\"'")
 [ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }
 ```
 
-Recipes that name one milestone read `$MILESTONE`; set it to a name from
-`MILESTONES.md` when you need them:
+Recipes that name one milestone read `$MILESTONE`; set it from `MILESTONES.md`:
 ```sh
 export MILESTONE=$(basename "$(find .ai/sift/open -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)")
 ```
@@ -441,12 +356,9 @@ find .ai/sift/open -name "$PREFIX-*.md" | sort
   END { printf "%s-%04d\n", prefix, max + 1 }
 '
 ```
-Numeric comparison, not lexical sort: `%04d` is a *minimum* width, so the successor of
-`<PREFIX>-9999` is `<PREFIX>-10000`, not a truncated collision. The inline `[ -d .ai/sift ]`
-guard is not redundant with the shared one — `awk`'s `END` fires even when `find` printed
-nothing, so this one-liner run from the wrong directory would otherwise report
-`<PREFIX>-0001`, an ID already taken. It short-circuits silently because the recipe's whole
-output is the ID.
+The recipe compares numbers. `%04d` is a minimum width, so 9999 advances to 10000. Its
+inline tree guard suppresses all output outside a Sift tree; without it, `awk`'s `END` would
+print `<PREFIX>-0001` after a failed `find`.
 
 **Triage view — id, title, priority for one milestone:**
 ```sh
@@ -461,18 +373,15 @@ for m in .ai/sift/open/*/; do
   printf '%-28s %s\n' "$(basename "$m")" "$(find "$m" -name "$PREFIX-*.md" | wc -l)"
 done
 ```
-The `[ -d "$m" ] || continue` guard keeps an `open/` with no milestone folders silent: a
-glob matching nothing is passed through *literally* by every POSIX shell, so without it the
-loop invents a milestone named `*`. `-d` rather than `nullglob`, because `shopt` is a bash
-builtin and these recipes must survive `dash`.
+The `-d` guard keeps an empty `open/` silent because an unmatched POSIX glob remains literal.
+Do not replace it with bash-only `nullglob`.
 
 **Find a ticket wherever it lives:**
 ```sh
 find .ai/sift -name "$PREFIX-0042--*.md"
 ```
-The `--` is what makes this one ticket rather than a family: a bare `$PREFIX-0042*` glob
-also matches `$PREFIX-00420--*.md` and every longer ID sharing those leading digits, which
-is a live case once a tree passes `<PREFIX>-9999`.
+The `--` boundary prevents `$PREFIX-0042` from matching longer IDs such as
+`$PREFIX-00420`.
 
 **Full-text search (e.g. every ticket touching one symbol or subsystem):**
 ```sh
@@ -517,10 +426,8 @@ find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r 
 done | sort | uniq -c |
   awk '{ n = $1; sub(/^[[:space:]]*[0-9]+[[:space:]]+/, ""); printf "%s\t%s\n", $0, n }'
 ```
-The per-ticket `sort -u` counts *tickets carrying* the label rather than mentions of it. The
-closing `awk` strips the count off the *front* of the `uniq -c` line: reading it back as `$2`
-would cut a label at its first blank, and the leading padding shifts width past nine, so a
-fixed-offset `cut` is wrong too.
+The inner `sort -u` counts tickets, not duplicate mentions. The final `awk` removes
+`uniq -c`'s padded numeric prefix without truncating the label.
 
 **List tickets carrying one label** (`$LABEL` is kebab-case, e.g. `caching`):
 ```sh
@@ -549,18 +456,15 @@ done | while read -r f; do
   ' "$f"
 done
 ```
-Both passes walk the front-matter fence rather than reaching for `grep -m1 '^id:'`. `-m1` is
-not a scope — it stops at the first match *anywhere* in the file — so a ticket whose front
-matter omits `title:` would render whatever body sentence quotes the key at column 0.
+Both passes stop at the closing front-matter fence, so body lines that quote `id:` or
+`title:` cannot supply missing metadata.
 
 **Who depends on `$PREFIX-0042`:**
 ```sh
 grep -rlE "$PREFIX-0042([^0-9]|$)" .ai/sift --include="$PREFIX-*.md" | grep -v "$PREFIX-0042--"
 ```
-`([^0-9]|$)` is the whole-ID anchor: a bare substring search reports `$PREFIX-00420` and
-every longer ID as a dependent, since each carries its own ID in its front matter. Because
-`depends_on` — not `ROADMAP.md` — decides whether a ticket is safe to start or archive, a
-phantom dependent inverts that call. The trailing `grep -v` drops the target's own file.
+`([^0-9]|$)` matches the whole numeric ID rather than longer IDs with the same prefix. The
+trailing `grep -v` removes the target ticket itself.
 
 **Pick the next thing to work on** (open, p1, not blocked):
 ```sh
@@ -568,12 +472,9 @@ grep -rl '^priority: p1' .ai/sift/open --include="$PREFIX-*.md" \
   | while read -r f; do grep -q '^status: blocked' "$f" || echo "$f"; done | sort
 ```
 
-**In-place edits use a temp file, never `sed -i`.** The flag is not POSIX and the two
-implementations disagree: BSD (macOS) requires a separate suffix argument, so
-`sed -i 's/a/b/' file` silently consumes the script as the suffix and mangles the tree.
-Write `sed … "$f" > "$f.tmp" && mv "$f.tmp" "$f"` instead — portable, and `.tmp` cannot
-match the `$PREFIX-*.md` glob, so a concurrent agent's `find` never sees the half-written
-file.
+**In-place edits use a temp file, never `sed -i`.** GNU and BSD disagree on that flag. Use
+`sed … "$f" > "$f.tmp" && mv "$f.tmp" "$f"`; this is portable, atomic at publication, and
+keeps partial files outside the `$PREFIX-*.md` glob.
 
 **Move a ticket to another milestone** (edit `milestone:` key too):
 ```sh
@@ -607,24 +508,16 @@ DEST="$DEST" awk '
   false
 }
 ```
-The rewrite is confined to the leading front-matter block, so a body line quoting
-`milestone:` at column 0 — which a ticket discussing this convention will — survives
-byte-for-byte, and a `---` horizontal rule cannot re-open the region. Both fence patterns
-are `/^---[[:space:]]*$/`, the spelling every walk in this cookbook uses, since YAML allows
-trailing space after a document marker; the two halves are widened together, because
-relaxing only the open would enter a block that never closes. `awk` concatenation places
-`$DEST` rather than a `sed` replacement text, which would be re-scanned for `&` and `\1`.
+The rewrite changes `milestone:` only inside the leading front-matter fence. Both fence
+patterns accept trailing space. `ENVIRON` and string concatenation preserve every byte of
+`$DEST`, including `&` and backslashes.
 
-Both guards run before the first thing that writes — before `mkdir -p`, not merely before
-`mv` — so a typo'd ID or the wrong working directory leaves the tree byte-identical instead
-of creating an empty milestone folder, a phantom entry in an index the folders *are*.
-`[ -f ]` covers the state rule 2 says cannot exist: two files carrying one ID, which is not
-a file. A ticket whose front matter carries no `milestone:` key stops loudly with the file
-already moved, because a move that silently leaves the key behind is the desync rule 3
-forbids.
+Both guards precede `mkdir -p`, so a missing or ambiguous ID leaves the tree unchanged. If
+front-matter has no `milestone:` key, the command stops after the file move and tells the
+operator to repair the key by hand.
 
-**Archive a finished ticket** — the front-matter edit, the `mv` and the `ROADMAP.md`
-strike rule 9 requires are one workflow, so run all three together:
+**Archive a finished ticket** — the front-matter edit and the `mv` are one workflow, so run
+them together:
 ```sh
 ID=$PREFIX-0042
 STATUS=done                                    # done | wontfix | superseded
@@ -667,101 +560,48 @@ RESOLUTION="$RESOLUTION" STATUS="$STATUS" TODAY="$(date +%F)" awk '
 ' "$f" > "$f.tmp" && mv "$f.tmp" "$f" || { rm -f "$f.tmp"; false; }
 dest=$(printf '%s\n' "$f" | sed 's#/open/#/archive/#')
 mkdir -p "$(dirname "$dest")" && mv "$f" "$dest"
-
-R=.ai/sift/ROADMAP.md
-awk -v id="$ID" -v prefix="$PREFIX" -v st="$STATUS" '
-  function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
-  function tail_bs(s,   k) {              # trailing backslashes; odd = escaped pipe
-    k = 0
-    while (k < length(s) && substr(s, length(s) - k, 1) == "\\") k++
-    return k % 2
-  }
-  function cut(s, a,   t, n, i, m) {      # split a table row on UNESCAPED pipes only
-    n = split(s, t, "|"); m = 0
-    for (i = 1; i <= n; i++)
-      if (m > 0 && tail_bs(a[m])) a[m] = a[m] "|" t[i]; else a[++m] = t[i]
-    return m
-  }
-  BEGIN { pat = prefix "-[0-9][0-9][0-9][0-9][0-9]*" }
-  {
-    line[NR] = $0; last = NR
-    if ($0 !~ /^[[:space:]]*\|/) next       # table rows only
-    m = cut($0, c); if (m < 3) next
-    k = 0                                   # first ID-bearing cell IS the ticket cell
-    for (i = 1; i <= m; i++) { b = c[i]; gsub(/~~/, "", b); if (b ~ pat) { k = i; break } }
-    if (k == 0) next
-    b = c[k]; gsub(/~~/, "", b); match(b, pat)
-    if (substr(b, RSTART, RLENGTH) != id) next
-    hits++; hl = NR; hk = k
-  }
-  END {
-    if (hits + 0 != 1) {                    # missing or ambiguous: write nothing
-      printf "roadmap: %d rows for %s, expected exactly 1\n", hits + 0, id > "/dev/stderr"
-      exit 1
-    }
-    m = cut(line[hl], c)
-    if (c[hk] ~ /~~/ || (hk + 1 < m && c[hk + 1] ~ /~~/)) {
-      printf "roadmap: %s is already struck, left as is\n", id > "/dev/stderr"
-    } else {
-      c[hk] = " ~~" trim(c[hk]) "~~ "
-      if (hk + 1 < m) {
-        t2 = trim(c[hk + 1])
-        c[hk + 1] = (t2 == "" ? " " : " ~~" t2 "~~ ") "— " st " "
-      }
-      out = c[1]
-      for (i = 2; i <= m; i++) out = out "|" c[i]
-      line[hl] = out
-    }
-    for (i = 1; i <= last; i++) print line[i]
-  }
-' "$R" > "$R.tmp" && mv "$R.tmp" "$R" || {
-  rm -f "$R.tmp"
-  echo "ROADMAP NOT UPDATED for $ID: strike its row by hand before committing" >&2
-  false
-}
 ```
-The three guards run in the order the failures matter: `$f` first, because an `awk` pass
-with no file operand reports the *front matter* as missing — or reads the terminal and hangs
-— sending the operator after a fault in a ticket that is not there; then `[ -f ]` for the
-two-files-one-ID state rule 2 forbids; then `$RESOLUTION`, before any rewrite.
+The guards reject a missing ticket, an ambiguous ID, and an empty resolution before the
+first write. One fence-scoped `awk` pass updates `status`, `updated`, and `resolution`.
+`resolution` is inserted or replaced. Missing front-matter fails, and values pass through
+`ENVIRON` without `sed` replacement processing.
 
-All three keys are rewritten by one `awk` pass, every rule guarded by `in_fm`. That scoping
-is the point: a line-anchored `sed 's/^status: .*/…/'` also matches the body, so a ticket
-whose `## Direction` opens a line with `status:` would have that sentence silently replaced.
-`in_fm` is set only by a fence on line 1, so a `---` rule in the body cannot re-open the
-region; values come from `ENVIRON` and are concatenated, so `&`, `/`, `|` and `[` survive
-byte-for-byte. `resolution:` is insert-or-replace, so a second run never duplicates it, and a
-ticket with no front-matter fence fails loudly rather than archiving without the field.
-
-The strike keys off the immutable `$ID`, never the title or slug, and rewrites through
-`$R.tmp` plus `mv`, so an interrupted run cannot leave a half-written roadmap. Two rules keep
-the match honest: only the *first* ID-bearing cell of a row is the ticket cell, so an ID in
-another row's `Needs` column is never mistaken for it, and the ID must match that cell in
-full, so `$PREFIX-0042` does not strike `$PREFIX-00420`. Anything other than exactly one
-matching row prints the count and exits non-zero with the roadmap untouched, because a rule 9
-desync that reports success is worse than one that stops you. Re-running on an already-struck
-row is a no-op.
-
-**Roadmap consistency check** (run after creating, archiving, or re-wiring tickets).
+**Front-matter consistency check** (run after creating, archiving, or re-wiring tickets).
 The shared tree guard from the prefix setup is restated so a copied block still fails
 closed when `.ai/sift` is missing; a consistent tree stays silent:
 ```sh
 [ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }
-# Every ticket (open or archived) must appear in ROADMAP.md ...
-find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sed 's#.*/##' \
-  | grep -oE "^$PREFIX-[0-9]+" | sort -u | while read -r id; do
-    grep -qE "$id([^0-9]|$)" .ai/sift/ROADMAP.md || echo "NOT IN ROADMAP: $id"
+# Every open ticket must carry a wave: key.
+find .ai/sift/open -name "$PREFIX-*.md" | while read -r f; do
+  awk '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
+    infm && /^---[[:space:]]*$/ { exit }
+    infm && /^wave:/ { found = 1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$f" || echo "NO WAVE: ${f#.ai/sift/}"
+done
+# Every depends_on ID must resolve to a ticket file, open or archived.
+find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r f; do
+  awk '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
+    infm && /^---[[:space:]]*$/ { exit }
+    infm && /^depends_on:/ {
+      sub(/^depends_on:[[:space:]]*/, ""); sub(/^\[/, ""); sub(/\][[:space:]]*(#.*)?$/, "")
+      n = split($0, a, ",")
+      for (i = 1; i <= n; i++) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[i])
+        if (a[i] != "") print a[i]
+      }
+      exit
+    }
+  ' "$f" | while read -r dep; do
+    find .ai/sift/open .ai/sift/archive -name "$dep--*.md" | grep -q . || \
+      echo "UNRESOLVED DEPENDENCY: ${f#.ai/sift/} depends_on $dep, which has no ticket file"
   done
-# ... and every roadmap ID must correspond to a ticket file somewhere.
-grep -oE "$PREFIX-[0-9]+" .ai/sift/ROADMAP.md | sort -u | while read -r id; do
-  find .ai/sift/open .ai/sift/archive -name "$id--*.md" | grep -q . || echo "STALE IN ROADMAP: $id"
 done
 ```
-Extraction matches the whole numeric suffix (`[0-9]+`), not a fixed four digits, so an ID
-past `<PREFIX>-9999` is captured whole; four digits remain the *rendering* width when
-allocating (`%04d` above). Both directions compare whole IDs — the forward lookup anchors
-with `([^0-9]|$)`, the reverse with `$id--` — so a row for `<PREFIX>-00420` never vouches
-for a missing `<PREFIX>-0042`.
+Wave membership and dependency edges are ticket front-matter; there is no second store for
+either to fall out of step with.
 
 **Validate front-matter across the tree** (files missing a required key). Same tree
 guard as above; when every required key is present the loop prints only the section
@@ -773,20 +613,11 @@ for k in id title status type milestone priority effort created updated; do
   grep -rL "^$k:" .ai/sift/open .ai/sift/archive --include="$PREFIX-*.md" || [ $? -eq 1 ]
 done
 ```
-`|| [ $? -eq 1 ]` neutralises one status and only one: grep's "nothing was selected", which
-is what a tree with no ticket files gives. Without it a freshly initialised tree reports
-failure for being empty and `set -e` stops the run after the first of the nine headers. A
-genuine `grep` failure — status 2, what an unreadable `.ai/sift/archive` produces — is *not*
-absorbed, so the block can never print nine clean headers for a tree it only half read. A
-blanket `|| true` would absorb that too.
+`|| [ $? -eq 1 ]` accepts grep's no-match status for an empty tree but preserves real grep
+errors. Do not replace it with `|| true`.
 
-**Find tickets archived without a `resolution`** — the one rule the validation above cannot
-carry. `resolution` is the only required key that becomes required *later*: optional while a
-ticket is open, mandatory the moment its status turns terminal, so adding it to the
-`for k in …` list would flag every open ticket. It is keyed off `status`, never off the
-`archive/` directory: front matter is the source of truth and folders are an index (rule 3),
-so a `done` ticket owes a resolution wherever it currently sits. Same tree guard as above; a
-tree whose terminal tickets all record how they ended prints nothing and exits 0:
+**Find tickets archived without a `resolution`**. Resolution becomes required when `status`
+is terminal, regardless of the current folder. A conforming tree prints nothing:
 ```sh
 [ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }
 find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r f; do
@@ -807,16 +638,8 @@ find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r 
   ' "$f"
 done
 ```
-All four empty forms are one finding: the key absent, `resolution:` with nothing after it,
-`resolution: ""`, and `resolution: ''`. The last two are why the value is stripped of quotes
-and spaces rather than compared against the empty string — the template ships
-`resolution: ""`, so the empty *string* is what an unfilled ticket looks like on disk. The
-single quote is written `\047` because the `awk` program is itself single-quoted.
-
-Both keys are read in one pass over the leading `---` fence, so a body line quoting either at
-column 0 cannot decide the result. A ticket carrying no `status:` is deliberately not this
-recipe's finding: there is no terminal status to owe a resolution against, and the validation
-above already lists the absent key.
+The absent key, a blank value, `""`, and `''` all count as empty. The pass reads only leading
+front-matter. A missing `status:` belongs to the required-key validation above.
 
 **Find bug tickets missing the `## Expected behaviour` section** (the backfill list after
 adopting the type-specific templates — add the section to each, or accept it as debt):
@@ -831,9 +654,8 @@ grep -rl '^type: feature' .ai/sift/open --include="$PREFIX-*.md" \
   | while read -r f; do grep -q '^## Direction' "$f" || echo "$f"; done
 ```
 
-**Machine-check a draft — optional, only if `xmllint` is already installed.** Nothing here
-requires it, and a ticket rendered by hand without ever running this is fully valid. The
-guard makes the recipe a no-op rather than a failure on a machine without the binary:
+**Machine-check a draft — optional, only if `xmllint` is already installed.** Hand-rendered
+tickets are valid. Without the binary, the guard reports a skip and exits successfully:
 ```sh
 if command -v xmllint >/dev/null; then
   xmllint --noout --schema .ai/sift/schemas/bug-ticket.xsd /tmp/draft.xml
@@ -857,40 +679,22 @@ find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | while read -r f; do
   fi
 done
 ```
-The milestone is read by walking the leading `---` fence. `grep -m1 '^milestone:'` failed on
-precisely the ticket this check exists to catch: front matter with no `milestone:` key, whose
-first match is then a body line quoting it at column 0 — the folder got compared against a
-sentence and the ticket was reported clean.
+The fence walk ignores body text. For `MISMATCH:`, move the file to match authoritative
+front-matter. For `NO MILESTONE:`, add a non-empty front-matter key.
 
-The two findings are different repairs. `MISMATCH:` means the front matter is authoritative
-and the file is in the wrong directory; fix it with the milestone move above. `NO MILESTONE:`
-means there is nothing to compare against — the key is absent or empty — and the fix is to
-write it.
+**Refresh the installed convention** by copying only `README.md` and `schemas/*.xsd`.
+Everything else under `.ai/sift/` is repository state and must not be overwritten.
 
-**Refresh the installed convention** — this file and `schemas/*.xsd`, and nothing else in
-the tree. Every other path under `.ai/sift/` is the repository's own state and exists nowhere
-else, so no command may overwrite it; `README.md` and `schemas/` are the opposite, copied in
-byte for byte when the tree was created, which is what makes the refresh a plain `cp`.
-
-It has to be run deliberately, because nothing runs it for you: the initializer installs
-these files create-if-absent, so the copy freezes on the day the tree was created while the
-convention keeps moving. What it does do, on every run, is *report* the gap — a `stale` line
-naming each file whose bytes no longer match the shipped one,
-followed by the two commands below with the paths already resolved:
+The initializer never refreshes files automatically. It reports each byte-different file as
+`stale`, followed by the two commands below with the paths already resolved:
 
 ```sh
 cp "$SKILL/assets/README.md" .ai/sift/README.md
 cp "$SKILL"/assets/schemas/*.xsd .ai/sift/schemas/
 ```
 
-`$SKILL` is the `sift-init` skill's own directory; run `sift-init.sh` and paste the lines it
-prints rather than guessing at the path. It reports and stops there on purpose: these two
-files are also the only place a repository can annotate the convention for itself, so `diff`
-them first if you have written anything into either. A tree whose copy is current gets no
-`stale` line at all.
+`$SKILL` is the `sift-init` skill directory. Run `sift-init.sh` and use its resolved commands;
+diff local annotations before copying. Current files produce no `stale` line.
 
-The refresh copies, so it cannot remove: a schema the convention has since withdrawn survives
-every refresh. The initializer reports that separately, as an `orphan` line naming the file
-followed by the `rm` that answers it — a command to run, not an action it takes, because
-nothing on disk distinguishes a withdrawn schema from one this repository added for itself.
-The skill's `assets/schemas/` is the list of names that still ship.
+Refresh never removes files. A schema absent from `assets/schemas/` is reported as `orphan`
+with a suggested `rm`; the initializer does not execute it.

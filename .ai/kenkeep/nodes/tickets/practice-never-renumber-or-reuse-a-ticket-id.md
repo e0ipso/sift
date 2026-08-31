@@ -61,5 +61,5 @@ treat any operation that would shift an existing number as out of bounds.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-ticket-tree-layout](/map-sift-ticket-tree-layout.md)
+- Related: [map-sift-ticket-tree-layout](/tickets/map-sift-ticket-tree-layout.md)
 <!-- kk:related:end -->

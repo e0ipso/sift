@@ -31,7 +31,7 @@ The price is named rather than hidden: the rule that a ticket's archive move and
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-account-for-ai-sift-being-gitignored](/sift-drain/practice-account-for-ai-sift-being-gitignored.md)
+- Related: [practice-account-for-ai-sift-being-gitignored](/sift-drain/tracker-runtime/practice-account-for-ai-sift-being-gitignored.md)
 - Related: [practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge](/convention/practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge.md)
 - Related: [practice-keep-roadmap-in-sync-same-change](/tickets/practice-keep-roadmap-in-sync-same-change.md)
 <!-- kk:related:end -->

@@ -41,6 +41,6 @@ the first makes the writer fail on trees that are perfectly correct.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-a-subcommand-ends-the-option-list-so-the-marker-goes-in-front-of-it](/practice-a-subcommand-ends-the-option-list-so-the-marker-goes-in-front-of-it.md)
+- Related: [practice-a-subcommand-ends-the-option-list-so-the-marker-goes-in-front-of-it](/cli/practice-a-subcommand-ends-the-option-list-so-the-marker-goes-in-front-of-it.md)
 - Related: [practice-move-tickets-and-edit-front-matter-together](/tickets/practice-move-tickets-and-edit-front-matter-together.md)
 <!-- kk:related:end -->

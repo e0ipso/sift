@@ -23,8 +23,8 @@ sift-prime runs the same path on cold and populated trees. Before negotiation, e
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-prime-the-skill-that-fills-a-sift-backlog](/map-sift-prime-the-skill-that-fills-a-sift-backlog.md)
-- Related: [map-sift-ticket-tree-layout](/map-sift-ticket-tree-layout.md)
+- Related: [map-sift-prime-the-skill-that-fills-a-sift-backlog](/sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md)
+- Related: [map-sift-ticket-tree-layout](/tickets/map-sift-ticket-tree-layout.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

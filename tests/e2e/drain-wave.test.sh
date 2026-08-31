@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# End to end: a two-wave roadmap is drained the way the sift-drain loop drives it.
+# End to end: a two-wave backlog is drained the way the sift-drain loop drives it.
 #
-# The lifecycle e2e proves an empty directory becomes a rule-9-consistent tree;
+# The lifecycle e2e proves an empty directory becomes a self-consistent tree;
 # this file drives the orchestration loop layered on top of that tree — the
 # wave-graph drain where wave-status.sh is the wave load, a sitting's tickets go
 # to drain-log.sh in one call, workers return without ever touching the tracker,
-# and the orchestrator lands every archive, strike and slotted row itself. The
+# and the orchestrator lands every archive and every wave assignment itself. The
 # prompts that mandate that division of labour cannot be executed here, so what
 # is pinned is the tree between the steps: every state the loop passes through —
-# mid-sitting, worker-filed ticket unslotted, wave landed, roadmap drained — is
-# one the shipped scripts either report as consistent or refuse, and the refusal
-# comes exactly where the playbook puts the orchestrator's bookkeeping.
+# mid-sitting, worker-filed ticket carrying no wave, wave landed, backlog
+# drained — is one the shipped scripts either report as consistent or refuse,
+# and the refusal comes exactly where the playbook puts the bookkeeping.
 
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
@@ -25,6 +25,51 @@ DRAIN="$REPO_ROOT/src/skills/sift-drain/scripts"
 # asserted by their fields rather than by their padding.
 squeeze() { printf '%s\n' "$1" | tr -s ' '; }
 
+# drop_wave <ticket-file> — remove the `wave:` key from the front matter. The
+# fixture library writes one into every open ticket because the convention
+# requires it there, so a ticket filed without one has to be made here.
+drop_wave() {
+  awk '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; print; next }
+    infm && /^---[[:space:]]*$/ { infm = 0; print; next }
+    infm && /^wave:/ { next }
+    { print }
+  ' "$1" > "$1.tmp" && mv "$1.tmp" "$1"
+}
+
+# land <id> <resolution> — the two operations the orchestrator performs to land a
+# finished ticket, and there is no third: the front-matter edit, then the `mv`.
+#
+# Driven here rather than through the cookbook's archive recipe because this
+# file's subject is what the drain does. The recipe itself is executed verbatim
+# from README.md by cookbook/archive.test.sh and e2e/lifecycle.test.sh, so the
+# documented text is not left unpinned by this substitution — and a ticket filed
+# mid-run has nothing but its own file, which is exactly the case the drain has
+# to be able to land.
+land() {
+  local id="$1" f dest
+  f="$(find "$root/.ai/sift/open" -name "$id--*.md")"
+  [ -f "$f" ] || return 2
+  RESOLUTION="$2" awk '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; print; next }
+    infm && /^---[[:space:]]*$/ {
+      if (!wrote) { print "resolution: \"" ENVIRON["RESOLUTION"] "\"" }
+      infm = 0
+      print
+      next
+    }
+    infm && /^status:/ { print "status: done"; next }
+    infm && /^resolution:/ {
+      print "resolution: \"" ENVIRON["RESOLUTION"] "\""
+      wrote = 1
+      next
+    }
+    { print }
+  ' "$f" > "$f.tmp" && mv "$f.tmp" "$f" || { rm -f "$f.tmp"; return 2; }
+  dest="$(printf '%s\n' "$f" | sed 's#/open/#/archive/#')"
+  mkdir -p "$(dirname "$dest")" && mv "$f" "$dest"
+}
+
 root="$(newdir)"
 
 test_case "wave-status.sh is the wave load: the current wave's IDs, priority and effort"
@@ -32,17 +77,13 @@ run_cmd "$root" "$INIT/sift-init.sh" --root "$root" --prefix ACME --milestone v1
 assert_eq 0 "$R_STATUS" "init materialises the tree"
 ticket "$root" open v1/bug ACME-0001 first 'First thing' 'priority: p1' 'effort: s' > /dev/null
 ticket "$root" open v1/bug ACME-0002 second 'Second thing' > /dev/null
-ticket "$root" open v1/bug ACME-0003 third 'Third thing' > /dev/null
-roadmap_row "$root" 1 ACME-0001 'First thing'
-roadmap_row "$root" 2 ACME-0002 'Second thing'
-roadmap_wave "$root" 2
-roadmap_row "$root" 3 ACME-0003 'Third thing'
+ticket "$root" open v1/bug ACME-0003 third 'Third thing' 'wave: 2' > /dev/null
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/wave-status.sh"
 assert_eq 0 "$R_STATUS" "work remains: exit 0"
 assert_contains "$R_OUT" 'current wave: 1' "the earliest wave with remaining work"
-assert_contains "$(squeeze "$R_OUT")" '1 ACME-0001 [p1/s/open] First thing' \
+assert_contains "$(squeeze "$R_OUT")" 'ACME-0001 [p1/s/open] First thing' \
   "the load carries the fields the graph is planned from"
-assert_contains "$(squeeze "$R_OUT")" '2 ACME-0002 [p2/m/open] Second thing' \
+assert_contains "$(squeeze "$R_OUT")" 'ACME-0002 [p2/m/open] Second thing' \
   "…for every remaining ticket of the wave"
 assert_not_contains "$R_OUT" 'ACME-0003' "a later wave's tickets are not in the load"
 
@@ -54,37 +95,46 @@ assert_eq 2 "$(grep -c '^| dispatch |' "$log")" "one row per ticket of the sitti
 assert_eq 1 "$(awk -F'|' '/^\| dispatch \|/ { gsub(/ /, "", $6); print $6 }' "$log" \
   | sort -u | grep -c .)" "one shared epoch is what makes them one sitting"
 
-test_case "a worker files a ticket; until the orchestrator slots it, rule 9 is owed"
+test_case "a filed ticket carrying no wave is refused, and no load can see it"
+# The mid-run filing hazard, now that wave membership is a key in the ticket
+# itself: a follow-up written without one is in no wave, so every load skips it
+# and it is worked by nobody. The check is what says so.
 run_recipe "$root" "$(recipe_allocate)" PREFIX=ACME
 assert_eq "ACME-0004" "$R_OUT" "the worker allocates the next ID"
-ticket "$root" open v1/bug ACME-0004 filed 'Filed mid-run' 'priority: p3' 'effort: s' > /dev/null
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/roadmap-check.sh"
-assert_eq 1 "$R_STATUS" "a filed-but-unslotted ticket is a violation, not a footnote"
-assert_contains "$R_OUT" 'MISSING FROM ROADMAP: ACME-0004' "and the check names it"
-
-test_case "the orchestrator slots the filed row into the current wave"
-# A row belongs to the wave heading above it, so slotting into wave 1 means
-# landing the row before the "## Wave 2" heading.
-awk -v row='| 4 | ACME-0004 | Filed mid-run | - |' \
-  '/^## Wave 2$/ && !done { print row; print ""; done = 1 } { print }' \
-  "$root/.ai/sift/ROADMAP.md" > "$root/r.tmp" && mv "$root/r.tmp" "$root/.ai/sift/ROADMAP.md"
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/roadmap-check.sh"
-assert_eq 0 "$R_STATUS" "the slotted row settles the debt"
+filed="$(ticket "$root" open v1/bug ACME-0004 filed 'Filed mid-run' \
+  'priority: p3' 'effort: s')"
+drop_wave "$filed"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/ticket-check.sh"
+assert_eq 1 "$R_STATUS" "a filed-but-unwaved ticket is a violation, not a footnote"
+assert_contains "$R_OUT" '! NO WAVE: ACME-0004' "and the check names it"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/wave-status.sh"
-assert_contains "$(squeeze "$R_OUT")" '4 ACME-0004 [p3/s/open] Filed mid-run' \
+assert_not_contains "$(squeeze "$R_OUT")" 'ACME-0004 [p3/s/open]' \
+  "the load cannot dispatch a ticket that belongs to no wave"
+assert_contains "$R_OUT" '1 ticket(s) carry no wave key' "the report says how many are adrift"
+
+test_case "the orchestrator slots the filed ticket by writing its wave"
+# Slotting is one key in the one file the worker already created. There is no
+# second file to edit and nothing to keep in step with it.
+awk '
+  NR == 1 && /^---[[:space:]]*$/ { infm = 1; print; next }
+  infm && /^---[[:space:]]*$/ { infm = 0; print "wave: 1"; print; next }
+  { print }
+' "$filed" > "$filed.tmp" && mv "$filed.tmp" "$filed"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/ticket-check.sh"
+assert_eq 0 "$R_STATUS" "the wave settles the debt"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/wave-status.sh"
+assert_contains "$(squeeze "$R_OUT")" 'ACME-0004 [p3/s/open] Filed mid-run' \
   "and the filed ticket joins the current wave's load"
 
-test_case "the sitting returns in one call and the orchestrator lands rule 9 per ticket"
+test_case "the sitting returns in one call and the orchestrator lands each ticket alone"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" return ACME-0001 'done' ACME-0002 'done'
 assert_eq 0 "$R_STATUS" "each ticket paired with its own reported status"
-run_recipe "$root" "$(recipe_archive)" \
-  PREFIX=ACME ID=ACME-0001 STATUS=done RESOLUTION='Landed by the orchestrator'
-assert_eq 0 "$R_STATUS" "the first archive-and-strike lands"
-run_recipe "$root" "$(recipe_archive)" \
-  PREFIX=ACME ID=ACME-0002 STATUS=done RESOLUTION='Landed by the orchestrator'
-assert_eq 0 "$R_STATUS" "the second lands separately: one ticket, one landing"
-run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/roadmap-check.sh"
-assert_eq 0 "$R_STATUS" "roadmap-check runs after the orchestrator's bookkeeping, and it holds"
+land ACME-0001 'Landed by the orchestrator'
+assert_eq 0 "$?" "the first edit-and-move lands"
+land ACME-0002 'Landed by the orchestrator'
+assert_eq 0 "$?" "the second lands separately: one ticket, one landing"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/ticket-check.sh"
+assert_eq 0 "$R_STATUS" "ticket-check runs after the orchestrator's bookkeeping, and it holds"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/wave-status.sh"
 assert_eq 0 "$R_STATUS" "the wave stays open while filed work remains"
 assert_contains "$R_OUT" 'current wave: 1' "…so the filed ticket is worked as this wave's tail"
@@ -93,25 +143,23 @@ assert_not_contains "$R_OUT" 'ACME-0001' "landed tickets leave the load"
 test_case "the wave advances when its last ticket lands"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" dispatch ACME-0004
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" return ACME-0004 'done'
-run_recipe "$root" "$(recipe_archive)" \
-  PREFIX=ACME ID=ACME-0004 STATUS=done RESOLUTION='Landed by the orchestrator'
-assert_eq 0 "$R_STATUS" "the tail ticket lands"
+land ACME-0004 'Landed by the orchestrator'
+assert_eq 0 "$?" "the tail ticket lands"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/wave-status.sh"
 assert_eq 0 "$R_STATUS" "work remains in the next wave"
 assert_contains "$R_OUT" 'current wave: 2' "the load moves to the next wave, no human pause"
-assert_contains "$(squeeze "$R_OUT")" '3 ACME-0003 [p2/m/open] Third thing' \
+assert_contains "$(squeeze "$R_OUT")" 'ACME-0003 [p2/m/open] Third thing' \
   "and carries that wave's remaining ticket"
 
-test_case "the drained roadmap is an exit code, not a judgement call"
+test_case "the drained backlog is an exit code, not a judgement call"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" dispatch ACME-0003
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" return ACME-0003 'done'
-run_recipe "$root" "$(recipe_archive)" \
-  PREFIX=ACME ID=ACME-0003 STATUS=done RESOLUTION='Landed by the orchestrator'
-assert_eq 0 "$R_STATUS" "the last ticket lands"
+land ACME-0003 'Landed by the orchestrator'
+assert_eq 0 "$?" "the last ticket lands"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/wave-status.sh"
-assert_eq 1 "$R_STATUS" "exit 1: the run ends because the roadmap says so"
+assert_eq 1 "$R_STATUS" "exit 1: the run ends because the tickets say so"
 assert_contains "$R_OUT" 'current wave: none' "no wave is left to load"
-assert_contains "$R_OUT" '4/4 struck' "every ticket, the mid-run filing included, is struck"
+assert_contains "$R_OUT" '4/4 done' "every ticket, the mid-run filing included, is landed"
 
 test_case "drain-log.sh report reads the whole run back per sitting"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/drain-log.sh" report

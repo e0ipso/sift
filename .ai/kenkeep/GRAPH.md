@@ -1,17 +1,34 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:e46737c78b915752e9e8fbe08b3157104ecba0d61405d8cd97c0f886038b1155'
-node_count: 94
+nodes_hash: 'sha256:c511e3af417a708c7619a886ec532893336b47d6f42b2b6fe81064e85afdd878'
+node_count: 98
 ---
 # kenkeep Graph
 
-Total nodes: 94
+Total nodes: 98
+
+## map-kenkeep-knowledge-admission-authority
+
+- **kind:** map
+- **title:** Kenkeep knowledge-admission authority
+- **path:** map-kenkeep-knowledge-admission-authority.md
+- **tags:** kenkeep, prompts, ownership
+- **derived_from:** 4039a28c-82f8-4772-9667-404c8aec09cb:map:1
+
+## map-platform-plan-creator-contract
+
+- **kind:** map
+- **title:** Platform plan-creator contract
+- **path:** strikethroo/map-platform-plan-creator-contract.md
+- **tags:** strikethroo, agents, prompts
+- **relates_to:** map-strikethroo-identifier-scopes
+- **derived_from:** 3d3ee3a0-eb9a-4543-9e23-39539d9bb26c:map:2
 
 ## map-runlog-md-the-drain-s-append-only-run-log
 
 - **kind:** map
 - **title:** RUNLOG.md, the drain's append-only run log
-- **path:** sift-drain/map-runlog-md-the-drain-s-append-only-run-log.md
+- **path:** sift-drain/tracker-runtime/map-runlog-md-the-drain-s-append-only-run-log.md
 - **tags:** sift, runlog, sift-drain, schemas
 - **relates_to:** map-sift-drain-skill, map-sift-readme-normative-spec, map-sift-ticket-tree-layout, practice-keep-recipes-portable-gnu-and-bsd
 - **derived_from:** 7dcf0144-592c-4853-a5c2-57b8ad8ad350:map:1
@@ -20,10 +37,10 @@ Total nodes: 94
 
 - **kind:** map
 - **title:** sift-drain: the skill that works a sift roadmap to completion
-- **path:** sift-drain/map-sift-drain-skill.md
+- **path:** sift-drain/orchestration/map-sift-drain-skill.md
 - **tags:** sift-drain, orchestration, skills
 - **relates_to:** map-sift-readme-normative-spec, map-runlog-md-the-drain-s-append-only-run-log, practice-the-drain-orchestrator-builds-a-wave-graph, practice-the-drain-orchestrator-owns-tracker-writes
-- **derived_from:** 7dcf0144-592c-4853-a5c2-57b8ad8ad350:map:1
+- **derived_from:** 7dcf0144-592c-4853-a5c2-57b8ad8ad350:map:1, 994da13d-7654-4b9e-a1d6-183d89f6fd2a:map:0
 
 ## map-sift-file-based-issue-tracker
 
@@ -39,7 +56,7 @@ Total nodes: 94
 - **path:** sift-init/map-sift-init-deterministic-project-root-gate-and-tree-materialization.md
 - **tags:** sift-init, skills, sift
 - **relates_to:** practice-resolve-the-sift-project-root-with-tier-a-b-c, practice-fresh-sift-trees-ignore-themselves-via-ai-sift-gitignore, practice-never-renumber-or-reuse-a-ticket-id, map-sift-file-based-issue-tracker
-- **derived_from:** 0784ce94-7d65-4e60-92d2-a0044e4045b0:map:0
+- **derived_from:** 0784ce94-7d65-4e60-92d2-a0044e4045b0:map:0, 4039a28c-82f8-4772-9667-404c8aec09cb:map:0
 
 ## map-sift-prime-the-skill-that-fills-a-sift-backlog
 
@@ -48,7 +65,7 @@ Total nodes: 94
 - **path:** sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md
 - **tags:** sift-prime, skills, sift
 - **relates_to:** practice-sift-prime-creates-a-slate-of-tickets-not-a-single-ticket, practice-dedupe-sift-prime-proposals-against-open-and-archive, practice-ground-sift-prime-proposals-in-goal-gap-evidence-with-citations, practice-negotiate-the-sift-prime-slate-in-chat-only-reserve-ids-in-one-pass, map-sift-drain-skill, map-sift-init-deterministic-project-root-gate-and-tree-materialization
-- **derived_from:** 5448174b-fef4-4061-9f43-64dad9c0fad7:map:0
+- **derived_from:** 5448174b-fef4-4061-9f43-64dad9c0fad7:map:0, 3d3ee3a0-eb9a-4543-9e23-39539d9bb26c:map:0, 50b13f1b-f79a-4eaf-b856-01f5cf742a87:map:0
 
 ## map-sift-readme-normative-spec
 
@@ -107,6 +124,23 @@ Total nodes: 94
 - **path:** tickets/map-sift-xsd-drafting-schemas.md
 - **tags:** sift, tickets, schemas
 - **relates_to:** map-sift-ticket-body-sections
+
+## map-strikethroo-full-workflow-stage-orchestration
+
+- **kind:** map
+- **title:** Strikethroo full-workflow stage orchestration
+- **path:** strikethroo/map-strikethroo-full-workflow-stage-orchestration.md
+- **tags:** strikethroo, orchestration, skills
+- **relates_to:** map-strikethroo-identifier-scopes
+- **derived_from:** 3d3ee3a0-eb9a-4543-9e23-39539d9bb26c:map:1
+
+## map-strikethroo-identifier-scopes
+
+- **kind:** map
+- **title:** Strikethroo identifier scopes
+- **path:** strikethroo/map-strikethroo-identifier-scopes.md
+- **tags:** strikethroo, ids, layout
+- **derived_from:** 4039a28c-82f8-4772-9667-404c8aec09cb:map:2
 
 ## map-tests-lib-the-three-shared-libraries-and-what-each-owns
 
@@ -238,7 +272,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** A worker checks back when another has changed its work
-- **path:** sift-drain/practice-a-worker-checks-back-when-another-has-changed-its-work.md
+- **path:** sift-drain/orchestration/practice-a-worker-checks-back-when-another-has-changed-its-work.md
 - **tags:** sift-drain, orchestration, agents, concurrency
 - **relates_to:** practice-sift-drain-sub-agents-decide-for-themselves, practice-the-drain-orchestrator-builds-a-wave-graph
 
@@ -246,7 +280,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** Account for .ai/sift being gitignored
-- **path:** sift-drain/practice-account-for-ai-sift-being-gitignored.md
+- **path:** sift-drain/tracker-runtime/practice-account-for-ai-sift-being-gitignored.md
 - **tags:** sift-drain, git, gotcha, search
 - **relates_to:** map-sift-drain-skill
 
@@ -287,7 +321,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** Batch test authoring at the wave gate, not per ticket
-- **path:** sift-drain/practice-batch-test-authoring-at-the-wave-gate.md
+- **path:** sift-drain/verification/practice-batch-test-authoring-at-the-wave-gate.md
 - **tags:** sift-drain, testing, orchestration
 - **relates_to:** map-sift-drain-skill
 
@@ -495,7 +529,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** Nothing leaves the machine during a sift drain
-- **path:** sift-drain/practice-never-push-or-file-upstream-during-a-drain.md
+- **path:** sift-drain/orchestration/practice-never-push-or-file-upstream-during-a-drain.md
 - **tags:** sift-drain, git, agents
 - **relates_to:** map-sift-drain-skill
 
@@ -536,7 +570,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** When draining sift, orchestrate and never implement
-- **path:** sift-drain/practice-orchestrate-sift-drain-never-implement.md
+- **path:** sift-drain/orchestration/practice-orchestrate-sift-drain-never-implement.md
 - **tags:** sift-drain, orchestration, agents
 - **relates_to:** map-sift-drain-skill, practice-the-drain-orchestrator-stays-the-same-agent-across-waves, practice-the-drain-orchestrator-builds-a-wave-graph, practice-the-drain-orchestrator-owns-tracker-writes
 
@@ -601,7 +635,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** Read drain run-log timings as agent runtime, never as idle
-- **path:** sift-drain/practice-read-drain-run-log-timings-as-agent-runtime-never-as-idle.md
+- **path:** sift-drain/tracker-runtime/practice-read-drain-run-log-timings-as-agent-runtime-never-as-idle.md
 - **tags:** sift, runlog, instrumentation, timing
 - **relates_to:** map-sift-drain-skill
 - **derived_from:** 7dcf0144-592c-4853-a5c2-57b8ad8ad350:practice:0
@@ -627,7 +661,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** Resolve the sift tree by walking up for the .ai/sift directory
-- **path:** sift-drain/practice-resolve-the-sift-tree-by-walking-up-for-the-ai-sift-directory.md
+- **path:** sift-drain/tracker-runtime/practice-resolve-the-sift-tree-by-walking-up-for-the-ai-sift-directory.md
 - **tags:** sift-drain, shell, paths, portability
 - **relates_to:** map-sift-drain-skill
 - **derived_from:** 3d98e758-6e1e-49bc-9ac8-e90500ee56bb:practice:0
@@ -644,7 +678,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** Sub-agent autonomy is the contract in a sift drain
-- **path:** sift-drain/practice-sift-drain-sub-agents-decide-for-themselves.md
+- **path:** sift-drain/orchestration/practice-sift-drain-sub-agents-decide-for-themselves.md
 - **tags:** sift-drain, agents, orchestration
 - **relates_to:** practice-orchestrate-sift-drain-never-implement, practice-a-worker-checks-back-when-another-has-changed-its-work
 
@@ -669,7 +703,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** Surface every self-filed ticket and report progress honestly
-- **path:** sift-drain/practice-surface-every-self-filed-ticket-and-honest-progress.md
+- **path:** sift-drain/orchestration/practice-surface-every-self-filed-ticket-and-honest-progress.md
 - **tags:** sift-drain, reporting, orchestration
 - **relates_to:** practice-orchestrate-sift-drain-never-implement
 
@@ -693,7 +727,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** The drain orchestrator builds a wave graph of workers
-- **path:** sift-drain/practice-the-drain-orchestrator-builds-a-wave-graph.md
+- **path:** sift-drain/orchestration/practice-the-drain-orchestrator-builds-a-wave-graph.md
 - **tags:** sift-drain, orchestration, concurrency, agents
 - **relates_to:** map-sift-drain-skill, practice-orchestrate-sift-drain-never-implement, practice-the-drain-orchestrator-owns-tracker-writes
 
@@ -701,7 +735,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** The drain orchestrator owns tracker writes and merges
-- **path:** sift-drain/practice-the-drain-orchestrator-owns-tracker-writes.md
+- **path:** sift-drain/orchestration/practice-the-drain-orchestrator-owns-tracker-writes.md
 - **tags:** sift-drain, orchestration, git, tickets
 - **relates_to:** practice-keep-roadmap-in-sync-same-change, practice-orchestrate-sift-drain-never-implement, practice-the-drain-orchestrator-builds-a-wave-graph
 
@@ -709,7 +743,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** The drain orchestrator stays the same agent across waves
-- **path:** sift-drain/practice-the-drain-orchestrator-stays-the-same-agent-across-waves.md
+- **path:** sift-drain/orchestration/practice-the-drain-orchestrator-stays-the-same-agent-across-waves.md
 - **tags:** sift-drain, orchestration, agents, context
 - **relates_to:** practice-orchestrate-sift-drain-never-implement, map-sift-drain-skill
 
@@ -733,7 +767,7 @@ Total nodes: 94
 
 - **kind:** practice
 - **title:** Treat the dev environment as shared and not disposable
-- **path:** sift-drain/practice-treat-the-dev-environment-as-shared.md
+- **path:** sift-drain/verification/practice-treat-the-dev-environment-as-shared.md
 - **tags:** sift-drain, testing, safety
 - **relates_to:** practice-batch-test-authoring-at-the-wave-gate
 

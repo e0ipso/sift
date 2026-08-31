@@ -37,5 +37,5 @@ front-matter key.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-ticket-front-matter](/map-sift-ticket-front-matter.md)
+- Related: [map-sift-ticket-front-matter](/tickets/map-sift-ticket-front-matter.md)
 <!-- kk:related:end -->

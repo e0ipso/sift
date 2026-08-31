@@ -34,7 +34,7 @@ Note that `xs` carries a weight here but is not a member of the `effort` closed 
 # Related
 
 - Related: [map-sift-ticket-front-matter](/tickets/map-sift-ticket-front-matter.md)
-- Related: [map-sift-drain-skill](/sift-drain/map-sift-drain-skill.md)
+- Related: [map-sift-drain-skill](/sift-drain/orchestration/map-sift-drain-skill.md)
 - Related: [map-sift-readme-normative-spec](/spec/map-sift-readme-normative-spec.md)
 <!-- kk:related:end -->
 

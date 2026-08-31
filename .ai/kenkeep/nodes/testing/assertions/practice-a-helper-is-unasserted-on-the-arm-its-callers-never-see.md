@@ -30,8 +30,8 @@ A marker walk tests `[ -e ]`, never `[ -d ]`: a `.git` **file** is what a worktr
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-tree-digest-cannot-see-an-empty-directory](/testing/practice-tree-digest-cannot-see-an-empty-directory.md)
-- Related: [practice-never-edit-the-tree-while-the-suite-is-running](/testing/practice-never-edit-the-tree-while-the-suite-is-running.md)
+- Related: [practice-tree-digest-cannot-see-an-empty-directory](/testing/assertions/practice-tree-digest-cannot-see-an-empty-directory.md)
+- Related: [practice-never-edit-the-tree-while-the-suite-is-running](/testing/suite/practice-never-edit-the-tree-while-the-suite-is-running.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

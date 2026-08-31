@@ -29,7 +29,7 @@ A cost stated per ticket *carried* has the same defect: a group that blocked hal
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-drain-skill](/sift-drain/map-sift-drain-skill.md)
+- Related: [map-sift-drain-skill](/sift-drain/orchestration/map-sift-drain-skill.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

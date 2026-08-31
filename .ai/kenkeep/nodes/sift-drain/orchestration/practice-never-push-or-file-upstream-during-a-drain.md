@@ -35,5 +35,5 @@ carry them verbatim, and the clauses are not to be trimmed.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-drain-skill](/map-sift-drain-skill.md)
+- Related: [map-sift-drain-skill](/sift-drain/orchestration/map-sift-drain-skill.md)
 <!-- kk:related:end -->

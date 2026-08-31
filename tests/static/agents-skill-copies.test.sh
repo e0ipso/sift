@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Static analysis: the inventory of cross-skill copies AGENTS.md keeps.
 #
-# "Duplication between skills" is a decision record: two rules are written out
+# "Duplication between skills" is a decision record: one rule is written out
 # once per skill because the skills install independently, and the record lists
 # every copy so an agent asking "how many copies of this rule are there, and
 # where" gets a correct answer. A stale entry answers worse than no entry at
@@ -106,13 +106,12 @@ SELF="tests/static/$(basename "$0")"
 if grep -Fq -e "$SELF" "$AGENTS"; then t_ok "the record says which test file reads it"
 else t_fail "the record says which test file reads it" "AGENTS.md never names $SELF"; fi
 
-test_case "the inventory still covers both skills and both rules"
-# A coverage floor, not a second copy of the list: these are the three files the
-# two recorded rules live in, so a well-meaning trim of the inventory fails here
+test_case "the inventory still covers both skills"
+# A coverage floor, not a second copy of the list: these are the two files the
+# one recorded rule lives in, so a well-meaning trim of the inventory fails here
 # rather than silently narrowing what the record claims to track.
 PATHS="$(printf '%s\n' "$ENTRIES" | cut -f1 | LC_ALL=C sort -u)"
-assert_contains "$PATHS" 'src/skills/sift-drain/scripts/lib.sh' "the drain's roadmap reader"
-assert_contains "$PATHS" 'src/skills/sift-prime/scripts/roadmap-append.sh' "prime's writer"
+assert_contains "$PATHS" 'src/skills/sift-prime/scripts/reserve-ids.sh' "prime's allocator"
 assert_contains "$PATHS" 'src/skills/sift-drain/scripts/drain-log.sh' "the drain's ID check"
 
 test_case "every copy the record names is still where it says"
@@ -179,26 +178,27 @@ test_case "the uniqueness half of the obligation, and why it is not counted here
 # entries, and the reason is not that the count is awkward.
 #
 # It is that the count would be green through the only violation this
-# repository has ever had. The second copy inside roadmap-append.sh was a
-# PARAPHRASE, not a repetition: the append hop selected its cell on the bare
-# pattern while the duplicate guard beside it went through cell_id (SFT-0031,
-# folded back onto one cell_id by SFT-0038). Every construct named above
-# appeared exactly once for the whole life of that bug. A guard that cannot see
-# the failure it is named after is worse than none, because it is believed.
+# repository has ever had. The second copy inside sift-prime's retired roadmap
+# writer was a PARAPHRASE, not a repetition: its append hop selected its cell on
+# the bare pattern while the duplicate guard beside it went through cell_id
+# (SFT-0031, folded back onto one cell_id by SFT-0038). Every construct the
+# record named appeared exactly once for the whole life of that bug. A guard that
+# cannot see the failure it is named after is worse than none, because it is
+# believed.
 #
-# The exemption it would additionally need makes the same point from the other
-# side: `ROW_ID_PAT=` occurs twice in roadmap-append.sh on purpose — the
-# assignment, then the ENVIRON hand-off into awk — so the count would ship with
-# a hand-maintained exception list, which is the stale-record failure this file
-# exists to prevent rather than to reproduce.
+# The count would also have to be maintained against constructs that legitimately
+# repeat. `[0-9]{4,}` was written twice in reserve-ids.sh for as long as the mark
+# was read from two sources, so the count would have shipped with a hand-maintained
+# exception list — the stale-record failure this file exists to prevent rather than
+# to reproduce.
 #
 # Where the obligation IS guarded is behaviour, because that is where a
-# paraphrase shows: "the append hop counts exactly the rows the duplicate guard
-# counts (SFT-0038)" in tests/scripts/prime-backlog.test.sh holds the two hops
-# of the row rule inside sift-prime to one answer, and drain-log.sh's dispatch
-# and return positions are held to one refusal set through the same check in
-# tests/scripts/drain-log.test.sh for the ID rule.
+# paraphrase shows: "every ID sift-prime allocates is one sift-drain will log
+# (SFT-0042)" in tests/scripts/prime-backlog.test.sh measures the ID rule on the
+# IDs the allocator really emits, and drain-log.sh's dispatch and return
+# positions are held to one refusal set through the same check in
+# tests/scripts/drain-log.test.sh.
 skip "one-copy-per-skill as a textual count over the recorded constructs" \
-  "blind to the paraphrase that was the real bug, and needs a ROW_ID_PAT= exemption"
+  "blind to the paraphrase that was the real bug, and needs a [0-9]{4,} exemption"
 
 summary

@@ -235,12 +235,15 @@ q "$d" "$DEPENDENTS"
 assert_ne 0 "$R_STATUS" "the filtering grep's no-match status"
 assert_eq "" "$R_OUT" "no dependent is invented"
 
-test_case "who depends on SFT-0042: a roadmap Needs cell is not a ticket file"
+test_case "who depends on SFT-0042: a non-ticket file in the tree is not a dependent"
+# `--include="$PREFIX-*.md"` is what confines the search to ticket files. The
+# decoy carries the edge verbatim, so a recipe that dropped the filter would
+# report a note as a dependent.
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open caching/bug SFT-0042 base 'Base' > /dev/null
-roadmap_row "$d" 1 SFT-0099 'Elsewhere' 'SFT-0042'
+printf 'depends_on: [SFT-0042]\n' > "$d/.ai/sift/NOTES.md"
 q "$d" "$DEPENDENTS"
-assert_not_contains "$R_OUT" 'ROADMAP.md' "--include keeps the search to ticket files"
+assert_not_contains "$R_OUT" 'NOTES.md' "--include keeps the search to ticket files"
 
 test_case "who depends on SFT-0042: SFT-00420 is a different ticket"
 # SFT-0015: the search used to be a bare substring match, so every ticket whose

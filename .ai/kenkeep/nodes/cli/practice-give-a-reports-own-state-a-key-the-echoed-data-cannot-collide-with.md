@@ -40,5 +40,5 @@ skipped past the header positionally just to reach the ticket's real `status`.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-sift-drain-skill](/sift-drain/map-sift-drain-skill.md)
+- Related: [map-sift-drain-skill](/sift-drain/orchestration/map-sift-drain-skill.md)
 <!-- kk:related:end -->

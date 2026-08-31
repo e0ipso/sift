@@ -50,7 +50,7 @@ nobody thinks to re-add.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-a-one-way-set-comparison-never-sees-a-withdrawal](/testing/practice-a-one-way-set-comparison-never-sees-a-withdrawal.md)
-- Related: [practice-never-edit-the-tree-while-the-suite-is-running](/testing/practice-never-edit-the-tree-while-the-suite-is-running.md)
+- Related: [practice-a-one-way-set-comparison-never-sees-a-withdrawal](/testing/assertions/practice-a-one-way-set-comparison-never-sees-a-withdrawal.md)
+- Related: [practice-never-edit-the-tree-while-the-suite-is-running](/testing/suite/practice-never-edit-the-tree-while-the-suite-is-running.md)
 - Related: [practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test](/cross-skill/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md)
 <!-- kk:related:end -->

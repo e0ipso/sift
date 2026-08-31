@@ -40,6 +40,7 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 SCHEMAS="$REPO_ROOT/schemas"
 COMMON="$SCHEMAS/sift-common.xsd"
+MIRROR_COMMON="$REPO_ROOT/src/skills/sift-init/assets/schemas/sift-common.xsd"
 
 test_case "the ticket-ID pattern is open-ended"
 # What the pattern ACCEPTS, driven over a fixture list rather than compared
@@ -71,6 +72,35 @@ done
 for id in sft-0042 SFT- SFT-x SFT-0042x; do
   assert_eq refused "$(id_verdict "$id")" "$id is not a ticket ID"
 done
+
+# wave_decl <file> — the `wave` element declarations the file makes, one per
+# line with leading indentation cut. Textual on purpose: this file's machine
+# readers below say nothing about datatypes, and the datatype is half the claim.
+wave_decl() {
+  awk '
+    index($0, "<xs:element name=\"wave\"") == 0 { next }
+    { sub(/^[[:space:]]+/, ""); print }
+  ' "$1"
+}
+
+test_case "wave is declared the same way in both copies of the common schema"
+# The key that carries wave membership inside the ticket, so the drafting
+# contract states it rather than a separate file. Two copies of sift-common.xsd
+# ship — the repository's and sift-init's asset — and the mirrored-schema
+# obligation means a wave added to one and not the other is a broken install,
+# not a stale comment. convention-assets.test.sh compares the two files whole;
+# this case names the declaration, so a failure says which key drifted.
+common_wave="$(wave_decl "$COMMON")"
+mirror_wave="$(wave_decl "$MIRROR_COMMON")"
+assert_ne "" "$common_wave" "the wave declaration extracts from schemas/sift-common.xsd"
+assert_eq "$common_wave" "$mirror_wave" "…and the sift-init mirror declares it identically"
+assert_eq 1 "$(printf '%s\n' "$common_wave" | grep -c .)" "it is declared exactly once"
+assert_contains "$common_wave" 'type="xs:positiveInteger"' \
+  "a wave is a positive integer, so 0 and -1 are not waves"
+# Drafting produces open tickets, and an open ticket has a wave; an archived
+# ticket keeps the one it was drafted with and is never given one, which no
+# drafting schema is in a position to say.
+assert_not_contains "$common_wave" 'minOccurs="0"' "and a draft may not omit it"
 
 test_case "the closed type set is written out three times and says the same thing each time"
 # The set is the category folder set as well as the front-matter value set, so

@@ -169,8 +169,8 @@ else
   assert_eq "" "$(index_drift "$fake" "$ALLOWED")" \
     "the untouched skeleton tracks exactly what the real tree does"
 
-  victim="$SCOPE/ROADMAP.md"
-  printf '# Roadmap\n' > "$fake/$victim"
+  victim="$SCOPE/MILESTONES.md"
+  printf '# Milestones\n' > "$fake/$victim"
   # Proof the trap is the one AGENTS.md names: a plain add is refused by the
   # tree-local ignore rule, and only `-f` gets past it.
   git -C "$fake" add "$victim" > /dev/null 2>&1

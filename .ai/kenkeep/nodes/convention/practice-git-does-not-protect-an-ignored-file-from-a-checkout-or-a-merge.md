@@ -30,7 +30,7 @@ Recovery, when the sum moved: `git show <ref>:.ai/sift/ROADMAP.md` from the newe
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-account-for-ai-sift-being-gitignored](/sift-drain/practice-account-for-ai-sift-being-gitignored.md)
+- Related: [practice-account-for-ai-sift-being-gitignored](/sift-drain/tracker-runtime/practice-account-for-ai-sift-being-gitignored.md)
 - Related: [practice-probe-in-a-copied-tree-never-restore-with-git-checkout](/convention/practice-probe-in-a-copied-tree-never-restore-with-git-checkout.md)
 <!-- kk:related:end -->
 

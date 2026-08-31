@@ -387,12 +387,12 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 005: Remove roadmap assets and non-skill readers (depends on: 003, 004)
 
-### Phase 5: Rewrite the convention
+### ✅ Phase 5: Rewrite the convention
 
-**Status:** Pending
+**Status:** Completed
 
 **Parallel Tasks:**
-- Task 006: Rewrite the spec and retire row guards (depends on: 005)
+- ✔️ Task 006: Rewrite the spec and retire row guards (depends on: 005)
 
 ### Phase 6: Migrate the repository tracker
 

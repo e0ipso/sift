@@ -51,8 +51,7 @@ init() {  # init <root> [extra args…]
 MS=v1-2
 
 # <documented entry>|<why a freshly initialised tree does not carry it>
-LAYOUT_EXCUSED="ROADMAP.md|withdrawn: wave membership is a ticket front-matter key and init writes no shared table, but the layout block still draws the entry
-RUNLOG.md|the spec says so itself: the first dispatch of a drain creates it, so a freshly initialized tree has none
+LAYOUT_EXCUSED="RUNLOG.md|the spec says so itself: the first dispatch of a drain creates it, so a freshly initialized tree has none
 open/$MS/<category>/|shape, not a path: <category> is the closed type set, and a category folder appears with the first ticket filed under it
 open/$MS/<category>/<PREFIX>-0001--short-slug.md|shape, not a path: an initialised tree holds no tickets
 archive/$MS/<category>/<PREFIX>-0001--short-slug.md|shape, not a path: the archive mirrors open/ and starts empty"

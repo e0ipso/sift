@@ -27,7 +27,6 @@ requires changing `config.yaml` and renaming every existing ticket file and ID.
 ├── .gitignore                 ← ignores the tree by default; delete it to track tickets
 ├── README.md                  ← this convention (read it before touching tickets)
 ├── MILESTONES.md              ← what each milestone means, in intended order
-├── ROADMAP.md                 ← advisory resolution order (tickets' depends_on is the truth)
 ├── RUNLOG.md                  ← append-only drain run log; diagnostic, never ticket state
 ├── config/                    ← per-repository configuration (see "Configuration" above)
 │   └── config.yaml            ← the ticket prefix; the single place the value is defined
@@ -85,6 +84,7 @@ updated: 2026-08-05    # ✱ bump on every meaningful edit
 labels: [api, caching] # free-form kebab tags
 cluster: whole-token-ids  # optional kebab name of a root cause shared with other tickets
 depends_on: []         # list of ticket IDs that must land first, e.g. [<PREFIX>-0041]
+wave: 1                # required positive integer while open; see rule 9
 resolution: ""         # required non-empty when archived: one line on how it ended
 source: ""             # where the ticket came from (session, issue URL, review)
 ---
@@ -109,16 +109,15 @@ Use two separate tests:
 - Give separate tickets the same `cluster` when they share a root cause and one worker can
   orient to them together, even if their fixes differ.
 
-Each clustered ticket keeps its own `## Direction`, archive operation, and roadmap strike.
-Tickets that touch the same product files run sequentially whether or not they share a
-`cluster`.
+Each clustered ticket keeps its own `## Direction` and archive operation. Tickets that touch
+the same product files run sequentially whether or not they share a `cluster`.
 
 ### The bounds a helper group is formed under
 
-`next-ticket.sh --group` is a helper, not the drain loop. It picks the lead by roadmap wave
-and row order, then walks forward through dispatchable tickets with the lead's `cluster`.
-It excludes struck rows, archived tickets, and `status: blocked`; `cluster` never reorders a
-wave.
+`next-ticket.sh --group` is a helper, not the drain loop. It picks the lead by dispatch order —
+`wave` ascending, then `priority` within the wave — then walks forward through dispatchable
+tickets with the lead's `cluster`. It excludes archived tickets and `status: blocked`;
+`cluster` never reorders a wave.
 
 A group holds **at most 4 tickets** and **at most 8 combined effort weight**:
 
@@ -128,7 +127,7 @@ A group holds **at most 4 tickets** and **at most 8 combined effort weight**:
 
 The schema allows `s | m | l | xl`. The helper also assigns `xs` weight 1 and defaults an
 absent or unrecognized effort to `m` weight 3. The first ticket that would exceed either
-bound ends the group; it is not skipped. The group also ends at the first unstruck
+bound ends the group; it is not skipped. The group also ends at the first dispatchable
 non-member, so it cannot cross a wave boundary.
 
 ## Ticket body
@@ -297,14 +296,12 @@ across GNU and BSD systems.
 8. New milestone or category folders are allowed, but document new milestones in
    `MILESTONES.md` in the same change. Categories are a closed set; propose additions
    by editing this README.
-9. **Keep `ROADMAP.md` in sync — in the same change.** When you create a ticket, slot
-   it into the appropriate wave (respecting its `depends_on`; add a new wave row, don't
-   renumber existing ones). When you archive a ticket (done/wontfix/superseded), mark
-   its roadmap row with `~~strikethrough~~` and the resolution status rather than
-   deleting it. When you change a ticket's `depends_on` or move it between milestones,
-   re-check its wave placement. Then run the roadmap consistency check below — a
-   ticket missing from the roadmap, or a roadmap entry pointing at nothing, is a
-   convention violation.
+9. **Give every open ticket a `wave: <n>` — set once, at drafting time.** Choose a wave no
+   earlier than the latest wave among tickets it `depends_on`. Archiving does not touch it:
+   an archived ticket keeps whatever wave it was drafted with, and the key is never required
+   or edited after resolution. Then run the front-matter consistency check below — an open
+   ticket with no `wave:`, or a `depends_on` ID pointing at nothing, is a convention
+   violation.
 10. **Use the body template for the ticket's `type`.** A `bug` states its expected
     behaviour and cites `file:line`; a `feature` states its motivation. Draft against
     `schemas/` when writing a new ticket — but never make anything depend on `xmllint`
@@ -519,8 +516,8 @@ Both guards precede `mkdir -p`, so a missing or ambiguous ID leaves the tree unc
 front-matter has no `milestone:` key, the command stops after the file move and tells the
 operator to repair the key by hand.
 
-**Archive a finished ticket** — the front-matter edit, the `mv` and the `ROADMAP.md`
-strike rule 9 requires are one workflow, so run all three together:
+**Archive a finished ticket** — the front-matter edit and the `mv` are one workflow, so run
+them together:
 ```sh
 ID=$PREFIX-0042
 STATUS=done                                    # done | wontfix | superseded
@@ -563,86 +560,48 @@ RESOLUTION="$RESOLUTION" STATUS="$STATUS" TODAY="$(date +%F)" awk '
 ' "$f" > "$f.tmp" && mv "$f.tmp" "$f" || { rm -f "$f.tmp"; false; }
 dest=$(printf '%s\n' "$f" | sed 's#/open/#/archive/#')
 mkdir -p "$(dirname "$dest")" && mv "$f" "$dest"
-
-R=.ai/sift/ROADMAP.md
-awk -v id="$ID" -v prefix="$PREFIX" -v st="$STATUS" '
-  function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
-  function tail_bs(s,   k) {              # trailing backslashes; odd = escaped pipe
-    k = 0
-    while (k < length(s) && substr(s, length(s) - k, 1) == "\\") k++
-    return k % 2
-  }
-  function cut(s, a,   t, n, i, m) {      # split a table row on UNESCAPED pipes only
-    n = split(s, t, "|"); m = 0
-    for (i = 1; i <= n; i++)
-      if (m > 0 && tail_bs(a[m])) a[m] = a[m] "|" t[i]; else a[++m] = t[i]
-    return m
-  }
-  BEGIN { pat = prefix "-[0-9][0-9][0-9][0-9][0-9]*" }
-  {
-    line[NR] = $0; last = NR
-    if ($0 !~ /^[[:space:]]*\|/) next       # table rows only
-    m = cut($0, c); if (m < 3) next
-    k = 0                                   # first ID-bearing cell IS the ticket cell
-    for (i = 1; i <= m; i++) { b = c[i]; gsub(/~~/, "", b); if (b ~ pat) { k = i; break } }
-    if (k == 0) next
-    b = c[k]; gsub(/~~/, "", b); match(b, pat)
-    if (substr(b, RSTART, RLENGTH) != id) next
-    hits++; hl = NR; hk = k
-  }
-  END {
-    if (hits + 0 != 1) {                    # missing or ambiguous: write nothing
-      printf "roadmap: %d rows for %s, expected exactly 1\n", hits + 0, id > "/dev/stderr"
-      exit 1
-    }
-    m = cut(line[hl], c)
-    if (c[hk] ~ /~~/ || (hk + 1 < m && c[hk + 1] ~ /~~/)) {
-      printf "roadmap: %s is already struck, left as is\n", id > "/dev/stderr"
-    } else {
-      c[hk] = " ~~" trim(c[hk]) "~~ "
-      if (hk + 1 < m) {
-        t2 = trim(c[hk + 1])
-        c[hk + 1] = (t2 == "" ? " " : " ~~" t2 "~~ ") "— " st " "
-      }
-      out = c[1]
-      for (i = 2; i <= m; i++) out = out "|" c[i]
-      line[hl] = out
-    }
-    for (i = 1; i <= last; i++) print line[i]
-  }
-' "$R" > "$R.tmp" && mv "$R.tmp" "$R" || {
-  rm -f "$R.tmp"
-  echo "ROADMAP NOT UPDATED for $ID: strike its row by hand before committing" >&2
-  false
-}
 ```
 The guards reject a missing ticket, an ambiguous ID, and an empty resolution before the
 first write. One fence-scoped `awk` pass updates `status`, `updated`, and `resolution`.
 `resolution` is inserted or replaced. Missing front-matter fails, and values pass through
 `ENVIRON` without `sed` replacement processing.
 
-The roadmap rewrite is published through `$R.tmp` and `mv`. It matches the full immutable ID
-in the first ID-bearing cell, not a `Needs` mention or longer ID. Zero or multiple matching
-rows print the count, exit non-zero, and leave the roadmap unchanged. An already-struck row
-is unchanged.
-
-**Roadmap consistency check** (run after creating, archiving, or re-wiring tickets).
+**Front-matter consistency check** (run after creating, archiving, or re-wiring tickets).
 The shared tree guard from the prefix setup is restated so a copied block still fails
 closed when `.ai/sift` is missing; a consistent tree stays silent:
 ```sh
 [ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }
-# Every ticket (open or archived) must appear in ROADMAP.md ...
-find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sed 's#.*/##' \
-  | grep -oE "^$PREFIX-[0-9]+" | sort -u | while read -r id; do
-    grep -qE "$id([^0-9]|$)" .ai/sift/ROADMAP.md || echo "NOT IN ROADMAP: $id"
+# Every open ticket must carry a wave: key.
+find .ai/sift/open -name "$PREFIX-*.md" | while read -r f; do
+  awk '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
+    infm && /^---[[:space:]]*$/ { exit }
+    infm && /^wave:/ { found = 1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$f" || echo "NO WAVE: ${f#.ai/sift/}"
+done
+# Every depends_on ID must resolve to a ticket file, open or archived.
+find .ai/sift/open .ai/sift/archive -name "$PREFIX-*.md" | sort | while read -r f; do
+  awk '
+    NR == 1 && /^---[[:space:]]*$/ { infm = 1; next }
+    infm && /^---[[:space:]]*$/ { exit }
+    infm && /^depends_on:/ {
+      sub(/^depends_on:[[:space:]]*/, ""); sub(/^\[/, ""); sub(/\][[:space:]]*(#.*)?$/, "")
+      n = split($0, a, ",")
+      for (i = 1; i <= n; i++) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[i])
+        if (a[i] != "") print a[i]
+      }
+      exit
+    }
+  ' "$f" | while read -r dep; do
+    find .ai/sift/open .ai/sift/archive -name "$dep--*.md" | grep -q . || \
+      echo "UNRESOLVED DEPENDENCY: ${f#.ai/sift/} depends_on $dep, which has no ticket file"
   done
-# ... and every roadmap ID must correspond to a ticket file somewhere.
-grep -oE "$PREFIX-[0-9]+" .ai/sift/ROADMAP.md | sort -u | while read -r id; do
-  find .ai/sift/open .ai/sift/archive -name "$id--*.md" | grep -q . || echo "STALE IN ROADMAP: $id"
 done
 ```
-Extraction accepts the full numeric suffix, including IDs above 9999. Both comparisons use
-whole-ID boundaries, so `<PREFIX>-00420` cannot satisfy `<PREFIX>-0042`.
+Wave membership and dependency edges are ticket front-matter; there is no second store for
+either to fall out of step with.
 
 **Validate front-matter across the tree** (files missing a required key). Same tree
 guard as above; when every required key is present the loop prints only the section

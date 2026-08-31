@@ -55,13 +55,6 @@ assert_eq "ACME-0002" "$R_OUT" "the second, once the first exists"
 ticket "$root" open v1-2/bug ACME-0002 second 'Second thing' \
   'depends_on: [ACME-0001]' > /dev/null
 
-# The archive recipe still strikes a ROADMAP.md row, so the workflow has to hand
-# it one the initialised tree no longer carries. This scaffolding and the strike
-# half of the recipe retire together.
-roadmap_new "$root"
-roadmap_row "$root" 1 ACME-0001 'First thing' '-'
-roadmap_row "$root" 2 ACME-0002 'Second thing' 'ACME-0001'
-
 test_case "ticket-check.sh passes on the populated tree"
 run_cmd "$root" env SIFT_ROOT="$root" "$CHECK"
 assert_eq 0 "$R_STATUS" "exits 0"

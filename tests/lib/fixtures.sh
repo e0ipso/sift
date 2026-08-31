@@ -138,29 +138,6 @@ config_yaml() {
   esac
 }
 
-# A roadmap table is no longer part of an initialised tree: wave membership is a
-# ticket front-matter key, and make_tree above writes no such file. The two
-# builders below survive only for the cookbook recipes that still read a table —
-# the archive strike and the consistency check — and a case that wants one has to
-# ask for it by name. They retire with those recipes.
-
-# roadmap_new <dir> — an empty Wave 1 table.
-roadmap_new() {
-  cat > "$1/.ai/sift/ROADMAP.md" <<'EOF'
-# Roadmap
-
-## Wave 1
-
-| # | Ticket | Title | Needs |
-|---|---|---|---|
-EOF
-}
-
-# roadmap_row <dir> <n> <id> <title> [needs]
-roadmap_row() {
-  printf '| %s | %s | %s | %s |\n' "$2" "$3" "$4" "${5:--}" >> "$1/.ai/sift/ROADMAP.md"
-}
-
 # stub_ticket <dir> <bucket> <milestone/category> <filename> — content-free file,
 # for recipes that only read the name (ID allocation).
 stub_ticket() {

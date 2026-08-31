@@ -44,19 +44,14 @@ installable binary is out of scope for this convention.
 
 ## Duplication between skills
 
-Each skill installs independently, so a cross-skill rule has one copy in each skill. The row
-rule defines a roadmap row as a markdown table line whose first whole-token ticket-ID cell is
-`<PREFIX>-NNNN`. The ID rule accepts `<PREFIX>`, a hyphen, and four or more digits, with no
-other characters. The row rule's sift-prime copy retired with the roadmap writer, so the drain
-reader now holds it alone, pending that rule's own retirement. The inventory below is parsed by
-`tests/static/agents-skill-copies.test.sh`; keep the heading, marker, path, and construct shapes.
-The rationale, history, rejected alternatives, and fixture coverage live in
+Each skill installs independently, so a cross-skill rule has one copy in each skill. The ID
+rule defines a ticket ID and accepts `<PREFIX>`, a hyphen, and four or more digits, with no
+other characters. The inventory below is parsed by `tests/static/agents-skill-copies.test.sh`;
+keep the heading, marker, path, and construct shapes. The rationale, history, rejected
+alternatives, and fixture coverage live in
 [the cross-skill Kenkeep record](.ai/kenkeep/nodes/cross-skill/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md).
 
 ```text
-@SKILL-COPY: src/skills/sift-drain/scripts/lib.sh roadmap_rows() {
-@SKILL-COPY: src/skills/sift-drain/scripts/lib.sh pat = prefix
-@SKILL-COPY: src/skills/sift-drain/scripts/lib.sh function cell_id(
 @SKILL-COPY: src/skills/sift-prime/scripts/reserve-ids.sh [0-9]{4,}
 @SKILL-COPY: src/skills/sift-prime/scripts/reserve-ids.sh printf '%s-%04d\n'
 @SKILL-COPY: src/skills/sift-drain/scripts/drain-log.sh require_ticket_id() {
@@ -81,18 +76,11 @@ Tracker edits do not appear in code review, so run
 The rationale and operating cost are in
 [the untracked-tree Kenkeep record](.ai/kenkeep/nodes/convention/practice-never-force-add-a-file-under-this-repository-s-own-sift-tree.md).
 
-Git does not protect ignored tracker files from a checkout or merge. Before any operation that
-moves a ref, record `cksum .ai/sift/ROADMAP.md`, then compare it with a checksum taken after the
-operation. Never use `git checkout <file>`, `git clean`, or `git reset --hard` in a tree that
-holds live tracker state. See
+Git does not protect ignored tracker files from a checkout or merge. Every ticket file under
+`.ai/sift` is live tracker state with no git history to fall back on, so never use
+`git checkout <file>`, `git clean`, or `git reset --hard` in a tree that holds any. See
 [the ignored-file Kenkeep record](.ai/kenkeep/nodes/convention/practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge.md)
 for the rationale.
-
-If the roadmap is lost, locate the newest tracked snapshot with
-`git log --oneline -- .ai/sift/ROADMAP.md`, then restore it with
-`git show <commit>:.ai/sift/ROADMAP.md > .ai/sift/ROADMAP.md`. Prefer an
-out-of-repository copy when one exists. A git snapshot is stale, so reapply later bookkeeping
-by hand from `RUNLOG.md` and the archive tree.
 
 ## Verifying a change
 

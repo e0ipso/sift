@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Static analysis: the inventory of cross-skill copies AGENTS.md keeps.
 #
-# "Duplication between skills" is a decision record: two rules are written out
+# "Duplication between skills" is a decision record: one rule is written out
 # once per skill because the skills install independently, and the record lists
 # every copy so an agent asking "how many copies of this rule are there, and
 # where" gets a correct answer. A stale entry answers worse than no entry at
@@ -106,12 +106,11 @@ SELF="tests/static/$(basename "$0")"
 if grep -Fq -e "$SELF" "$AGENTS"; then t_ok "the record says which test file reads it"
 else t_fail "the record says which test file reads it" "AGENTS.md never names $SELF"; fi
 
-test_case "the inventory still covers both skills and both rules"
-# A coverage floor, not a second copy of the list: these are the three files the
-# two recorded rules live in, so a well-meaning trim of the inventory fails here
+test_case "the inventory still covers both skills"
+# A coverage floor, not a second copy of the list: these are the two files the
+# one recorded rule lives in, so a well-meaning trim of the inventory fails here
 # rather than silently narrowing what the record claims to track.
 PATHS="$(printf '%s\n' "$ENTRIES" | cut -f1 | LC_ALL=C sort -u)"
-assert_contains "$PATHS" 'src/skills/sift-drain/scripts/lib.sh' "the drain's roadmap reader"
 assert_contains "$PATHS" 'src/skills/sift-prime/scripts/reserve-ids.sh' "prime's allocator"
 assert_contains "$PATHS" 'src/skills/sift-drain/scripts/drain-log.sh' "the drain's ID check"
 

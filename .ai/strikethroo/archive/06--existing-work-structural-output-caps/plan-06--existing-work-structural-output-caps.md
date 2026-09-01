@@ -201,3 +201,28 @@ graph TD
 ### Execution Summary
 - Total Phases: 2
 - Total Tasks: 3
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-09-01
+
+### Results
+
+- `src/skills/sift-prime/scripts/existing-work.sh` now bounds its output by construction: at most `SIFT_MATCH_LIMIT` rows (default 25, validated as a positive integer), survivors chosen by distinct-term match count with an ascending-ID tie-break, `resolution` truncated at 200 characters with a `...` marker, and a stderr-only overflow notice naming the matched count, the shown count, and the narrowing remedy. Exit stays 0 on a capped answer; stdout stays ID-sorted 5-field TSV; the header comment documents the whole contract.
+- The Dedupe section of `references/analysis.md` now requires one query per candidate after the sweep, names the scope-wide vocabulary prefetch as the anti-pattern, flips term guidance to distinguishing vocabulary, and defines the two reactions to the bounds: read the one ticket file when quoting a `...`-marked resolution, and narrow-and-re-query on an overflow notice. `SKILL.md`'s Scripts line mentions the cap and a new gotcha covers the stderr-only notice.
+- Six new cases in `tests/scripts/prime-backlog.test.sh` pin the cap, the ranking and tie-break, the notice wording, the raised-limit positive control, both truncation boundary sides, the multibyte boundary under a UTF-8 locale, and the malformed-limit refusal. Full suite: 38 files, 589 tests, 2332 assertions, 0 failures, 5 pre-existing skips.
+- Self Validation reproduced the observed failure shape on a 43-ticket fixture: 25 rows and ~6.2KB stdout where the pre-plan script returned ~60KB, with the notice naming 43 matched and 25 shown.
+
+### Noteworthy Events
+
+- **Review gate outcome**: skipped. Recorded verbatim: `reason`: `no-reviewer-candidate`; `detail`: "No harness other than `claude` is installed and responsive, so the review gate was skipped." No findings existed to act on or ignore.
+- Task generation ran automatically at execution start because the plan had no tasks or blueprint; three tasks were generated, routed (`standard-implementation` ×2, `docs-and-config` ×1), and executed in two phases.
+- Implementation deviation, judged correct: the ranked tie-break sorts the ID column lexicographically (`sort -k2,2`), not numerically as the task's implementation notes suggested, because a numeric sort evaluates every `PREFIX-NNNN` ID to 0 and destroys the tie-break entirely.
+- The test harness runs cases under `LC_ALL=C`, where bash substring slicing is byte-based; the multibyte truncation case therefore sets `R_LOCALE=C.utf8` and skips with a named reason when that locale is unavailable. The character-based truncation guarantee is a property of the caller's locale.
+- No other significant issues encountered.
+
+### Necessary follow-ups
+
+- Ship the updated sift-prime skill to the consumer project that produced the 228KB evidence; that deployment is the first real-world verification (plan's Integration Strategy).
+- The cap default of 25 and the 200-character budget are single constants, cheap to retune if real use argues for different numbers.

@@ -21,10 +21,10 @@
 # where a tab means "next field", so the reader squashes one out of a front-matter
 # value rather than letting its five-field TSV shift the `resolution` column.
 #
-# What the whole answer COSTS is held here too, because a query that answers in
-# megabytes is a query nobody can afford to ask twice: at most SIFT_MATCH_LIMIT
-# rows, each with a resolution of at most 200 characters. Both caps are pinned at
-# their boundary and each with the control that proves the cap was the only thing
+# What the whole answer costs is held here too: at most SIFT_MATCH_LIMIT rows,
+# each with a resolution of at most 200 characters, whatever the terms and
+# however large the archive. Both caps are pinned at
+# their boundary, each with the control that proves the cap was the only thing
 # limiting — a raised cap returning every row, and a resolution one character
 # short of the cut coming back unmarked. The overflow notice is asserted beside
 # them because it is the only place an incomplete answer says so: twenty-five
@@ -81,7 +81,7 @@ row_ids() {
 }
 
 # row_count — how many records R_OUT holds. Asserted beside the ID list rather
-# than derived from it, because the cap is a claim about a NUMBER of rows and a
+# than derived from it, because the cap is a claim about a number of rows and a
 # reader has to see that number stated.
 row_count() { printf '%s\n' "$R_OUT" | wc -l | tr -d '[:space:]'; }
 
@@ -93,7 +93,7 @@ row_col() {
 }
 
 # fill <n> <char> — <n> copies of one character. The truncation fixtures are
-# built around a character COUNT, so their content carries no meaning and saying
+# built around a character count, so their content carries no meaning and saying
 # so in one helper keeps a 200-character literal out of the file.
 fill() { printf '%*s' "$1" '' | tr ' ' "$2"; }
 
@@ -332,11 +332,11 @@ test_case "an answer past the row cap is capped, ranked, and still a sorted TSV"
 # Three of the thirty carry a second distinctive word, so the two-term query
 # ranks those three at two distinct terms against everyone else's one. That makes
 # the survivor set decidable in advance and pins both halves of the rule at once:
-# the three highest IDs in the tree survive on RANK although twenty-seven lower
+# the three highest IDs in the tree survive on rank although twenty-seven lower
 # IDs would sort ahead of them, and the twenty-two seats left go to the lowest IDs
-# of the one-term group. The cut therefore falls INSIDE a group whose members are
+# of the one-term group. The cut therefore falls inside a group whose members are
 # all ranked alike, which is the only place the ascending-ID tie-break can be
-# observed at all.
+# observed.
 d="$(newdir)"; make_tree "$d" ACME
 for ((i = 1; i <= 27; i++)); do
   ticket "$d" archive v1/bug "$(acme_id "$i")" "t$i" "Translation batch $i" \
@@ -381,10 +381,9 @@ assert_eq "$(acme_ids 1 30)" "$(row_ids)" \
 assert_eq "" "$R_ERR" "and no notice at all, because nothing was withheld"
 
 test_case "a resolution past 200 characters is cut and marked; one at exactly 200 is not"
-# The column cap, held at its boundary from both sides. The marker is the whole
-# point of the cut: a resolution that reads as a complete sentence but stops mid
-# reasoning would be concluded from, so a row that was shortened has to say so,
-# and a row that was not must not claim it was.
+# The column cap, held at its boundary from both sides. A cut resolution that
+# still reads as a complete sentence would be concluded from, so a row that was
+# shortened has to say so, and a row that was not must not claim it was.
 d="$(newdir)"; make_tree "$d" ACME
 ticket "$d" archive v1/bug ACME-0001 long 'Long caching' 'status: done' \
   "resolution: \"$(fill 200 a)$(fill 50 b)\"" > /dev/null
@@ -410,8 +409,8 @@ test_case "a multibyte character sitting on the boundary is cut whole, not in ha
 # difference only shows where a character straddles the boundary: the 200th
 # character here is two bytes wide, so a byte-based cut would emit its lead byte
 # alone and hand the reader a field that is not text any more. Run under a UTF-8
-# locale because the slice is the CALLER's locale — the harness runs cases under C
-# by default, where the same fixture really does halve the character.
+# locale because the slice follows the caller's locale — the harness runs cases
+# under C by default, where the same fixture does halve the character.
 if locale_available C.utf8; then
   d="$(newdir)"; make_tree "$d" ACME
   head199="$(fill 199 a)"

@@ -234,8 +234,8 @@ Then report:
   terms at all is a usage error (exit 2), not a way to probe for a cold tree.
 - **`existing-work.sh` stdout can be a capped subset, silently.** The row cap and its
   overflow notice land on stderr, never on stdout, and the script still exits 0 when capped.
-  An agent that reads only stdout has no way to tell a complete answer from a capped one, and
-  will mistake the capped list for the full set of matches unless it also checks stderr.
+  An agent that reads only stdout cannot tell a complete answer from a capped one, so check
+  stderr before treating the rows as the full set of matches.
 - **Nothing here may depend on `xmllint`** or any binary outside the Unix userland already
   on the machine. The XSD schemas are a checklist a drafting agent reads and renders by
   hand; nothing in sift reads or validates XML on the way in or out.

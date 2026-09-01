@@ -199,9 +199,9 @@ that the candidate's own author might not have used.
 
 A stderr notice means the query overflowed: the script still exits 0 — a capped answer is a
 successful answer with a stated limitation, not an error — but stderr names how many tickets
-matched and how many rows were shown. Treat it as an incomplete answer, not a verdict:
-narrow the terms to the candidate's distinguishing vocabulary and re-query. Never render a
-dedupe verdict from a capped list.
+matched and how many rows were shown. An answer that overflowed is incomplete: narrow the
+terms to the candidate's distinguishing vocabulary and re-query rather than judging from
+the rows that fit.
 
 ## When the corpus and the sweep disagree
 

@@ -129,7 +129,7 @@ done < <(find "$SIFT/open" "$SIFT/archive" -name '*--*.md' 2>/dev/null)
 # Pass 1 — one `grep -l` per term over the whole list, not one grep per file per
 # term. Each invocation names every file that carries that term at most once, so
 # concatenating the lists and counting repeats gives each file the number of
-# DISTINCT terms it matched, which is the rank the cap selects on below.
+# distinct terms it matched, which is the rank the cap selects on below.
 HITS=""
 for term in "${TERMS[@]}"; do
   # grep exits 1 for no match and 2 for a real error. Absorb only the 1 — for

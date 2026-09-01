@@ -161,32 +161,47 @@ separate tickets and no `cluster` key.
 scripts/existing-work.sh <term>...
 ```
 
-Before presenting the slate, query once for every candidate that survives the evidence bar.
-The script only matches text: it searches `open/` and `archive/` for the terms you pass and
-returns the tickets that matched, one row per ticket:
+Query once for every candidate that survives the evidence bar, and only after the sweep has
+returned findings — never before, and never as one call over the scope fence's own
+vocabulary. That scope-wide prefetch is the anti-pattern the bounds exist to catch: on a
+single-subject project the fence's words appear in nearly every ticket body, so a call built
+from them selects most of the archive instead of narrowing to one candidate. The script only
+matches text: it searches `open/` and `archive/` for the terms you pass and returns the
+tickets that matched, one row per ticket, ranked by distinct-term match count and capped at
+`SIFT_MATCH_LIMIT` rows (default 25) when more tickets match than that:
 
 ```
 <ID><TAB><status><TAB><type><TAB><title><TAB><resolution>
 ```
 
-`resolution` is empty for open tickets and carries the closing line for archived ones. No
-match prints nothing and exits 0, the same as an empty backlog.
+`resolution` is empty for open tickets and carries the closing line for archived ones,
+truncated at 200 characters with a trailing `...` when the real text runs longer. No match
+prints nothing and exits 0, the same as an empty backlog.
 
 Choosing terms and judging the rows that come back are the model's job, not the script's.
-For each candidate, pick terms that cover its subject matter, not just words drawn from its
-title — more than one term, including synonyms and adjacent vocabulary the candidate's own
-author did not use — and run one query. Then judge every returned row yourself:
+For each candidate, pick terms that distinguish it from the rest of the project — the file
+paths it touches, the symptom it produces, the mechanism it names — not the subject words
+every ticket in the project shares. More than one term is still required. Then judge every
+returned row yourself:
 
 - **Already open** — drop it, and name the open ID when you present the slate. `blocked`
   and `in-progress` both live in `open/` and both count as already filed.
-- **Already terminal** — drop it, and quote the archived ticket's `resolution` verbatim,
-  including a `wontfix` decision.
+- **Already terminal** — drop it. When the row's `resolution` carries the `...` truncation
+  marker, read that one ticket file and quote its real `resolution` verbatim from the file,
+  not from the row, including a `wontfix` decision.
 - **Kept** — no returned row is a genuine collision. A row that shares words with the
   candidate but not its subject is noise, not a match, and you discard it.
 
 An empty result proves only that no ticket in either bucket contains the terms you chose —
 it does not prove no duplicate exists. That is why the term choice carries the weight: pass
-more than one term, and include vocabulary the candidate's own author might not have used.
+more than one distinguishing term, including a word for the same file, symptom or mechanism
+that the candidate's own author might not have used.
+
+A stderr notice means the query overflowed: the script still exits 0 — a capped answer is a
+successful answer with a stated limitation, not an error — but stderr names how many tickets
+matched and how many rows were shown. An answer that overflowed is incomplete: narrow the
+terms to the candidate's distinguishing vocabulary and re-query rather than judging from
+the rows that fit.
 
 ## When the corpus and the sweep disagree
 

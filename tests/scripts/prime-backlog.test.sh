@@ -21,6 +21,16 @@
 # where a tab means "next field", so the reader squashes one out of a front-matter
 # value rather than letting its five-field TSV shift the `resolution` column.
 #
+# What the whole answer costs is held here too: at most SIFT_MATCH_LIMIT rows,
+# each with a resolution of at most 200 characters, whatever the terms and
+# however large the archive. Both caps are pinned at
+# their boundary, each with the control that proves the cap was the only thing
+# limiting — a raised cap returning every row, and a resolution one character
+# short of the cut coming back unmarked. The overflow notice is asserted beside
+# them because it is the only place an incomplete answer says so: twenty-five
+# valid records look exactly like a complete answer, and a drafter who reads them
+# as one concludes "no prior work" from a query that was cut off.
+#
 # The allocator carries sift-prime's copy of the cross-skill ID rule — it is the
 # only place in this skill a ticket ID is spelled — so the agreement with
 # sift-drain's require_ticket_id is measured here, on the IDs the allocator really
@@ -50,6 +60,13 @@ NL="$(printf '\nx')"; NL="${NL%x}"
 # terms, the `--` marker, an empty string, or nothing at all.
 work() { local dir="$1"; shift; run_cmd "$dir" env SIFT_ROOT="$dir" "$WORK" "$@"; }
 
+# work_limit <root> <limit> [arg…] — the same query with the row cap handed to it
+# through the environment, which is the only way a caller sets it.
+work_limit() {
+  local dir="$1" lim="$2"; shift 2
+  run_cmd "$dir" env SIFT_ROOT="$dir" SIFT_MATCH_LIMIT="$lim" "$WORK" "$@"
+}
+
 # tsv_widths — every distinct field count across R_OUT.
 tsv_widths() {
   printf '%s\n' "$R_OUT" | awk -F'\t' '{ print NF }' | LC_ALL=C sort -u |
@@ -61,6 +78,37 @@ tsv_widths() {
 # the two are read together rather than through a per-row grep.
 row_ids() {
   printf '%s\n' "$R_OUT" | cut -f 1 | tr '\n' ' ' | sed 's/[[:space:]]*$//'
+}
+
+# row_count — how many records R_OUT holds. Asserted beside the ID list rather
+# than derived from it, because the cap is a claim about a number of rows and a
+# reader has to see that number stated.
+row_count() { printf '%s\n' "$R_OUT" | wc -l | tr -d '[:space:]'; }
+
+# row_col <id> <n> — column <n> of the record for <id>. Selected on the whole
+# first field rather than by a leading-anchor grep, so a resolution quoting
+# another ticket's ID cannot pull in a second row.
+row_col() {
+  printf '%s\n' "$R_OUT" | awk -F'\t' -v id="$1" -v n="$2" '$1 == id { print $n }'
+}
+
+# fill <n> <char> — <n> copies of one character. The truncation fixtures are
+# built around a character count, so their content carries no meaning and saying
+# so in one helper keeps a 200-character literal out of the file.
+fill() { printf '%*s' "$1" '' | tr ' ' "$2"; }
+
+# acme_id <n> / acme_ids <first> <last> — the fixture IDs the cap cases rank and
+# cut, and a contiguous run of them on one line for comparison against row_ids.
+#
+# Zero-padded to one fixed width on purpose: the tie-break sorts the ID column as
+# TEXT, so equal-width IDs are what make "ascending ID" and "ascending number"
+# the same rule. A fixture mixing widths would be pinning collation, not the
+# tie-break.
+acme_id() { printf 'ACME-%04d' "$1"; }
+acme_ids() {
+  local i out=''
+  for ((i = $1; i <= $2; i++)); do out="$out $(acme_id "$i")"; done
+  printf '%s' "${out# }"
 }
 
 # =============================================================================
@@ -272,6 +320,141 @@ assert_eq "ACME-0001" "$(row_ids)" "the term found the CRLF ticket"
 assert_eq "5" "$(tsv_widths)" "still five fields"
 assert_eq 0 "$(printf '%s' "$R_OUT" | tr -cd '\r' | wc -c | tr -d ' ')" \
   "no carriage return reaches the answer, so a reader cannot mistake one for data"
+
+# --- The output caps: what an answer costs, whatever the tree looks like -----
+
+test_case "an answer past the row cap is capped, ranked, and still a sorted TSV"
+# The tree the caps exist for: a project whose whole archive shares one subject.
+# Thirty tickets carry `translation`, so a query naming that word overflows the
+# default cap of 25 no matter how the rest of the command line is spelled — the
+# answer has to be bounded by construction, not by how narrow the terms were.
+#
+# Three of the thirty carry a second distinctive word, so the two-term query
+# ranks those three at two distinct terms against everyone else's one. That makes
+# the survivor set decidable in advance and pins both halves of the rule at once:
+# the three highest IDs in the tree survive on rank although twenty-seven lower
+# IDs would sort ahead of them, and the twenty-two seats left go to the lowest IDs
+# of the one-term group. The cut therefore falls inside a group whose members are
+# all ranked alike, which is the only place the ascending-ID tie-break can be
+# observed.
+d="$(newdir)"; make_tree "$d" ACME
+for ((i = 1; i <= 27; i++)); do
+  ticket "$d" archive v1/bug "$(acme_id "$i")" "t$i" "Translation batch $i" \
+    'status: done' 'resolution: "Closed as a duplicate"' > /dev/null
+done
+for ((i = 28; i <= 30; i++)); do
+  ticket "$d" archive v1/bug "$(acme_id "$i")" "t$i" "Translation pluralization $i" \
+    'status: done' 'resolution: "Closed as a duplicate"' > /dev/null
+done
+ticket "$d" open v1/bug ACME-0031 sigma 'Sharding alpha' > /dev/null
+ticket "$d" open v1/bug ACME-0032 tau 'Sharding beta' > /dev/null
+work "$d" translation pluralization
+assert_eq 0 "$R_STATUS" "a capped answer is a successful answer, not an error"
+assert_eq 25 "$(row_count)" \
+  "exactly SIFT_MATCH_LIMIT rows reach stdout, not the thirty tickets that matched"
+assert_eq "$(acme_ids 1 22) ACME-0028 ACME-0029 ACME-0030" "$(row_ids)" \
+  "rank saves the three double-term tickets, the tie-break spends the rest on the lowest IDs, and the printed rows are still in ID order"
+assert_eq "5" "$(tsv_widths)" "a capped row is the same five-field record as an uncapped one"
+assert_eq "" "$(printf '%s\n' "$R_OUT" | grep -e '^ACME-0023' -e '^ACME-0027' -e '^ACME-0031')" \
+  "and the answer holds neither a one-term ticket below the cut nor a ticket the terms never named"
+
+test_case "the overflow notice names the count, the cut, and the way out"
+# Asserted on the run above, so the notice is measured against a stdout that was
+# really truncated. The caller cannot see the cut in the rows — twenty-five valid
+# records look exactly like a complete answer — so the three facts below are the
+# only thing standing between a capped answer and a false "no prior work".
+assert_contains "$R_ERR" 'matched 30 tickets' \
+  "how many tickets really matched, which is the number the rows do not show"
+assert_contains "$R_ERR" 'showing the 25 best matches' "how many of them the caller is looking at"
+assert_contains "$R_ERR" "narrow the terms to this candidate's distinguishing vocabulary" \
+  "and the remedy, because the next move is another query and not a verdict"
+
+test_case "a raised cap returns every matching row, so the cap was the only thing limiting"
+# The positive control for the case above. Same tree, same terms, one number
+# changed: without it a script that had stopped reading two-thirds of the archive
+# would satisfy every assertion up there and call it a cap.
+work_limit "$d" 100 translation pluralization
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq 30 "$(row_count)" "all thirty matching tickets come back once the cap is out of the way"
+assert_eq "$(acme_ids 1 30)" "$(row_ids)" \
+  "the five the default cap dropped included, so that cut was the cap and not the query"
+assert_eq "" "$R_ERR" "and no notice at all, because nothing was withheld"
+
+test_case "a resolution past 200 characters is cut and marked; one at exactly 200 is not"
+# The column cap, held at its boundary from both sides. A cut resolution that
+# still reads as a complete sentence would be concluded from, so a row that was
+# shortened has to say so, and a row that was not must not claim it was.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" archive v1/bug ACME-0001 long 'Long caching' 'status: done' \
+  "resolution: \"$(fill 200 a)$(fill 50 b)\"" > /dev/null
+ticket "$d" archive v1/bug ACME-0002 exact 'Exact caching' 'status: done' \
+  "resolution: \"$(fill 200 c)\"" > /dev/null
+work "$d" caching
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "ACME-0001 ACME-0002" "$(row_ids)" "both tickets are in the answer"
+cut_res="$(row_col ACME-0001 5)"
+kept_res="$(row_col ACME-0002 5)"
+assert_ne "" "$cut_res" "the over-long ticket really has a resolution column to measure"
+assert_eq 203 "${#cut_res}" "which is 200 characters plus the three-character marker"
+assert_eq "$(fill 200 a)..." "$cut_res" \
+  "the first 200 characters verbatim, and nothing of the 50 past the boundary"
+assert_eq "$(fill 200 c)" "$kept_res" \
+  "a resolution of exactly 200 characters is printed whole"
+assert_not_contains "$kept_res" '...' \
+  "with no marker, because a marker means 'the rest is in the file' and there is no rest"
+assert_eq "5" "$(tsv_widths)" "and neither row grew a field"
+
+test_case "a multibyte character sitting on the boundary is cut whole, not in half"
+# The cut is spelled as a character slice rather than a byte one, and the
+# difference only shows where a character straddles the boundary: the 200th
+# character here is two bytes wide, so a byte-based cut would emit its lead byte
+# alone and hand the reader a field that is not text any more. Run under a UTF-8
+# locale because the slice follows the caller's locale — the harness runs cases
+# under C by default, where the same fixture does halve the character.
+if locale_available C.utf8; then
+  d="$(newdir)"; make_tree "$d" ACME
+  head199="$(fill 199 a)"
+  ticket "$d" archive v1/bug ACME-0001 multibyte 'Multibyte caching' 'status: done' \
+    "resolution: \"${head199}é$(fill 20 b)\"" > /dev/null
+  # R_LOCALE is an input global read by run_cmd in tests/lib/harness.sh, so no
+  # reader for it exists in this file. The reset below is load-bearing: without it
+  # every case after this one would keep running under C.utf8.
+  # shellcheck disable=SC2034
+  R_LOCALE=C.utf8
+  work "$d" caching
+  # shellcheck disable=SC2034
+  R_LOCALE=C
+  assert_eq 0 "$R_STATUS" "exits 0"
+  mb_res="$(row_col ACME-0001 5)"
+  assert_ne "" "$mb_res" "the row is in the answer and carries a resolution to measure"
+  assert_eq "${head199}é..." "$mb_res" \
+    "199 plain characters, the two-byte 200th kept entire, then the marker"
+  assert_eq 204 "$(printf '%s' "$mb_res" | wc -c | tr -d '[:space:]')" \
+    "199 + 2 + 3 bytes: no lone continuation byte, so the field is still decodable text"
+else
+  skip "the 200-character cut across a multibyte boundary" \
+    "no C.utf8 locale on this machine, and the cut follows the caller's locale"
+fi
+
+test_case "a cap that is not a positive integer is refused before anything is printed"
+# The one number a caller can get wrong, and both wrong spellings fail alike on
+# purpose. `abc` is the typo; `0` is the more dangerous one, because a cap of zero
+# is syntactically fine and answers every query with silence — which reads to a
+# drafter exactly like "nothing similar has ever been filed".
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open v1/bug ACME-0001 alpha 'Alpha caching' > /dev/null
+ticket "$d" open v1/bug ACME-0002 beta 'Beta caching' > /dev/null
+for bad in abc 0; do
+  work_limit "$d" "$bad" caching
+  assert_eq 2 "$R_STATUS" "SIFT_MATCH_LIMIT=$bad exits 2, the setup error"
+  assert_contains "$R_ERR" 'SIFT_MATCH_LIMIT must be a positive integer' \
+    "naming the variable and the shape it wanted"
+  assert_eq "" "$R_OUT" "with nothing on stdout, so no half-answer can stand in for a checked query"
+done
+work_limit "$d" 1 caching
+assert_eq 0 "$R_STATUS" "a cap of one is a legal cap"
+assert_eq "ACME-0001" "$(row_ids)" \
+  "and returns its one row from the same tree, so the two empty stdouts above are the refusal"
 
 test_case "asking the backlog decides nothing on disk"
 # Both exits are measured, because the refusal path is the one that could still

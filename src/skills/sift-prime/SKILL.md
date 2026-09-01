@@ -75,7 +75,7 @@ Call these instead of parsing markdown by eye. They live in `scripts/` next to t
 resolve that absolute path once at run start and reuse it.
 
 ```sh
-scripts/existing-work.sh <term>... # tickets matching any term, tab-separated, for dedupe
+scripts/existing-work.sh <term>... # tickets matching any term, tab-separated, capped at 25 rows (see stderr on overflow), for dedupe
 scripts/reserve-ids.sh <count>     # the next <count> contiguous IDs
 ```
 
@@ -232,6 +232,10 @@ Then report:
   whose chosen terms hit nothing — but empty output is never a licence to skip dedupe or to
   trust the candidate as novel; it only means try other terms. Running the script with no
   terms at all is a usage error (exit 2), not a way to probe for a cold tree.
+- **`existing-work.sh` stdout can be a capped subset, silently.** The row cap and its
+  overflow notice land on stderr, never on stdout, and the script still exits 0 when capped.
+  An agent that reads only stdout cannot tell a complete answer from a capped one, so check
+  stderr before treating the rows as the full set of matches.
 - **Nothing here may depend on `xmllint`** or any binary outside the Unix userland already
   on the machine. The XSD schemas are a checklist a drafting agent reads and renders by
   hand; nothing in sift reads or validates XML on the way in or out.

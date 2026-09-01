@@ -2,7 +2,7 @@
 id: 3
 group: "existing-work-output-caps"
 dependencies: [1]
-status: "pending"
+status: "completed"
 created: 2026-09-01
 skills:
   - bash-testing
@@ -22,14 +22,14 @@ Bash test authoring in this suite's conventions: `tests/README.md`, positive con
 
 ## Acceptance Criteria
 
-- [ ] A fixture past the row cap proves: the cap fires (exactly `SIFT_MATCH_LIMIT` rows on stdout), the survivor set is the top distinct-term matches, the tie-break is by ascending ID, stdout stays ID-sorted 5-field TSV, and stderr carries the matched count, the shown count, and the narrowing-remedy wording.
-- [ ] The same fixture under a raised `SIFT_MATCH_LIMIT` returns all matching rows with no stderr notice — the positive control proving only the cap was limiting.
-- [ ] A long-resolution fixture proves truncation at the 200-character boundary with the `...` marker; a fixture with an exactly-200-character resolution proves no marker appears when nothing was cut.
-- [ ] A multibyte character spanning the 200-character boundary yields valid truncated text with no replacement garbage (assert the output decodes cleanly / the expected prefix appears).
-- [ ] `SIFT_MATCH_LIMIT=abc` (and `0`) produce the setup-error exit with a message on stderr and nothing on stdout.
-- [ ] Existing plan 05 cases persist unchanged where behavior is unchanged: no-arg usage error, empty-term rejection, `--` handling, case-insensitive body matching, 5-field width, control-character squashing.
-- [ ] Every new assertion is non-vacuous: extractions are proven non-empty before negative assertions (per the suite's negative-only-assertion rule).
-- [ ] Verification: `bash tests/run.sh` from the repository root passes with no failures and no newly skipped checks.
+- [x] A fixture past the row cap proves: the cap fires (exactly `SIFT_MATCH_LIMIT` rows on stdout), the survivor set is the top distinct-term matches, the tie-break is by ascending ID, stdout stays ID-sorted 5-field TSV, and stderr carries the matched count, the shown count, and the narrowing-remedy wording.
+- [x] The same fixture under a raised `SIFT_MATCH_LIMIT` returns all matching rows with no stderr notice — the positive control proving only the cap was limiting.
+- [x] A long-resolution fixture proves truncation at the 200-character boundary with the `...` marker; a fixture with an exactly-200-character resolution proves no marker appears when nothing was cut.
+- [x] A multibyte character spanning the 200-character boundary yields valid truncated text with no replacement garbage (assert the output decodes cleanly / the expected prefix appears).
+- [x] `SIFT_MATCH_LIMIT=abc` (and `0`) produce the setup-error exit with a message on stderr and nothing on stdout.
+- [x] Existing plan 05 cases persist unchanged where behavior is unchanged: no-arg usage error, empty-term rejection, `--` handling, case-insensitive body matching, 5-field width, control-character squashing.
+- [x] Every new assertion is non-vacuous: extractions are proven non-empty before negative assertions (per the suite's negative-only-assertion rule).
+- [x] Verification: `bash tests/run.sh` from the repository root passes with no failures and no newly skipped checks.
 
 Use your internal Todo tool to track these and keep on track.
 

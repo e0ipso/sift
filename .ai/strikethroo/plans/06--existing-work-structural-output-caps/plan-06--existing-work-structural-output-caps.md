@@ -190,9 +190,9 @@ graph TD
 - ✔️ Task 001: Implement structural output caps in existing-work.sh (row cap, ranking, truncation, stderr notice, header rewrite) — `completed`
 - ✔️ Task 002: Update the dedupe procedure in references/analysis.md and SKILL.md for the bounded query — `completed`
 
-### Phase 2: Tests
+### ✅ Phase 2: Tests
 **Parallel Tasks:**
-- Task 003: Test the output caps in prime-backlog.test.sh (depends on: 001)
+- ✔️ Task 003: Test the output caps in prime-backlog.test.sh (depends on: 001) — `completed`
 
 ### Post-phase Actions
 

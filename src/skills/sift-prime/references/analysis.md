@@ -158,27 +158,35 @@ separate tickets and no `cluster` key.
 ## Dedupe
 
 ```sh
-scripts/existing-work.sh
+scripts/existing-work.sh <term>...
 ```
 
-The script prints one tab-separated line per ticket under `open/` and `archive/`, sorted by
-ID, with no header line:
+Before presenting the slate, query once for every candidate that survives the evidence bar.
+The script only matches text: it searches `open/` and `archive/` for the terms you pass and
+returns the tickets that matched, one row per ticket:
 
 ```
 <ID><TAB><status><TAB><type><TAB><title><TAB><resolution>
 ```
 
-`resolution` is empty for open tickets and carries the closing line for archived ones. An
-empty backlog prints nothing and exits 0.
+`resolution` is empty for open tickets and carries the closing line for archived ones. No
+match prints nothing and exits 0, the same as an empty backlog.
 
-Before presenting the slate, compare every candidate's subject matter, not just its title,
-against both buckets:
+Choosing terms and judging the rows that come back are the model's job, not the script's.
+For each candidate, pick terms that cover its subject matter, not just words drawn from its
+title — more than one term, including synonyms and adjacent vocabulary the candidate's own
+author did not use — and run one query. Then judge every returned row yourself:
 
 - **Already open** — drop it, and name the open ID when you present the slate. `blocked`
   and `in-progress` both live in `open/` and both count as already filed.
 - **Already terminal** — drop it, and quote the archived ticket's `resolution` verbatim,
   including a `wontfix` decision.
-- **Kept** — nothing in either bucket covers it.
+- **Kept** — no returned row is a genuine collision. A row that shares words with the
+  candidate but not its subject is noise, not a match, and you discard it.
+
+An empty result proves only that no ticket in either bucket contains the terms you chose —
+it does not prove no duplicate exists. That is why the term choice carries the weight: pass
+more than one term, and include vocabulary the candidate's own author might not have used.
 
 ## When the corpus and the sweep disagree
 

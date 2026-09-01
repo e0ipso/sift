@@ -75,14 +75,14 @@ Call these instead of parsing markdown by eye. They live in `scripts/` next to t
 resolve that absolute path once at run start and reuse it.
 
 ```sh
-scripts/existing-work.sh       # every open + archived ticket, tab-separated, for dedupe
-scripts/reserve-ids.sh <count> # the next <count> contiguous IDs
+scripts/existing-work.sh <term>... # tickets matching any term, tab-separated, for dedupe
+scripts/reserve-ids.sh <count>     # the next <count> contiguous IDs
 ```
 
 They find the project root by walking up from `$PWD` for a `.ai/sift/` directory and read
 the prefix from `.ai/sift/config/config.yaml`; override with `SIFT_ROOT` / `SIFT_PREFIX`.
-Exit 2 from either of them is a setup error — the tree or the prefix could not be resolved
-— and never a verdict on the work.
+Exit 2 from either of them is a setup error and never a verdict on the work: the tree or the
+prefix could not be resolved, or, for `existing-work.sh`, no search term was given at all.
 
 Both write nothing, and there is no third script that does: a priming run's only writes are
 the ticket files the drafting agents create, one file each, plus `MILESTONES.md` when the
@@ -227,9 +227,11 @@ Then report:
   wrapper `grep` shell function) silently returns nothing there. Use `find` plus
   `command grep`, or the tool's no-ignore flag. This bites the dedupe pass hardest, where
   an empty result is indistinguishable from an empty backlog.
-- **`existing-work.sh` prints nothing and exits 0 for a cold tree.** That is the
-  freshly-initialized case, not a broken script — and not a licence to skip dedupe on the
-  next run, when the tree is no longer cold.
+- **`existing-work.sh` prints nothing and exits 0 both for a cold tree and for a query with
+  no matches.** A freshly-initialized tree is not a broken script, and neither is a candidate
+  whose chosen terms hit nothing — but empty output is never a licence to skip dedupe or to
+  trust the candidate as novel; it only means try other terms. Running the script with no
+  terms at all is a usage error (exit 2), not a way to probe for a cold tree.
 - **Nothing here may depend on `xmllint`** or any binary outside the Unix userland already
   on the machine. The XSD schemas are a checklist a drafting agent reads and renders by
   hand; nothing in sift reads or validates XML on the way in or out.

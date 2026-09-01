@@ -34,7 +34,7 @@ $DRAIN/ticket-check.sh:
 $DRAIN/list-labels.sh:
 $DRAIN/tickets-by-label.sh:caching
 $PRIME/reserve-ids.sh:1
-$PRIME/existing-work.sh:"
+$PRIME/existing-work.sh:caching"
 
 # sweep <description> <workdir> <env-assignment…> -- expectations are asserted by
 # the caller-supplied check() function, which sees R_STATUS/R_OUT/R_ERR.

@@ -1,16 +1,25 @@
 #!/usr/bin/env bash
-# existing-work.sh and reserve-ids.sh — what priming reads, and what it hands out
+# existing-work.sh and reserve-ids.sh — what priming asks, and what it hands out
 # (SFT-0019).
 #
 # One priming pass reads twice and writes nothing of its own: `existing-work.sh`
-# hands the drafter the whole backlog as a dedupe corpus, and `reserve-ids.sh`
-# hands each drafting agent the one ID it may use. They are pinned together
-# because they are the two reads that decide what a batch becomes — what is
-# already filed, and what the new work is called.
+# answers, for one candidate at a time, which tickets already carry that
+# candidate's terms, and `reserve-ids.sh` hands each drafting agent the one ID it
+# may use. They are pinned together because they are the two reads that decide
+# what a batch becomes — what is already filed, and what the new work is called.
 #
-# The corpus stakes everything on one promise: a tab must never appear where a tab
-# means "next field", so the reader squashes one out of a front-matter value
-# rather than letting its five-field TSV shift the `resolution` column.
+# The query is held from both sides, because either side alone is satisfied by a
+# script that stopped working: the rows a term must return, and the rows it must
+# not. A term no ticket carries, no term at all, and an empty term each print
+# nothing, and every one of those assertions sits beside a query on the SAME tree
+# that does return rows — without that control, a script deleted from disk would
+# pass them all. The empty term earns a case of its own because `grep -F -e ""`
+# selects every file: an unset caller variable is the one way left for the
+# full-backlog dump this script no longer prints to come back silently.
+#
+# Each returned row stakes everything on one promise: a tab must never appear
+# where a tab means "next field", so the reader squashes one out of a front-matter
+# value rather than letting its five-field TSV shift the `resolution` column.
 #
 # The allocator carries sift-prime's copy of the cross-skill ID rule — it is the
 # only place in this skill a ticket ID is spelled — so the agreement with
@@ -36,7 +45,10 @@ DRAIN="$REPO_ROOT/src/skills/sift-drain/scripts"
 TAB="$(printf '\t')"
 NL="$(printf '\nx')"; NL="${NL%x}"
 
-work() { run_cmd "$1" env SIFT_ROOT="$1" "$WORK"; }
+# work <root> [arg…] — the query through its real command line. Every argument
+# after the root reaches the script untouched, so a case can drive a term, several
+# terms, the `--` marker, an empty string, or nothing at all.
+work() { local dir="$1"; shift; run_cmd "$dir" env SIFT_ROOT="$dir" "$WORK" "$@"; }
 
 # tsv_widths — every distinct field count across R_OUT.
 tsv_widths() {
@@ -44,50 +56,188 @@ tsv_widths() {
     tr '\n' ' ' | sed 's/[[:space:]]*$//'
 }
 
+# row_ids — the ID column of R_OUT on one line, in the order it was printed. Which
+# tickets an answer names, and in what order, is most of what a query promises, so
+# the two are read together rather than through a per-row grep.
+row_ids() {
+  printf '%s\n' "$R_OUT" | cut -f 1 | tr '\n' ' ' | sed 's/[[:space:]]*$//'
+}
+
 # =============================================================================
-# existing-work.sh — the dedupe corpus
+# existing-work.sh — the collision query
 # =============================================================================
 
-test_case "an empty backlog prints nothing and succeeds"
+test_case "a query against an empty backlog is empty, and succeeds"
 # A fresh sift-init tree is the first state a priming pass meets, and "nothing
-# filed yet" must not read as an error, nor as one blank record.
+# filed yet" must not read as an error, nor as one blank record. The same term is
+# then asked of a tree that does carry it: an empty answer is evidence of nothing
+# on its own, since a script that had stopped reading the tree — or stopped
+# existing — would satisfy the three assertions above.
 d="$(newdir)"; make_tree "$d" ACME
-work "$d"
+work "$d" caching
 assert_eq 0 "$R_STATUS" "exit 0 on a tree with no tickets"
 assert_eq "" "$R_OUT" "and not one byte on stdout"
 assert_eq "" "$R_ERR" "nor a complaint about the empty archive/"
+ticket "$d" open v1/bug ACME-0001 alpha 'Alpha caching' > /dev/null
+work "$d" caching
+assert_eq "ACME-0001" "$(row_ids)" \
+  "while the same term on a tree that carries it returns the row"
 
-test_case "every ticket in either bucket is one five-field record"
+test_case "every matching ticket in either bucket is one five-field record"
+# One fixture, queried by the four cases below it: a term four of the five tickets
+# carry, and a fifth ticket that carries none of it.
 d="$(newdir)"; make_tree "$d" ACME
-ticket "$d" open v1/bug ACME-0002 beta 'Beta' > /dev/null
-ticket "$d" open v1/feature ACME-0010 iota 'Iota' 'type: feature' 'status: blocked' > /dev/null
-ticket "$d" archive v1/bug ACME-0001 alpha 'Alpha' \
+ticket "$d" open v1/bug ACME-0002 beta 'Beta caching' > /dev/null
+ticket "$d" open v1/feature ACME-0010 iota 'Iota caching' \
+  'type: feature' 'status: blocked' > /dev/null
+ticket "$d" archive v1/bug ACME-0001 alpha 'Alpha caching' \
   'status: done' 'resolution: "Fixed upstream"' > /dev/null
-ticket "$d" archive v2/docs ACME-0003 gamma 'Gamma' \
+ticket "$d" archive v2/docs ACME-0003 gamma 'Gamma caching' \
   'status: wontfix' 'type: docs' 'resolution: "Superseded by ACME-0001"' > /dev/null
-work "$d"
+ticket "$d" open v1/bug ACME-0004 delta 'Delta sharding' > /dev/null
+work "$d" caching
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "5" "$(tsv_widths)" \
   "id, status, type, title, resolution — the same count on every line, open and archived"
 
 test_case "the records are sorted by ID, whatever the tree looks like"
-# The corpus is read by a drafter checking "has this already been filed", so the
+# The answer is read by a drafter checking "has this already been filed", so the
 # order has to come from the ID and not from the order find happened to walk two
 # buckets and four milestone folders.
-assert_eq "ACME-0001 ACME-0002 ACME-0003 ACME-0010" \
-  "$(printf '%s\n' "$R_OUT" | cut -f 1 | tr '\n' ' ' | sed 's/[[:space:]]*$//')" \
+assert_eq "ACME-0001 ACME-0002 ACME-0003 ACME-0010" "$(row_ids)" \
   "zero-padding makes the plain sort an ID sort, past the ninth ticket"
 
 test_case "resolution is the column that separates filed from decided against"
-assert_eq "ACME-0001${TAB}done${TAB}bug${TAB}Alpha${TAB}Fixed upstream" \
+assert_eq "ACME-0001${TAB}done${TAB}bug${TAB}Alpha caching${TAB}Fixed upstream" \
   "$(printf '%s\n' "$R_OUT" | grep '^ACME-0001')" \
   "an archived ticket carries its closing line, unquoted"
-assert_eq "ACME-0002${TAB}open${TAB}bug${TAB}Beta${TAB}" \
+assert_eq "ACME-0002${TAB}open${TAB}bug${TAB}Beta caching${TAB}" \
   "$(printf '%s\n' "$R_OUT" | grep '^ACME-0002')" \
   "an open ticket leaves it empty rather than omitting the field"
-assert_eq "ACME-0003${TAB}wontfix${TAB}docs${TAB}Gamma${TAB}Superseded by ACME-0001" \
+assert_eq "ACME-0003${TAB}wontfix${TAB}docs${TAB}Gamma caching${TAB}Superseded by ACME-0001" \
   "$(printf '%s\n' "$R_OUT" | grep '^ACME-0003')" \
   "and a wontfix reads as decided against, which is the distinction it exists for"
+
+test_case "a ticket the terms do not name is not in the answer"
+# The other half of a query: what it leaves out. Asserted on the fixture above,
+# which answered with four rows, so the absence is this ticket being filtered and
+# not the whole answer being empty — and then proved live by a term that does name
+# it, because an absence nobody can make present is not a filter.
+assert_eq "" "$(printf '%s\n' "$R_OUT" | grep '^ACME-0004')" \
+  "the sharding ticket is absent from a caching query"
+assert_ne "" "$R_OUT" "on an answer that is not itself empty"
+work "$d" sharding
+assert_eq "ACME-0004" "$(row_ids)" \
+  "and it comes back, alone, under the term it does carry"
+
+test_case "a term no ticket carries is an empty answer, not an error"
+# The candidate whose chosen words hit nothing. It is one refusal away from the
+# usage error below and must not be confused with it: an empty answer is a verdict
+# on the terms, and the caller's next move is other terms, not a bug report.
+work "$d" quiescence
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "" "$R_OUT" "with nothing on stdout"
+assert_eq "" "$R_ERR" "and nothing on stderr"
+work "$d" caching
+assert_eq "ACME-0001 ACME-0002 ACME-0003 ACME-0010" "$(row_ids)" \
+  "on the same tree that answers a term it does carry with four rows"
+
+test_case "a term only the body carries still finds the ticket"
+# The false negative the whole-file scope exists to avoid: the drafter's word for
+# a subject is rarely the word the ticket's title chose, and a title-only search
+# would report "no prior work" on a ticket that is about exactly this.
+d="$(newdir)"; make_tree "$d" ACME
+f="$(ticket "$d" open v1/bug ACME-0001 alpha 'Alpha')"
+printf 'The tenant caching layer is where the duplicate would be.\n' >> "$f"
+ticket "$d" open v1/bug ACME-0002 beta 'Beta' > /dev/null
+work "$d" caching
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "ACME-0001${TAB}open${TAB}bug${TAB}Alpha${TAB}" "$R_OUT" \
+  "the row is returned although its own title column does not hold the term"
+
+test_case "matching is case-insensitive, whichever side is capitalised"
+# A candidate is described in prose and a title is written in prose, so the two
+# agree on a word and disagree on its case constantly. Both terms below differ in
+# case from the file, so neither can pass by accidentally matching verbatim.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open v1/bug ACME-0001 alpha 'Alpha Caching' > /dev/null
+work "$d" caching
+lower="$R_OUT"
+work "$d" CACHING
+assert_eq "ACME-0001${TAB}open${TAB}bug${TAB}Alpha Caching${TAB}" "$lower" \
+  "the lower-case term matches the capitalised title"
+assert_eq "$lower" "$R_OUT" "and the upper-case term returns the very same row"
+
+test_case "terms OR together, and a ticket two of them hit is still one row"
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open v1/bug ACME-0001 alpha 'Alpha caching' > /dev/null
+ticket "$d" open v1/bug ACME-0002 beta 'Beta sharding' > /dev/null
+ticket "$d" open v1/bug ACME-0003 gamma 'Gamma quiescence' > /dev/null
+work "$d" caching
+assert_eq "ACME-0001" "$(row_ids)" "one term, one ticket"
+work "$d" sharding
+assert_eq "ACME-0002" "$(row_ids)" \
+  "the other term, the other ticket — the two hit disjoint tickets"
+work "$d" caching sharding
+assert_eq "ACME-0001 ACME-0002" "$(row_ids)" \
+  "together they return the union, and still not the third ticket"
+work "$d" caching alpha
+assert_eq "ACME-0001" "$(row_ids)" \
+  "and a ticket both terms hit contributes exactly one row, not one per term"
+
+test_case "-- makes a hyphen-leading string a term instead of an option"
+# The only way to search for something spelled like a flag, which candidates about
+# deprecating one are. The bare run is the control: without the marker the same
+# string is refused as an option, so the pass below is the marker working and not
+# the parser being indifferent to hyphens.
+d="$(newdir)"; make_tree "$d" ACME
+f="$(ticket "$d" open v1/bug ACME-0001 alpha 'Alpha')"
+printf 'Retire the -legacy flag this ticket is about.\n' >> "$f"
+ticket "$d" open v1/bug ACME-0002 beta 'Beta' > /dev/null
+work "$d" -legacy
+assert_eq 2 "$R_STATUS" "without the marker the parser reads it as an option and refuses"
+assert_eq "" "$R_OUT" "printing no rows"
+assert_contains "$R_ERR" 'unknown option' "and naming what it refused"
+work "$d" -- -legacy
+assert_eq 0 "$R_STATUS" "behind the marker the identical string is a search term"
+assert_eq "ACME-0001${TAB}open${TAB}bug${TAB}Alpha${TAB}" "$R_OUT" \
+  "which returns the one ticket carrying it"
+assert_eq "" "$R_ERR" "with no option complaint at all"
+
+test_case "no terms at all is a usage error, never a request for the whole backlog"
+# The dump this script used to print is the thing the query replaced, so the
+# argument-less command line has to be refused rather than reinterpreted: a caller
+# whose term list came out empty must be told, not handed every ticket in the tree
+# and left to believe its candidate collided with all of them.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open v1/bug ACME-0001 alpha 'Alpha caching' > /dev/null
+ticket "$d" open v1/bug ACME-0002 beta 'Beta caching' > /dev/null
+work "$d"
+assert_eq 2 "$R_STATUS" "exits 2"
+assert_eq "" "$R_OUT" "with nothing on stdout"
+assert_contains "$R_ERR" 'usage: existing-work.sh' "and a usage line on stderr"
+work "$d" caching
+assert_eq "ACME-0001 ACME-0002" "$(row_ids)" \
+  "on a tree that hands a real query two rows, so the empty stdout above is the refusal"
+
+test_case "an empty term is refused too, because grep -F reads it as every file"
+# An unset caller variable expands to nothing, and `grep -F -e ""` selects every
+# line of every file. Refusing the empty string is what keeps a slipped `$term`
+# from resurrecting the full-backlog dump under a command line that looks like a
+# narrow query — the one failure mode a caller could not see in the output.
+d="$(newdir)"; make_tree "$d" ACME
+ticket "$d" open v1/bug ACME-0001 alpha 'Alpha caching' > /dev/null
+ticket "$d" open v1/bug ACME-0002 beta 'Beta caching' > /dev/null
+work "$d" ""
+assert_eq 2 "$R_STATUS" "exits 2"
+assert_eq "" "$R_OUT" "printing no rows at all, let alone every ticket in the tree"
+assert_contains "$R_ERR" 'empty search term' "and saying which argument was wrong"
+work "$d" caching ""
+assert_eq 2 "$R_STATUS" "an empty term beside a real one is refused as well"
+assert_eq "" "$R_OUT" "rather than the real term's rows standing in for a checked query"
+work "$d" caching
+assert_eq "ACME-0001 ACME-0002" "$(row_ids)" \
+  "while the same tree answers the real term alone with both rows"
 
 test_case "a tab inside a front-matter value is squashed, never allowed through"
 # The failure this guard prevents is not a crash: a title holding a tab emits six
@@ -95,15 +245,15 @@ test_case "a tab inside a front-matter value is squashed, never allowed through"
 # as one already decided against — the single distinction the column makes.
 d="$(newdir)"; make_tree "$d" ACME
 ticket "$d" open v1/bug ACME-0001 alpha "$(printf 'a\tb tenant caching')" > /dev/null
-ticket "$d" archive v1/bug ACME-0002 beta 'Beta' 'status: done' \
+ticket "$d" archive v1/bug ACME-0002 beta 'Beta caching' 'status: done' \
   "$(printf 'resolution: "closed\tby hand"')" > /dev/null
-work "$d"
+work "$d" caching
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_eq "5" "$(tsv_widths)" "both records still hold exactly five fields"
 assert_eq "ACME-0001${TAB}open${TAB}bug${TAB}a b tenant caching${TAB}" \
   "$(printf '%s\n' "$R_OUT" | grep '^ACME-0001')" \
   "the tab became one space, and the value is still legible"
-assert_eq "ACME-0002${TAB}done${TAB}bug${TAB}Beta${TAB}closed by hand" \
+assert_eq "ACME-0002${TAB}done${TAB}bug${TAB}Beta caching${TAB}closed by hand" \
   "$(printf '%s\n' "$R_OUT" | grep '^ACME-0002')" \
   "the same squash applies to the resolution column"
 
@@ -116,19 +266,27 @@ printf -- 'milestone: v1\r\npriority: p2\r\neffort: m\r\ncreated: 2026-08-01\r\n
   >> "$d/.ai/sift/open/v1/bug/ACME-0001--alpha.md"
 printf -- 'updated: 2026-08-01\r\n---\r\n\r\n# Alpha\r\n' \
   >> "$d/.ai/sift/open/v1/bug/ACME-0001--alpha.md"
-work "$d"
+work "$d" alpha
 assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "ACME-0001" "$(row_ids)" "the term found the CRLF ticket"
 assert_eq "5" "$(tsv_widths)" "still five fields"
 assert_eq 0 "$(printf '%s' "$R_OUT" | tr -cd '\r' | wc -c | tr -d ' ')" \
-  "no carriage return reaches the corpus, so a reader cannot mistake one for data"
+  "no carriage return reaches the answer, so a reader cannot mistake one for data"
 
-test_case "reading the backlog decides nothing on disk"
+test_case "asking the backlog decides nothing on disk"
+# Both exits are measured, because the refusal path is the one that could still
+# leave something behind: it parses arguments, resolves the tree, and only then
+# gives up.
 d="$(newdir)"; make_tree "$d" ACME
-ticket "$d" open v1/bug ACME-0001 alpha 'Alpha' > /dev/null
+ticket "$d" open v1/bug ACME-0001 alpha 'Alpha caching' > /dev/null
 before="$(tree_digest "$d")"
-work "$d"
+work "$d" caching
 assert_eq 0 "$R_STATUS" "exits 0"
+assert_eq "ACME-0001" "$(row_ids)" "having really read the tree"
 assert_eq "$before" "$(tree_digest "$d")" "the tree is byte-identical afterwards"
+work "$d"
+assert_eq 2 "$R_STATUS" "and the term-less form exits 2"
+assert_eq "$before" "$(tree_digest "$d")" "leaving the same tree behind, byte for byte"
 
 # =============================================================================
 # reserve-ids.sh — the allocator, and the ID grammar it shares with sift-drain
@@ -139,10 +297,21 @@ assert_eq "$before" "$(tree_digest "$d")" "the tree is byte-identical afterwards
 # prime_ids <root> <count> — the IDs sift-prime hands its drafting agents.
 # reserve-ids.sh is the only allocator in a priming run, so every ID that ever
 # reaches a ticket file was printed by this command.
+#
+# Every caller reads it through `$( )`, so run_cmd's R_STATUS is set in the
+# substitution's subshell and dies there: an `assert_eq 0 "$R_STATUS"` after one of
+# these calls is silently reading whatever the previous command in the parent shell
+# left behind. The status goes through a file, which does escape, and is read back
+# by prime_status.
+PRIME_STATUS_FILE="$TMPROOT/prime-status"
 prime_ids() {
   run_cmd "$1" env SIFT_ROOT="$1" "$RESERVE" "$2"
+  printf '%s\n' "$R_STATUS" > "$PRIME_STATUS_FILE"
   printf '%s\n' "$R_OUT" | LC_ALL=C sort
 }
+
+# prime_status — the exit status of the most recent prime_ids call.
+prime_status() { cat "$PRIME_STATUS_FILE"; }
 
 # drain_id_accepts <root> <ID…> — every candidate drain-log.sh's require_ticket_id
 # lets past. Driven through `dispatch`, because a ticket argument is how an ID
@@ -176,7 +345,7 @@ test_case "every ID sift-prime allocates is one sift-drain will log (SFT-0042)"
 # high-water mark is already four digits wide.
 d="$(newdir)"; make_tree "$d" ACME
 fresh="$(prime_ids "$d" 3)"
-assert_eq 0 "$R_STATUS" "the allocator exits 0 on a cold tree"
+assert_eq 0 "$(prime_status)" "the allocator exits 0 on a cold tree"
 assert_eq "$(printf '%s\n' ACME-0001 ACME-0002 ACME-0003)" "$fresh" \
   "and opens the numbering at four digits"
 assert_eq "$fresh" "$(drain_id_accepts "$d" $fresh)" \

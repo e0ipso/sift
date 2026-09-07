@@ -2,8 +2,8 @@
 type: practice
 title: Negotiate the sift-prime slate in chat only; reserve IDs in one pass
 description: >-
-  No scratch slate on disk; the orchestrator allocates a contiguous ID block
-  once, then fans out typed drafters and writes ROADMAP.md itself.
+  Negotiate in chat, persistently reserve the slate IDs, then use one batch drafter
+  with shared decisions and bounded reads.
 tags:
   - sift-prime
   - orchestration
@@ -20,7 +20,16 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-Negotiation stays in the conversation — there is no persisted slate or scratch file under `.ai/sift/`. When the user agrees, the orchestrator reserves a contiguous ID block in one pass (high-water mark from the tree and the roadmap), fans out sub-agents each holding a pre-assigned ID, path, and slate row to draft against the type's XSD, and writes `ROADMAP.md` rows itself in the same change (waves, `depends_on`, rule 9). Orchestrate; never implement the tickets' work.
+Negotiate the slate in chat before creating files. The coordinator assigns milestones,
+waves, dependencies and shared design decisions from sweep evidence, then reserves all
+agreed IDs in one persistent allocation call. The mark covers unwritten reservations as
+well as existing tickets, so concurrent sessions cannot take the same numbers.
+
+Use one batch drafter by default. It receives the approved rows and shared decisions,
+reads bounded convention sections and each required schema once, and writes Markdown
+sequentially. Split only when subject boundaries or batch size warrant separate contexts.
+Reuse the drafter for corrections. Preserve written rows and unused reservations when a
+row is blocked. The coordinator validates cross-ticket consistency after drafting finishes.
 
 <!-- kk:related:start -->
 # Related

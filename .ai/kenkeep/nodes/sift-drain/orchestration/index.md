@@ -49,10 +49,10 @@ _None._
 ### #reporting
 - Open [**Surface every self-filed ticket and report progress honestly**](practice-surface-every-self-filed-ticket-and-honest-progress.md) — One line per ticket, every self-filed ID surfaced every time, and completion percentages given with their qualifiers.
 ### #skills
-- Open [**sift-prime: the skill that fills a sift backlog**](../../sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md) — Middle skill at src/skills/sift-prime/ — goal-gap analysis, chat negotiation, then batch ticket + roadmap writes for sift-drain.
+- Open [**sift-prime: the skill that fills a sift backlog**](../../sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md) — Goal-gap analysis and chat negotiation, followed by persistent ID reservation and batch drafting of wave-assigned tickets.
 - Open [**sift-init: deterministic project-root gate and tree materialization**](../../sift-init/map-sift-init-deterministic-project-root-gate-and-tree-materialization.md) — Skill at src/skills/sift-init/ that resolves the project root and idempotently creates .ai/sift from shipped assets.
 - Open [**Sift skills are sourced from src/skills and symlinked into .claude/skills**](../../convention/map-sift-skills-are-sourced-from-src-skills-and-symlinked-into-claude-skills.md) — src/skills/sift-{init,drain,prime} is the source of the sift skills; .claude/skills/sift-* are tracked symlinks to those directories.
 ### #tickets
 - Open [**Never renumber, reuse, or delete a ticket ID**](../../tickets/practice-never-renumber-or-reuse-a-ticket-id.md) — Ticket IDs are immutable and globally unique across both buckets; a wrong ticket is archived as wontfix, never removed.
-- Open [**One problem per ticket, evidence-based, drafted against the type's schema**](../../tickets/practice-write-atomic-evidence-based-tickets.md) — One file is one ticket, claims about code cite file:line, and non-trivial tickets are drafted into a scratch XSD-shaped file first.
+- Open [**One problem per ticket, evidence-based, drafted against the type's schema**](../../tickets/practice-write-atomic-evidence-based-tickets.md) — One problem per ticket, cited evidence, and direct Markdown drafting with the type schema used once as a checklist.
 - Open [**Sift ticket bodies: four canonical sections plus type extensions**](../../tickets/map-sift-ticket-body-sections.md) — Problem, Evidence, Direction, Acceptance criteria — extended for type: bug and type: feature; headings are parsed by agents.

@@ -47,7 +47,9 @@ installable binary is out of scope for this convention.
 Each skill installs independently, so a cross-skill rule has one copy in each skill. The ID
 rule defines a ticket ID and accepts `<PREFIX>`, a hyphen, and four or more digits, with no
 other characters. The inventory below is parsed by `tests/static/agents-skill-copies.test.sh`;
-keep the heading, marker, path, and construct shapes. The rationale, history, rejected
+keep the heading, marker, path, and construct shapes. Persistent ID allocation is also
+copied into both skills; its recipe must match README.md, and mixed callers must reserve
+disjoint ranges in `tests/scripts/prime-backlog.test.sh`. The rationale, history, rejected
 alternatives, and fixture coverage live in
 [the cross-skill Kenkeep record](.ai/kenkeep/nodes/cross-skill/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md).
 
@@ -55,11 +57,13 @@ alternatives, and fixture coverage live in
 @SKILL-COPY: src/skills/sift-prime/scripts/reserve-ids.sh [0-9]{4,}
 @SKILL-COPY: src/skills/sift-prime/scripts/reserve-ids.sh printf '%s-%04d\n'
 @SKILL-COPY: src/skills/sift-drain/scripts/drain-log.sh require_ticket_id() {
+@SKILL-COPY: src/skills/sift-prime/scripts/reserve-ids.sh LOCK="$SIFT/.id-sequence/.lock"
+@SKILL-COPY: src/skills/sift-drain/scripts/reserve-ids.sh LOCK="$SIFT/.id-sequence/.lock"
 ```
 
 Keep these obligations with every rule in that inventory:
 
-- Each skill holds exactly one copy of the rule.
+- Each skill holds one allocator copy. The drain log separately validates incoming IDs.
 - Change both skills' copies in the same commit and run the corresponding agreement test in
   `tests/scripts/prime-backlog.test.sh`. The ID rule has one there, measured on the IDs
   `reserve-ids.sh` really emits; extend its fixture when the rule gains an edge. Add a third

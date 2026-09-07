@@ -2,8 +2,8 @@
 type: practice
 title: 'One problem per ticket, evidence-based, drafted against the type''s schema'
 description: >-
-  One file is one ticket, claims about code cite file:line, and non-trivial
-  tickets are drafted into a scratch XSD-shaped file first.
+  One problem per ticket, cited evidence, and direct Markdown drafting with the
+  type schema used once as a checklist.
 tags:
   - sift
   - tickets
@@ -16,30 +16,17 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-Never put two problems in one file — file a second ticket and link it with
-`depends_on` or a plain `<PREFIX>-XXXX` mention in the body. Claims about code
-cite `file:line`.
+Each ticket records one problem. Keep documentation directly made inaccurate by a fix
+with that fix; it does not need a separate ticket. Distinct problems get separate tickets
+and explicit dependency links. Claims about code cite file:line.
 
-Use the body template for the ticket's `type`: a `bug` states its
-`## Expected behaviour` and cites `file:line` under `## Evidence`; a `feature`
-states its motivation under `## Problem`. For a non-trivial ticket, draft
-against the matching `schemas/*.xsd` into a scratch file **outside** `.ai/sift/`,
-render it to markdown, write only the markdown into the tree, and throw the draft
-away.
+Read each needed type schema once as a checklist, then write Markdown directly with the
+canonical body headings. XML scratch drafts are optional. Bug tickets state expected
+behavior; feature tickets state motivation. Resolve missing cross-ticket design decisions
+before drafting instead of letting independent drafters choose conflicting defaults.
 
-Keep `labels:` free-form kebab topic tags (`api`, `caching`, `onboarding`) and
-never use it to restate `type`, `priority` or `status`. When a ticket mirrors a
-remote issue, record the URL in `source:` and translate the scoped dimensions
-per README.md's mapping table rather than encoding them as label strings.
-
-**Why:** filling a structure that names every field forces the drafter to
-confront the awkward question — the expected behaviour not yet pinned down, the
-alternative not weighed — while it can still be closed; afterwards the omission
-is invisible. And a fact stored in both a front-matter key and a label has two
-sources of truth and will drift; front-matter wins.
-
-**How to apply:** never invoke `xmllint` as part of this — the schema is a
-checklist to read, and nothing may depend on it being installed.
+Use free-form topic labels without duplicating type, priority or status. For mirrored
+remote issues, use source for the URL and the README mapping for scoped tracker labels.
 
 <!-- kk:related:start -->
 # Related

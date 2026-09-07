@@ -8,6 +8,11 @@ fallout unit-level tests miss), then batch coverage, then fix agents, then the w
 knowledge-capture pass, then the close. One agent may carry the batch coverage **and** the
 close; the e2e specialist always runs alone, first.
 
+Before each gate dispatch, prepare its worktree and branch with prepare-worktree.sh as for
+an implementation sitting. PROJECT_ROOT is that worktree; BASE_BRANCH names the integration
+branch for reporting only. Gate agents commit on the branch already checked out and do not
+create branches or check out the integration branch.
+
 Every gate-agent rule is inside the fenced prompt that receives it. Prose outside the fences
 only tells the orchestrator when to select a template, what inputs to substitute, and how to
 close the wave. Dispatch a template verbatim after replacing its placeholders.
@@ -61,7 +66,9 @@ Do not capture durable knowledge in this pass. Do not edit the sift-drain skill 
 ticket locally. Never file, comment on, or patch an external tracker. Report an upstream
 proposal as a `type: dx` ticket-worthy defect for the orchestrator.
 
-Branch off local {{BASE_BRANCH}}, commit your scoped changes, and report the commit. Do not
+Use the prepared worktree at {{PROJECT_ROOT}} and its checked-out branch. Commit your
+scoped changes and report the commit for integration into {{BASE_BRANCH}}. Do not check out
+the integration branch or create another branch. Do not
 merge and NEVER `git push`. Do not write tracker state, including ticket files, archive
 moves, or wave keys.
 
@@ -123,7 +130,9 @@ Do not capture durable knowledge in this pass. Do not edit the sift-drain skill 
 ticket locally. Never file, comment on, or patch an external tracker. Report an upstream
 proposal as a `type: dx` ticket-worthy defect for the orchestrator.
 
-Branch off local {{BASE_BRANCH}}, commit your scoped changes, and report the commit. Do not
+Use the prepared worktree at {{PROJECT_ROOT}} and its checked-out branch. Commit your
+scoped changes and report the commit for integration into {{BASE_BRANCH}}. Do not check out
+the integration branch or create another branch. Do not
 merge and NEVER `git push`. Do not write tracker state, including ticket files, archive
 moves, or wave keys.
 
@@ -171,7 +180,9 @@ sift-drain skill or file a ticket locally. Never file, comment on, or patch an e
 tracker. Report an upstream proposal as a `type: dx` ticket-worthy defect for the
 orchestrator.
 
-Branch off local {{BASE_BRANCH}}, commit your scoped changes, and report the commit. Do not
+Use the prepared worktree at {{PROJECT_ROOT}} and its checked-out branch. Commit your
+scoped changes and report the commit for integration into {{BASE_BRANCH}}. Do not check out
+the integration branch or create another branch. Do not
 merge and NEVER `git push`. Do not write tracker state, including ticket files, archive
 moves, or wave keys.
 
@@ -187,7 +198,7 @@ REPORT (only this):
 
 Run this template once you merge the last fix agent's commit and the gate is green.
 Its input is the full set of collected worker reports, including their
-`deferred to the wave gate:` lines. If the project has no knowledge-base capture
+`deferred to the wave gate:` lines. If the reports contain no durable candidates or the project has no knowledge-base capture
 skill, skip the template and record that case in the wave summary.
 
 ```
@@ -202,7 +213,8 @@ Read the repository's agent instructions, its knowledge-base index, and the capt
 full instructions before writing anything. Verify every named path, command, and interface
 against the live tree.
 
-Branch off local {{BASE_BRANCH}} before writing.
+Use the prepared worktree at {{PROJECT_ROOT}} and its checked-out branch. Do not create a
+branch or check out {{BASE_BRANCH}}; the coordinator integrates your returned commit.
 
 Run the project's knowledge-base capture skill ONCE over the material above, for the wave
 as a whole. Capture what stays true after this wave: conventions, gotchas that cost an

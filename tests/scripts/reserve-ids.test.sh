@@ -9,7 +9,7 @@
 # directly — none of the reserved IDs may already exist anywhere in the tree.
 #
 # The mark is the highest ID among ticket filenames in open/ AND archive/. Those
-# two buckets are the whole record: archiving moves a ticket rather than deleting
+# two buckets provide the initial mark: archiving moves a ticket rather than deleting
 # it, so an ID that was ever issued is still a filename somewhere.
 #
 # Sandboxing: SIFT_ROOT always points into TMPROOT, so no case can resolve the
@@ -153,15 +153,16 @@ for id in $R_OUT; do
 done
 assert_eq "" "$collisions" "none of the reserved IDs collides with an existing ticket"
 
-test_case "reserving twice in a row hands out the same IDs"
-# Nothing is written, so the mark cannot move: two callers who both reserve
-# before either writes get the same answer, which is why the ID only becomes
-# real when the ticket file lands.
-before="$(tree_digest "$d")"
+test_case "reservations survive without ticket files"
 first="$R_OUT"
 reserve "$d" 4
-assert_eq "$first" "$R_OUT" "the second call repeats the first"
-assert_eq "$before" "$(tree_digest "$d")" "because reserving writes nothing at all"
+assert_eq 0 "$R_STATUS" "second reservation succeeds"
+assert_eq "SFT-0018
+SFT-0019
+SFT-0020
+SFT-0021" "$R_OUT" "the first batch remains reserved before drafting"
+assert_eq 21 "$(cat "$d/.ai/sift/.id-sequence/SFT")" "the durable mark includes both batches"
+assert_no_dir "$d/.ai/sift/.id-sequence/.lock" "successful allocation releases its lock"
 
 # --- Argument handling -------------------------------------------------------
 
@@ -172,6 +173,12 @@ assert_eq 1 "$R_STATUS" "exits 1"
 assert_eq "" "$R_OUT" "and prints no ID"
 assert_contains "$R_ERR" 'reserve-ids.sh needs a count' "saying what is missing"
 assert_contains "$R_ERR" "$USAGE" "with the usage line"
+
+test_case "an explicit empty count does not fall back to the cookbook default"
+reserve "$d" ""
+assert_eq 1 "$R_STATUS" "the script still requires a positive count"
+assert_eq "" "$R_OUT" "an empty argument allocates nothing"
+assert_no_dir "$d/.ai/sift/.id-sequence" "no mark is created"
 
 test_case "a non-numeric count is refused with the character check's own message"
 # One row, not six (SFT-0075). abc, 1.5, -1, '3 4', 1e3 and ' ' all reach the one
@@ -197,5 +204,61 @@ before="$(tree_digest "$d")"
 reserve "$d" nonsense
 assert_eq 1 "$R_STATUS" "exits 1"
 assert_eq "$before" "$(tree_digest "$d")" "the tree is untouched"
+
+test_case "busy lock fails without output or stealing ownership"
+d="$(tree_with SFT)"
+reserve "$d" 1
+mkdir "$d/.ai/sift/.id-sequence/.lock"
+before="$(tree_digest "$d")"
+reserve "$d" 2
+assert_eq 3 "$R_STATUS" "busy lock has a distinct status"
+assert_eq "" "$R_OUT" "no unreserved IDs escape"
+assert_eq "$before" "$(tree_digest "$d")" "another owner's state is untouched"
+rmdir "$d/.ai/sift/.id-sequence/.lock"
+reserve "$d" 2
+assert_eq "SFT-0002
+SFT-0003" "$R_OUT" "retry after owner completion reserves the next batch"
+
+test_case "damaged state cannot silently restart numbering"
+printf 'broken\n' > "$d/.ai/sift/.id-sequence/SFT"
+reserve "$d" 1
+assert_eq 2 "$R_STATUS" "corrupt mark fails closed"
+assert_eq "" "$R_OUT" "no ID is issued"
+assert_eq broken "$(cat "$d/.ai/sift/.id-sequence/SFT")" "the mark is preserved for recovery"
+assert_no_dir "$d/.ai/sift/.id-sequence/.lock" "failure releases its own lock"
+
+test_case "unsafe numeric inputs and extra arguments do not allocate"
+d="$(tree_with SFT)"
+for value in 999999999999999999999999999999 0000000000000000000000000000000; do
+  reserve "$d" "$value"
+  assert_eq 1 "$R_STATUS" "oversized or all-zero count is refused"
+  assert_eq "" "$R_OUT" "no output on refused count"
+done
+reserve "$d" 1 2
+assert_eq 1 "$R_STATUS" "extra arguments are refused"
+assert_no_dir "$d/.ai/sift/.id-sequence" "bad arguments create no reservation state"
+
+test_case "failed scanning or publication emits no IDs and preserves reservations"
+d="$(tree_with SFT)"
+reserve "$d" 1
+shim="$(newdir)"
+for utility in find grep sort mv; do
+  printf '#!/bin/sh\nexit 9\n' > "$shim/$utility"
+  chmod +x "$shim/$utility"
+  run_cmd "$d" env SIFT_ROOT="$d" PATH="$shim:$PATH" "$RESERVE" 2
+  assert_ne 0 "$R_STATUS" "$utility failure is propagated"
+  assert_eq "" "$R_OUT" "$utility failure returns no unreserved ID"
+  assert_eq 1 "$(cat "$d/.ai/sift/.id-sequence/SFT")" "the old mark survives $utility failure"
+  assert_no_dir "$d/.ai/sift/.id-sequence/.lock" "the caller releases its lock"
+  rm "$shim/$utility"
+done
+reserve "$d" 1
+assert_eq SFT-0002 "$R_OUT" "normal allocation resumes after failure"
+
+test_case "newly imported tickets advance an existing reservation mark"
+stub_ticket "$d" archive v2/bug SFT-0500--imported.md
+reserve "$d" 2
+assert_eq "SFT-0501
+SFT-0502" "$R_OUT" "both current bucket filenames and the mark are considered"
 
 summary

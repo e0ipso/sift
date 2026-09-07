@@ -656,4 +656,54 @@ assert_ne "$got_prime" "$got_drain" \
 assert_eq "$got_prime" "$(drain_id_accepts_as "$d" ACME ACME-0001 ZULU-0001)" \
   "handed the same prefix the allocator resolved, the drain classifies alike again"
 
+# Persistent reservation agreement: neither skill depends on the other's install.
+reservation_body() {
+  sed -n '/^# BEGIN reservation recipe$/,/^# END reservation recipe$/p' "$1" |
+    sed '1d; $d'
+}
+test_case "Prime, Drain and the cookbook share one reservation protocol"
+assert_eq "$(recipe_allocate)" "$(reservation_body "$RESERVE")" "Prime matches the runnable spec"
+assert_eq "$(reservation_body "$RESERVE")" "$(reservation_body "$DRAIN/reserve-ids.sh")"   "independently shipped allocators are identical"
+d="$(newdir)"; make_tree "$d" ACME
+run_cmd "$d" env SIFT_ROOT="$d" "$RESERVE" 2
+assert_eq "ACME-0001
+ACME-0002" "$R_OUT" "Prime reserves before writing tickets"
+run_cmd "$d" env SIFT_ROOT="$d" "$DRAIN/reserve-ids.sh" 1
+assert_eq ACME-0003 "$R_OUT" "Drain sees Prime's unwritten reservation"
+run_recipe "$d" "$(recipe_allocate)" PREFIX=ACME
+assert_eq ACME-0004 "$R_OUT" "the cookbook sees both skills' reservations"
+
+test_case "simultaneous Prime and Drain batches cannot overlap"
+d="$(newdir)"; make_tree "$d" ACME
+# All real callers race. Busy callers retry once after all concurrent calls finish.
+# No sleep or forced ordering; assertions hold whichever caller acquired the lock.
+for n in 1 2 3 4 5 6; do
+  case "$n" in 1|3|5) allocator="$RESERVE" ;; *) allocator="$DRAIN/reserve-ids.sh" ;; esac
+  (
+    env SIFT_ROOT="$d" "$allocator" 3 > "$TMPROOT/race-$n.out" 2> "$TMPROOT/race-$n.err"
+    printf '%s\n' "$?" > "$TMPROOT/race-$n.status"
+  ) &
+done
+wait
+for n in 1 2 3 4 5 6; do
+  code="$(cat "$TMPROOT/race-$n.status")"
+  if [ "$code" -eq 3 ]; then
+    assert_eq "" "$(cat "$TMPROOT/race-$n.out")" "busy caller $n emitted no IDs"
+    env SIFT_ROOT="$d" "$DRAIN/reserve-ids.sh" 3 > "$TMPROOT/race-$n.out"
+    code=$?
+  fi
+  assert_eq 0 "$code" "caller $n eventually reserved its batch"
+  assert_eq 3 "$(wc -l < "$TMPROOT/race-$n.out" | tr -d ' ')" "caller $n received exactly three IDs"
+done
+assert_eq 18 "$(cat "$TMPROOT"/race-*.out | sort -u | wc -l | tr -d ' ')"   "all eighteen IDs are distinct"
+assert_eq 18 "$(cat "$d/.ai/sift/.id-sequence/ACME")" "the mark covers every batch"
+
+test_case "worktree aliases share reservation state with the original tracker"
+alias_root="$(newdir)"; mkdir -p "$alias_root/.ai"
+ln -s "$d/.ai/sift" "$alias_root/.ai/sift"
+run_cmd "$alias_root" env SIFT_ROOT="$alias_root" "$RESERVE" 1
+assert_eq ACME-0019 "$R_OUT" "a symlink cannot create a second numbering sequence"
+run_cmd "$d" env SIFT_ROOT="$d" "$DRAIN/reserve-ids.sh" 1
+assert_eq ACME-0020 "$R_OUT" "the original root observes the alias reservation"
+
 summary

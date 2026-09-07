@@ -25,7 +25,10 @@ Write scope comes from the tickets' citations, not from opening source. Tickets 
 
 As workers return, the orchestrator strikes, archives, and merges, then rewires: new tickets a worker wrote under `open/` enter the graph if they belong in this wave. Ready workers dispatch together when the harness allows concurrent sub-agents; a harness that cannot overlap them still honours the graph by waiting on sequential edges.
 
-Workers die when their sitting ends. The wave gate runs only after the wave's remaining work is done or blocked. The same orchestrator continues into the next wave.
+Reuse a worker for related follow-ups within the wave when its context is still useful.
+The coordinator prepares its next worktree and branch from the current integration state;
+workers never check out the integration branch. Documentation directly affected by a
+change belongs in that ticket's write scope and commit. The wave gate runs only after the wave's remaining work is done or blocked. The same orchestrator continues into the next wave.
 
 **Why:** starting a worker from a single ticket file pays orientation per file. The graph is how one warm orchestrator spends workers on sittings while keeping product-file overlap off the parallel set.
 

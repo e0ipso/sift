@@ -41,6 +41,6 @@ _None yet._
 - Open [**Kenkeep knowledge-admission authority**](../map-kenkeep-knowledge-admission-authority.md) — knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills.
 - Open [**Platform plan-creator contract**](map-platform-plan-creator-contract.md) — Claude and Cursor use byte-identical ordered plan-creator contracts with the same seven execution phases.
 ### #skills
-- Open [**sift-prime: the skill that fills a sift backlog**](../sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md) — Middle skill at src/skills/sift-prime/ — goal-gap analysis, chat negotiation, then batch ticket + roadmap writes for sift-drain.
+- Open [**sift-prime: the skill that fills a sift backlog**](../sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md) — Goal-gap analysis and chat negotiation, followed by persistent ID reservation and batch drafting of wave-assigned tickets.
 - Open [**sift-init: deterministic project-root gate and tree materialization**](../sift-init/map-sift-init-deterministic-project-root-gate-and-tree-materialization.md) — Skill at src/skills/sift-init/ that resolves the project root and idempotently creates .ai/sift from shipped assets.
 - Open [**Sift skills are sourced from src/skills and symlinked into .claude/skills**](../convention/map-sift-skills-are-sourced-from-src-skills-and-symlinked-into-claude-skills.md) — src/skills/sift-{init,drain,prime} is the source of the sift skills; .claude/skills/sift-* are tracked symlinks to those directories.

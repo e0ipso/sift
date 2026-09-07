@@ -99,6 +99,8 @@ Call these instead of parsing markdown by eye. They live in `scripts/` next to t
 resolve that absolute path once at run start and reuse it.
 
 ```sh
+scripts/reserve-ids.sh <count>  # persistent allocation shared with Prime and the cookbook
+scripts/prepare-worktree.sh <base> <branch> <absolute-new-path>
 scripts/wave-status.sh    # per-wave done/remaining + current wave's remaining tickets
 scripts/next-ticket.sh    # cluster-widening helper (not the drain loop)
 scripts/next-ticket.sh --group
@@ -182,20 +184,26 @@ Loop, until the current wave has no remaining dispatchable tickets:
    harness slot you can fill concurrently. A harness that cannot overlap
    sub-agents still waits on sequential edges; it does not flatten the graph into
    "next ticket file."
-3. Run `drain-log.sh dispatch <TICKET>...` — every ticket in that sitting, in one
+3. Prepare the branch and worktree before dispatch using `prepare-worktree.sh`, from the
+   original repository. Pass its absolute worktree path as `PROJECT_ROOT`, the prepared
+   branch, and the original project root as `SIFT_ROOT`. Keep the integration checkout
+   for your landings. Workers use absolute shared tracker paths; never replace their
+   tracked `.ai/sift` directory with a symlink. Gate agents use the same setup.
+   Run `drain-log.sh dispatch <TICKET>...` — every ticket in that sitting, in one
    call — as the last thing before each dispatch, so the stamp bounds worker
    runtime rather than your own deliberation.
 4. Dispatch each sitting with `references/ticket-agent-prompt.md` verbatim; do not
    supplement or re-derive it. That file is the full worker contract, including
    phase stamps, implementation, verification, commits, follow-ups, and its exact
-   report schema.
-5. **Model policy.** Default to the session's model tier. Escalate to the strongest
-   tier available for `effort: l|xl`, for architecturally sensitive work (public
-   API, ADRs, structural hubs), and for wave-gate test batches. Never downgrade to
-   a cheap or fast tier to save tokens — a bad merge costs more than the model did.
+   report schema. Prefer a fresh task context with these inputs instead of inheriting
+   the coordinator transcript.
+5. **Model policy.** Use the session's tier for implementation by default. Choose a stronger
+   tier for difficult architecture, concurrency or verification work. A cheaper tier is
+   appropriate for bounded documentation or metadata changes with explicit inputs and
+   checks; honor any model preference the user supplied.
 6. Never `git push` or touch an external tracker. The worker and gate prompt templates carry
    the same boundary for their actors. When a gate agent reports an upstream proposal,
-   create a local `type: dx` ticket so the user can file it.
+   reserve an ID and create a local `type: dx` ticket so the user can file it.
 7. The moment a worker returns, before anything else:
     - If `tamper:` is not `none`, coordinate; do not let either worker overwrite
       the other (`references/run-management.md`).
@@ -210,7 +218,11 @@ Loop, until the current wave has no remaining dispatchable tickets:
       does not, and hang the ticket on the graph either way.
     - Run `ticket-check.sh`. Post a **one-line progress update per ticket**.
       **Surface every self-filed ticket to the user** — non-negotiable, every time.
-    - Rewire. Dispatch newly ready sittings.
+    - Rewire. For a related follow-up, prefer resuming the worker that already knows the
+      area, after preparing its next branch from the current integration state and checking
+      dependencies and ownership. Send only new inputs; preserve one commit per ticket.
+      Batch unrelated small follow-ups into a later maintenance sitting when priorities
+      allow. Dispatch newly ready sittings.
 
 If a worker stalls, follow the resume procedure in `references/run-management.md`.
 
@@ -235,7 +247,9 @@ fields. Do not inspect its diff as a substitute.
 
 Consume the return per ticket. Its status drives `drain-log.sh return`; its commit identifies
 what may be landed; its resolution becomes the archive resolution and supplies waived gate
-coverage; and its verification and live check are the evidence for the progress line.
+coverage; and its verification supplies the evidence for the progress line. Its issues field
+identifies unresolved decisions and unfiled findings; reserve IDs and file those findings
+before dispatching work that needs them.
 Partial success is normal, so land completed tickets and redispatch only the rest. Handle
 tamper before every other return action. Slot every reported follow-up ID and surface it to
 the user.
@@ -259,17 +273,18 @@ wave. You do.
    or the explicit no-e2e-layer status.
 4. Group fallout by root cause and dispatch one fix agent per cause. Merge each returned
    commit, then repeat every full run after the last fix lands. A gate agent reports a
-   ticket-worthy defect; you create its ticket, `wave:` included, before dispatching work
-   that needs the new ID.
+   ticket-worthy defect; you reserve its ID and create its ticket, `wave:` included, before dispatching
+   work that needs the new ID.
 5. Do not close while a p1 or p2 ticket filed into this wave remains open. Work a ticket
    slotted into an already-closed wave as the current wave's tail. Its deferred coverage
    belongs to the next gate; never reopen a closed one.
 6. After the gate is green, run one knowledge-capture pass over the collected worker
-   reports when the project has a capture skill, and merge its returned commit. Then post
+   reports when they contain durable candidates and the project has a capture skill. Merge
+   its returned commit, then post
    the wave summary with tickets done or blocked, tickets filed, tests added, and suite
    status.
 
-Use `references/wave-gate.md` verbatim for every gate dispatch. Every gate agent branches,
+Use `references/wave-gate.md` verbatim for every gate dispatch. Every gate agent uses its prepared branch,
 commits its scoped changes, and reports the commit. You merge those commits and remain the
 only tracker writer.
 

@@ -27,6 +27,7 @@ requires changing `config.yaml` and renaming every existing ticket file and ID.
 ├── .gitignore                 ← ignores the tree by default; delete it to track tickets
 ├── README.md                  ← this convention (read it before touching tickets)
 ├── MILESTONES.md              ← what each milestone means, in intended order
+├── .id-sequence/              ← persistent per-prefix reservation marks and transient .lock/
 ├── RUNLOG.md                  ← append-only drain run log; diagnostic, never ticket state
 ├── config/                    ← per-repository configuration (see "Configuration" above)
 │   └── config.yaml            ← the ticket prefix; the single place the value is defined
@@ -63,8 +64,10 @@ requires changing `config.yaml` and renaming every existing ticket file and ID.
 - `<PREFIX>-<NNNN>` is the ticket ID: zero-padded, sequential, **immutable, never
   reused**, globally unique across both buckets. The prefix comes from the
   *Configuration* section above. The slug may be edited; the ID may not.
-- Allocate the next ID as the highest existing one across **both** buckets plus one —
-  never the highest existing ID itself, which is already taken (see cookbook below).
+- Reserve IDs through the cookbook allocator or a skill's `reserve-ids.sh`. It advances
+  beyond both bucket filenames and `.id-sequence/<PREFIX>`, under one shared directory
+  lock. Reserve before writing; keep unused reservations as gaps. Never lower or delete
+  the reservation mark, even if a batch was interrupted.
 
 ## Front-matter schema
 
@@ -177,8 +180,10 @@ sections unchanged.
 
 ## Drafting a ticket
 
-`schemas/` holds one XSD per body shape. Use it as a field checklist.
-Draft into a scratch file outside `.ai/sift/`, render the markdown ticket, then delete it:
+`schemas/` holds one XSD per body shape. Read each needed schema once as a field
+checklist and write Markdown directly. An XML scratch draft is optional.
+Draft into a scratch file outside `.ai/sift/` only when XML validation is useful;
+render the markdown ticket, then delete the scratch file:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -283,7 +288,9 @@ across GNU and BSD systems.
 
 ## Rules for agents
 
-1. **Read this file before creating or moving tickets.** Follow it exactly.
+1. **Read this file before creating or moving tickets.** Read the applicable sections:
+   Rules for agents, Front-matter schema, Ticket body, and Drafting a ticket for creation;
+   the relevant cookbook recipe for allocation or moves. Follow them exactly.
 2. **Never renumber, reuse, or delete a ticket ID.** Wrong ticket? Archive it with
    `status: wontfix` and a `resolution`. Files are deleted only by the human owner.
 3. **Front-matter is the source of truth**; folders are an index. When you `mv` a
@@ -339,26 +346,84 @@ export MILESTONE=$(basename "$(find .ai/sift/open -mindepth 1 -maxdepth 1 -type 
 find .ai/sift/open -name "$PREFIX-*.md" | sort
 ```
 
-**Allocate the next ID** (highest existing + 1, across both buckets; prints
-`<PREFIX>-0001` on an empty tree):
+**Allocate the next ID** (persistently reserves one; set `COUNT` for a contiguous batch).
+Every writer, including parallel Prime and Drain sessions, must use this protocol:
 ```sh
-[ -d .ai/sift ] && find .ai/sift -name "$PREFIX-*.md" | awk -v prefix="$PREFIX" '
-  BEGIN { max = 0 }
-  {
-    name = $0
-    sub(/^.*\//, "", name)
-    if (index(name, prefix "-") != 1) next
-    rest = substr(name, length(prefix) + 2)
-    if (match(rest, /^[0-9]+/) == 0) next
-    n = substr(rest, 1, RLENGTH) + 0
-    if (n > max) max = n
+(
+  set -eu
+  SIFT=${SIFT:-.ai/sift}
+  COUNT=${COUNT:-1}
+  [ -d "$SIFT/open" ] && [ -d "$SIFT/archive" ] || {
+    echo "missing .ai/sift buckets — run sift-init first" >&2; exit 2;
   }
-  END { printf "%s-%04d\n", prefix, max + 1 }
-'
+  printf '%s\n' "${PREFIX:-}" | LC_ALL=C grep -Eq '^[A-Z][A-Z0-9]*$' || {
+    echo "invalid ticket prefix" >&2; exit 2;
+  }
+  case "$COUNT" in
+    ''|*[!0-9]*) echo "count must be a positive whole number, got: $COUNT" >&2; exit 1 ;;
+  esac
+  COUNT=$(printf '%s\n' "$COUNT" | sed 's/^0*//')
+  [ -n "$COUNT" ] || { echo "count must be at least 1, got: 0" >&2; exit 1; }
+  [ "${#COUNT}" -le 9 ] || { echo "count is too large" >&2; exit 1; }
+  mkdir -p "$SIFT/.id-sequence"
+  LOCK="$SIFT/.id-sequence/.lock"
+  if ! mkdir "$LOCK" 2>/dev/null; then
+    echo "ID allocator busy or lock unavailable: $LOCK; retry after the owner finishes" >&2
+    exit 3
+  fi
+  trap 'rm -f "$LOCK/files" "$LOCK/names" "$LOCK/ids" "$LOCK/numbers" "$LOCK/sorted" "$LOCK/top" "$LOCK/high"; rmdir "$LOCK"' EXIT
+  trap 'exit 1' HUP INT TERM
+  # Find the buckets explicitly so a symlinked .ai/sift shares the same state.
+  find "$SIFT/open" "$SIFT/archive" -type f -name "$PREFIX-*.md" > "$LOCK/files"
+  sed 's#.*/##' "$LOCK/files" > "$LOCK/names"
+  LC_ALL=C grep -oE "^$PREFIX-[0-9]{4,}--" "$LOCK/names" > "$LOCK/ids" || [ "$?" -eq 1 ]
+  sed "s/^$PREFIX-//; s/--$//" "$LOCK/ids" > "$LOCK/numbers"
+  STATE="$SIFT/.id-sequence/$PREFIX"
+  if [ -e "$STATE" ]; then
+    SAVED=$(cat "$STATE")
+    case "$SAVED" in
+      ''|*[!0-9]*) echo "invalid ID reservation state: $STATE; restore it before allocating" >&2; exit 2 ;;
+    esac
+    printf '%s\n' "$SAVED" >> "$LOCK/numbers"
+  fi
+  # Refuse unsupported numbers rather than wrapping and issuing an old ID.
+  awk 'length($0) > 15 { bad = 1 } END { exit bad }' "$LOCK/numbers" || {
+    echo "ID exceeds supported numeric range" >&2; exit 2;
+  }
+  sort -n "$LOCK/numbers" > "$LOCK/sorted"
+  tail -n 1 "$LOCK/sorted" > "$LOCK/top"
+  HIGH=$(sed 's/^0*//' "$LOCK/top")
+  HIGH=${HIGH:-0}
+  LAST=$((HIGH + COUNT))
+  [ "${#LAST}" -le 15 ] || { echo "ID exceeds supported numeric range" >&2; exit 2; }
+  printf '%s\n' "$LAST" > "$LOCK/high"
+  mv "$LOCK/high" "$STATE"
+  # Publish the mark before printing. An interrupted caller loses IDs, never reuses them.
+  N=$HIGH
+  while [ "$N" -lt "$LAST" ]; do
+    N=$((N + 1))
+    printf '%s-%04d\n' "$PREFIX" "$N"
+  done
+)
 ```
-The recipe compares numbers. `%04d` is a minimum width, so 9999 advances to 10000. Its
-inline tree guard suppresses all output outside a Sift tree; without it, `awk`'s `END` would
-print `<PREFIX>-0001` after a failed `find`.
+The mark is written before IDs reach stdout. A failed caller may leave unused numbers;
+never recycle them. `%04d` is minimum width, so 9999 advances to 10000. Allocation supports
+IDs through 15 digits and refuses larger numbers rather than wrapping. Exit 3 means the
+lock is busy or cannot be created: wait for its owner to finish, then retry the allocation.
+Do not treat an error as an empty tree or use a read-only maximum as a fallback.
+
+`.id-sequence/<PREFIX>` contains the highest reserved number, one decimal line. The
+transient `.id-sequence/.lock/` serializes all writers sharing the tree, including worktrees
+whose `.ai/sift` is a symlink. After a crash, stop allocation callers and establish that no
+owner is running before removing only the lock's `files`, `names`, `ids`, `numbers`, `sorted`, `top`, and
+`high` scratch files and its empty directory. Preserve every per-prefix mark. Restore a damaged mark from
+a backup that includes outstanding reservations before allocating again.
+
+Migration from read-only allocation is additive: stop old Prime/Drain sessions and update
+both skills and this README before restarting writers. No ticket or key is renamed. The
+first allocation creates `.id-sequence/` and seeds its mark from both existing buckets.
+Outstanding IDs from an old read-only allocator must be written as tickets before restart;
+otherwise they are not reserved. Include `.id-sequence/` when backing up the tracker.
 
 **Triage view — id, title, priority for one milestone:**
 ```sh

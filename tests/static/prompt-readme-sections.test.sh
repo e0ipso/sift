@@ -27,6 +27,7 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 . "$DIR/../lib/recipes.sh"
 
 PROMPT="$REPO_ROOT/src/skills/sift-drain/references/ticket-agent-prompt.md"
+DRAFTING_PROMPT="$REPO_ROOT/src/skills/sift-prime/references/drafting-agent-prompt.md"
 SHIPPED="$REPO_ROOT/src/skills/sift-init/assets/README.md"
 
 # The marker. It is documented in the prompt itself, under "The bounded spec
@@ -47,7 +48,7 @@ prompt_sections() {
       sub(/[[:space:]]+$/, "", line)
       if (line != "") print line
     }
-  ' "$PROMPT"
+  ' "$PROMPT" "$DRAFTING_PROMPT" | sort -u
 }
 
 # headings_of <file> — every ATX heading line outside a fenced block, trimmed of

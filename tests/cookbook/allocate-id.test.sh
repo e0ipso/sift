@@ -14,9 +14,9 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 RECIPE="$(recipe_allocate)"
 
 test_case "recipe is extracted from README.md"
-assert_contains "$RECIPE" 'printf "%s-%04d\n", prefix, max + 1' \
+assert_contains "$RECIPE" "printf '%s-%04d\\n'" \
   "the allocation one-liner is the documented text"
-assert_contains "$RECIPE" '[ -d .ai/sift ]' \
+assert_contains "$RECIPE" '[ -d "$SIFT/open" ]' \
   "the inline tree guard is part of the documented recipe"
 
 alloc() { run_recipe "$1" "$RECIPE" PREFIX="$2"; }
@@ -95,6 +95,7 @@ assert_eq "" "$R_OUT" "prints no ID at all (SFT-0001 would already be taken)"
 
 matrix_case() {
   local d="$1"
+  rm -rf "$d/.ai/sift/.id-sequence"  # disposable fixture: each matrix member starts fresh
   alloc "$d" SFT
   assert_eq "SFT-0008" "$R_OUT" "$R_LABEL"
 }

@@ -52,6 +52,18 @@ its output as the thing that starts a worker.
 A ticket carrying no `wave:` is in no load at all. `ticket-check.sh` names each one; give
 it the wave it belongs in before the next dispatch rather than working it off the report.
 
+Do not create a new sitting for documentation directly made inaccurate by a ticket's own
+change. Include that documentation in its write scope and commit. For genuinely separate
+follow-ups, prefer reusing a worker with relevant context or collecting small maintenance
+items into a sitting, subject to dependencies and priority.
+
+The coordinator prepares all new worktrees and branches with `prepare-worktree.sh` from the
+original repository. Workers receive the prepared path and branch, plus `SIFT_ROOT` for the
+shared tracker. No worker checks out the integration branch. On reuse, wait until the worker
+has stopped, land its completed work, then prepare a new branch/worktree from the current
+integration state and send the new assignment to that same worker. Leave its prior worktree
+intact when it contains unfinished work; never reset or clean a tree holding live tickets.
+
 A sitting never crosses a wave boundary. Before dispatch, verify that every ticket in it is
 still present in the live wave and that no earlier edge remains unmet.
 

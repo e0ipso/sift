@@ -2,8 +2,8 @@
 type: map
 title: 'sift-prime: the skill that fills a sift backlog'
 description: >-
-  Middle skill at src/skills/sift-prime/ — goal-gap analysis, chat negotiation,
-  then batch ticket + roadmap writes for sift-drain.
+  Goal-gap analysis and chat negotiation, followed by persistent ID reservation
+  and batch drafting of wave-assigned tickets.
 tags:
   - sift-prime
   - skills
@@ -24,9 +24,17 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-`src/skills/sift-prime/` sits between init and drain: init creates the tree, prime fills it, drain empties it. The playbook is `SKILL.md` (gate, four phases, orchestrate-never-implement). `references/analysis.md` is the policy source for evidence, plurality, clustering, deduplication, and chat-only negotiation; `SKILL.md` carries concise phase actions linked to those policies. `references/drafting-agent-prompt.md` is the per-row drafting contract: six ordered steps cover fixed inputs, orientation, schema drafting, ticket writing, scope checks, and the exact final report. It preserves supplied placeholders and citations, limits writes to the assigned ticket, and forbids roadmap and milestone edits. Scripts: `reserve-ids.sh` (single ID allocator), `existing-work.sh` (dedupe corpus across both buckets), `roadmap-append.sh` (append-only roadmap writer), and a slim `lib.sh`.
+`src/skills/sift-prime/` turns a repository's stated-intent gaps into wave-assigned tickets.
+`SKILL.md` owns analysis, negotiation, persistent ID reservation, batch drafting and final
+checks. `references/analysis.md` owns scope, evidence, clustering and dedupe. The coordinator
+assigns milestones using findings and existing definitions; there is no separate planner.
 
-When changing this, verify plurality wording still forbids single-ticket framing, that negotiation remains chat-only, and that `sift-drain`'s `wave-status.sh` can read a freshly primed tree.
+`references/drafting-agent-prompt.md` supplies one batch drafter with approved rows and
+shared decisions. It writes Markdown directly, preserves completed rows on partial failure,
+and returns a compact report. `scripts/existing-work.sh` searches existing tickets;
+`scripts/reserve-ids.sh` reserves unwritten IDs under the same lock and persistent mark as
+Drain and the README cookbook. The coordinator writes agreed milestone definitions;
+each ticket carries its own wave and dependencies.
 
 <!-- kk:related:start -->
 # Related

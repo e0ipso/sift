@@ -1,7 +1,7 @@
 # Canonical sub-agent prompt for one worker sitting
 
-Copy the template and substitute the placeholders. Do not trim the process requirements —
-every clause is a hard-won constraint.
+Copy the template and substitute the placeholders. Pass task inputs in a fresh context
+when supported; avoid inheriting the coordinator transcript.
 
 This file is the sole full worker contract. Its Step 6 block is the sole exact worker report
 schema. The orchestrator skill consumes that schema but does not copy it.
@@ -27,9 +27,10 @@ merge. The orchestrator lands those writes after you return.
 | `{{GROUP_TICKETS}}` | space-separated IDs, sitting order. This is also the ORDER you work them in |
 | `{{TICKET_BLOCK}}` | one stanza per ticket in that order: id, title, the absolute path, `type`/`priority`/`effort` from that ticket's own front matter, and one or two sentences of summary the orchestrator wrote after reading it |
 | `{{LEAD_ID}}` / `{{LEAD_ID_LOWER}}` | the first ID in `{{GROUP_TICKETS}}`; the lowercase form names the shared branch |
-| `{{PROJECT_ROOT}}` | absolute path the agent works in |
+| `{{PROJECT_ROOT}}` | absolute path of the worktree already prepared by the coordinator |
 | `{{BRANCH}}` | ONE branch for the whole sitting, e.g. `feature/{{LEAD_ID_LOWER}}--{{slug}}` |
 | `{{BASE_BRANCH}}` | local integration branch, normally `main` |
+| `{{SIFT_ROOT}}` | original project root holding the shared live `.ai/sift` tracker |
 | `{{TEST_SCOPE_HINT}}` | test files you expect to be relevant across the sitting, or "agent's judgment" |
 | `{{SCRIPTS_DIR}}` | absolute path of this skill's `scripts/` directory |
 
@@ -60,6 +61,13 @@ Tickets, in sitting order:
 {{TICKET_BLOCK}}
 
 Step 1: Orient the sitting
+
+Work in {{PROJECT_ROOT}}, already on {{BRANCH}}. The live tracker is under
+{{SIFT_ROOT}}/.ai/sift. Set SIFT_ROOT={{SIFT_ROOT}} in your command environment using proper
+shell quoting, and use that root for every tracker read, new ticket and script invocation.
+Your worktree's .ai/sift may be absent or incomplete; do not initialize or symlink it.
+Interpret relative source citations against the assigned worktree, so edits and checks use
+its code. Read ticket files at the supplied absolute shared-tracker paths.
 
 Run this stamp alone before any other orientation work:
   {{SCRIPTS_DIR}}/drain-log.sh phase orient
@@ -112,17 +120,19 @@ last inspection, stop without overwriting the change. Leave your unfinished edit
 uncommitted and return with `tamper:` naming what changed and the sitting involved. The
 orchestrator will coordinate the write scopes.
 
-Limit writes to the product files required by the current ticket and the existing tests
-allowed in step 3. Do not edit sift-drain skill files because a maintenance worker may own
+Limit writes to the current ticket, including documentation directly made inaccurate by
+its change, and the tests allowed in step 3. Keep those documentation updates in the same
+commit; do not file a separate ticket for them. If the documentation is owned by another
+active sitting, report the overlap before editing. Do not edit sift-drain skill files because a maintenance worker may own
 them. In `.ai/sift`, create only the follow-up ticket files described in step 5, and edit
 no ticket you did not create. The orchestrator alone archives tickets, merges onto
 {{BASE_BRANCH}}, and decides which wave a follow-up finally belongs in.
 
-Step 2: Create the sitting branch
+Step 2: Check the prepared workspace
 
-  git checkout {{BASE_BRANCH}} && git checkout -b {{BRANCH}}
-Use this branch for the whole sitting. Do not create another branch or check out the base
-again. Never run `git push`; nothing leaves this machine.
+Verify that the current directory and branch match the assigned worktree and {{BRANCH}}.
+Do not create another branch or check out {{BASE_BRANCH}}. If setup is wrong, return the
+mismatch for the coordinator to repair. Never push. Keep all product edits in this worktree.
 
 Step 3: Implement and commit each ticket
 
@@ -181,22 +191,29 @@ Step 4: Verify the finished sitting
 
 Run this stamp alone before the sitting-wide checks:
   {{SCRIPTS_DIR}}/drain-log.sh phase verify
-Run the union of the step 3c test files once against the finished branch. Run lint and static
-analysis across every file the sitting touched. Do not run the full suite or
-ticket-check.sh; the wave gate owns the full run and the orchestrator owns tracker checks.
-Amend a failure fix into the ticket commit that caused it. If no ticket caused it alone, use
-a separate commit and retain its hash for the final report.
+For a one-ticket sitting, reuse step 3c results if the checked files and dependencies have
+not changed since those checks. The commit and phase stamp alone do not invalidate them.
+Run only missing checks or checks invalidated by later edits. For a multi-ticket sitting,
+run the union of the step 3c test files once against the finished branch and lint/static
+analysis across touched files. Report the final results once, identifying reused checks.
+Do not run the full suite or ticket-check.sh; the wave gate owns the full run and the
+coordinator owns tracker checks. Amend a failure fix into the ticket commit that caused it;
+if no ticket caused it alone, retain a separate fix commit in the report.
 
 Step 5: File warranted follow-ups
 
 Run this stamp alone before filing follow-ups:
   {{SCRIPTS_DIR}}/drain-log.sh phase bookkeep
+For genuinely separate work, reserve the needed IDs in one call to
+{{SCRIPTS_DIR}}/reserve-ids.sh <count>, with SIFT_ROOT pointing to the shared tracker.
+Exit 3 means retry after the current allocation owner finishes; never calculate a next ID
+or reuse a reserved one. If allocation cannot complete, report the unfiled finding and its
+evidence under issues so the coordinator can file it. Never silently drop it.
 Write an out-of-scope bug, deferred improvement, or unresolved gap as a new ticket under
 `.ai/sift/open/<milestone>/<category>/` using `.ai/sift/README.md`. Use the body for its
 `type`; a `bug` needs `## Expected behaviour`, and a `feature` states its motivation under
-`## Problem`. For a non-trivial ticket, first use the matching `.ai/sift/schemas/*.xsd` as a
-checklist in a scratch draft. Render only the markdown ticket, then delete the draft. Do not
-invoke `xmllint`.
+`## Problem`. Use each matching `.ai/sift/schemas/*.xsd` once as a checklist and write Markdown
+directly without an XML scratch draft.
 
 Give every ticket you file `wave: {{WAVE}}`. An open ticket with no wave is in no load and
 is dispatched by nobody, and this wave is where the work surfaced; the orchestrator moves
@@ -213,25 +230,19 @@ can curate it with every worker report from the wave.
 Step 6: Return one final report
 
 Every self-filed ticket ID from step 5 must appear in the final `tickets filed` field.
-Return exactly these fields and nothing else. Do not include diffs, file lists, code, or a
-narration of the steps.
+Return exactly these fields and nothing else. Keep routine reports under 250 words per
+sitting, adding only evidence needed for blockers or failures. State each fact once. Do not
+include diffs, implementation narration, or full command output.
 
-  status: one line per ticket, in sitting order, every ticket present:
-            <TICKET-ID>: done | blocked | not started
+  status: one line per ticket: <TICKET-ID>: done | blocked | not started
   branch: {{BRANCH}}
-  commits: <TICKET-ID> <hash> — one per ticket that implemented
+  commits: <TICKET-ID> <hash> — one per ticket; identify any separate sitting fix
   resolution: <TICKET-ID>: <one line, including waivers> — one per ticket reported done
-  summary: one paragraph per ticket, including judgment calls or blockers: what changed and
-           why it resolves that ticket
-  verification: per ticket — tests <N tests, M assertions> over <files run>; lint
-                <clean|details>; static analysis <clean|details>; e2e <spec: N passed> | n/a
-  sitting verification: the step 4 re-run — <N tests, M assertions> over the union of the
-                      scoped files; lint <clean|details>
-  live check: per ticket — <pre-fix observation> -> <post-fix observation>;
-              fixtures cleaned up: yes
-  test edits: <existing tests changed and why> | none
-  deferred to the wave gate: <waived criteria, destructive sequences, and durable knowledge
-                             worth capturing> | none
+  verification: final scoped results and files, including reused checks; tests/assertions,
+                lint/static analysis, applicable e2e totals and concise bug before/after
+                evidence; cleanup confirmed or the precise reason a check could not run
+  issues: <blockers, material decisions, unfiled findings or test expectation changes> | none
+  deferred to the wave gate: <uncovered criteria, unsafe sequences, durable candidates> | none
   tickets filed: <IDs> | none
   tamper: none | <what changed under you, and which other sitting it implicates>
 ```

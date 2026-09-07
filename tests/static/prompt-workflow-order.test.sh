@@ -31,11 +31,8 @@ WORKER_SCHEMA='status
 branch
 commits
 resolution
-summary
 verification
-sitting verification
-live check
-test edits
+issues
 deferred to the wave gate
 tickets filed
 tamper'
@@ -65,14 +62,9 @@ DRAFTING_STEP_CONTRACT='1 assigned-values
 DRAFTING_REPORT_SCHEMA='status: written | blocked
 ticket: <ID>
 file: <absolute path>
-type: <type>   priority: <priority>   effort: <effort>
-evidence: <every citation rendered into ## Evidence>
-judgment calls: <decisions you made yourself> | none'
-DRAFTING_EVIDENCE_STEPS='1
-4
-4'
-DRAFTING_WAVE_STEPS='1
-4'
+issue: <decision or correction needed> | none'
+DRAFTING_ROWS_STEPS='1'
+
 
 count_exact() {
   awk -v want="$2" '$0 == want { n++ } END { print n + 0 }' "$1"
@@ -134,13 +126,13 @@ drafting_step_contract() {
     index($0, "Use these assigned values exactly.") {
       print step " assigned-values"
     }
-    index($0, "Read {{PROJECT_ROOT}}/.ai/sift/README.md in full.") {
+    index($0, "Read the bounded convention sections once for this batch, from .ai/sift/README.md:") {
       print step " read-convention"
     }
-    index($0, "Read {{SCHEMA_PATH}}.") {
+    index($0, "Read each distinct assigned schema once.") {
       print step " read-schema"
     }
-    index($0, "Create the directory for {{TICKET_PATH}} and write the finished ticket") {
+    index($0, "Create each assigned directory and write the finished ticket atomically") {
       print step " write-ticket"
     }
     index($0, "Check the write scope.") {
@@ -261,9 +253,9 @@ worker_wave_sites() {
 }
 
 worker_schema_owners() {
-  # `sitting verification` is unique to the worker report. A second exact
+  # `issues` is unique to the worker report. A second exact
   # schema would have to copy it, while the gate agents have their own reports.
-  grep -l '^  sitting verification:' \
+  grep -l '^  issues:' \
     "$REPO_ROOT/src/skills/sift-drain/SKILL.md" \
     "$REPO_ROOT/src/skills/sift-drain/references/"*.md \
     | while IFS= read -r f; do printf '%s\n' "${f#"$REPO_ROOT/"}"; done
@@ -389,16 +381,13 @@ assert_eq "$DRAFTING_STEPS" "$(drafting_step_numbers "$damaged")" \
 assert_ne "$DRAFTING_STEP_CONTRACT" "$(drafting_step_contract "$damaged")" \
   "the purpose check rejects requirements moved under the wrong numbers"
 
-test_case "the drafting placeholders carry evidence into the exact report"
+test_case "the batch inputs and compact drafting report remain explicit"
 assert_eq "$(drafting_table_placeholders "$DRAFTING_PROMPT")" \
   "$(drafting_template_placeholders "$DRAFTING_PROMPT")" \
   "the template uses exactly the placeholders declared by its source table"
-assert_eq "$DRAFTING_EVIDENCE_STEPS" \
-  "$(drafting_placeholder_steps "$DRAFTING_PROMPT" '{{EVIDENCE}}')" \
-  "assigned evidence reaches the single-site and multi-site ticket rules"
-assert_eq "$DRAFTING_WAVE_STEPS" \
-  "$(drafting_placeholder_steps "$DRAFTING_PROMPT" '{{WAVE}}')" \
-  "the negotiated wave is an assigned value and a front-matter key, and nothing else"
+assert_eq "$DRAFTING_ROWS_STEPS" \
+  "$(drafting_placeholder_steps "$DRAFTING_PROMPT" '{{TICKET_ROWS}}')" \
+  "the batch rows are supplied once, including assigned evidence and waves"
 assert_eq "$DRAFTING_REPORT_SCHEMA" "$(drafting_report_schema "$DRAFTING_PROMPT")" \
   "the drafting report keeps every field and value contract in order"
 
@@ -406,8 +395,8 @@ test_case "an undeclared report placeholder fails both handoff checks"
 work="$(newdir)"
 damaged="$work/drafting-agent-prompt.md"
 awk '
-  /^     evidence: <every citation rendered into ## Evidence>$/ {
-    print "     evidence: {{UNDECLARED}}"
+  /^     issue: <decision or correction needed> \| none$/ {
+    print "     issue: {{UNDECLARED}}"
     next
   }
   { print }
@@ -418,7 +407,7 @@ assert_ne "$(drafting_table_placeholders "$damaged")" \
   "$(drafting_template_placeholders "$damaged")" \
   "the placeholder comparison rejects the undeclared value"
 assert_ne "$DRAFTING_REPORT_SCHEMA" "$(drafting_report_schema "$damaged")" \
-  "the report comparison rejects the changed evidence value"
+  "the report comparison rejects the changed issue field"
 
 test_case "the plan-creator platforms carry one byte-identical contract"
 assert_file "$CLAUDE_PLAN" "the Claude plan-creator prompt exists"

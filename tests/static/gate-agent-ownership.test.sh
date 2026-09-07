@@ -31,9 +31,9 @@ contract_errors() {
     flattened="$(printf '%s\n' "$prompt" | tr '\n' ' ')"
     printf '%s\n' "$flattened" | grep -Fq 'Verify every named path' ||
       printf '%s: does not require live path verification\n' "$heading"
-    printf '%s\n' "$flattened" | grep -Fq 'Branch off local' ||
-      printf '%s: does not require a local branch\n' "$heading"
-    printf '%s\n' "$prompt" | grep -Eq 'commit your scoped changes|commit the scoped changes' ||
+    printf '%s\n' "$flattened" | grep -Fq 'Use the prepared worktree' ||
+      printf '%s: does not use the prepared worktree\n' "$heading"
+    printf '%s\n' "$flattened" | grep -Eiq 'commit your scoped changes|commit the scoped changes' ||
       printf '%s: does not require a commit\n' "$heading"
     printf '%s\n' "$prompt" | grep -Fq 'commit: <hash>' ||
       printf '%s: does not report the commit\n' "$heading"

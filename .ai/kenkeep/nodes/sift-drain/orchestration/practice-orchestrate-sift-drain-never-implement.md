@@ -19,33 +19,19 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-The drain orchestrator implements nothing: no product code, no tests. Catch
-yourself reading implementation files, diffs, or raw test output: stop and
-delegate. Structured worker reports are the only evidence that behaviour
-changed. A report too vague to act on gets a follow-up question, never a peek
-at the diff.
+The drain coordinator assigns sittings, prepares worktrees and branches, reads structured
+worker reports, lands commits and updates tracker state. Workers implement. Source and
+diffs stay with workers so the coordinator can retain the wave's dependencies and status.
 
-Tracker bookkeeping is not implementation. Striking a roadmap row, archiving a
-ticket, slotting a row for a ticket a worker wrote under `open/`, and merging
-a worker branch are the orchestrator's writes. That is what keeps `ROADMAP.md`
-single-threaded.
+Read wave-status.sh output, remaining tickets, compact worker reports and the archived
+resolution lines needed for gate coverage. Reuse a worker for related follow-ups within
+the wave when useful. A one-ticket sitting reuses its verification if nothing relevant
+changed afterward; multi-ticket sittings check the combined result.
 
-The orchestrator reads `.ai/sift/ROADMAP.md`, every remaining ticket file in
-the current wave (to plan the graph; write-scope comes from those tickets'
-citations, not from opening source), structured worker reports, and — when
-building a wave gate's coverage list — the `resolution` lines of that wave's
-archived tickets.
+Use the session tier for implementation by default and a stronger tier when warranted.
+Bounded documentation or metadata work may use a cheaper tier with explicit inputs and
+checks. User preferences govern model selection.
 
-Default to the session's model tier and escalate to the strongest available
-for `effort: l|xl`, architecturally sensitive work, and wave-gate batches —
-never downgrade to a cheap tier to save tokens, because a bad merge costs more
-than the model did.
-
-**Why:** reading implementation code burns the orchestrator's context and
-collapses the delegation boundary. Tracker writes stay on the orchestrator so
-two workers cannot lose an untracked roadmap row.
-
-**How to apply:** on worker failure, redispatch once with the failure context
-attached. On a second failure, mark the ticket `blocked` (file stays in
-`open/`, roadmap row left unstruck), report it, and continue the wave. Never
-stall a run on one ticket.
+On implementation failure, retry the failed tickets once with their failure context.
+Keep completed tickets. On a second failure, mark the affected tickets blocked and continue
+the wave. The exact worker report and retry instructions live in ticket-agent-prompt.md.

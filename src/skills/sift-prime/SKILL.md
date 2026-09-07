@@ -1,6 +1,6 @@
 ---
 name: sift-prime
-description: This skill should be used when the user asks to "prime the backlog", "seed the backlog", "fill the sift roadmap", "propose work", "what should we build next", "find work in this repo", or otherwise asks to turn a repository into `.ai/sift` tickets. Provides the goal-gap analysis sweep and its evidence bar, the chat-only proposal negotiation, single-pass ID reservation, and the drafting fan-out that writes the wave-assigned tickets `sift-drain` pulls.
+description: This skill should be used when the user asks to "prime the backlog", "seed the backlog", "fill the sift roadmap", "propose work", "what should we build next", "find work in this repo", or otherwise asks to turn a repository into `.ai/sift` tickets. Provides the goal-gap analysis sweep and its evidence bar, the chat-only proposal negotiation, single-pass ID reservation, and the batch drafting that writes the wave-assigned tickets `sift-drain` pulls.
 ---
 
 # Prime Sift
@@ -56,18 +56,17 @@ held to the script by `tests/scripts/sift-gate.test.sh`.
 ## Orchestrate, never implement
 
 You implement nothing, and you draft nothing. The sweep runs in read-only sub-agents, the
-drafting runs in sub-agents that each own one file, and you work from their reports.
+drafting runs in a batch sub-agent that owns the approved ticket paths. Work from their
+reports.
 
-You read exactly three things: the findings the sweep agents return, the slate you and the
-user converge on in chat, and the reports the drafting agents return. Never open the
-repository's source to check a finding yourself — sweeping inline buries your context in
+You read the sweep findings, existing milestone definitions, the slate you and the user
+converge on in chat, and drafting reports. Never open the repository's source to check a finding yourself — sweeping inline buries your context in
 the material you delegated away, and by the time the slate is long there is no room left
 to negotiate it. Catch yourself reading implementation code: **stop and delegate.**
 
-One file is yours to write and nobody else's: `MILESTONES.md`, and only when the user
-agrees to a new milestone. Everything under `open/` is written by drafting agents — a
-ticket's wave included, because wave membership is front matter on the ticket and not a
-row in a file anybody shares.
+You write `MILESTONES.md` only when the user agrees to a new milestone, and call the
+allocator to persist ID reservations. The drafter writes each ticket under `open/`,
+including its wave.
 
 ## Scripts
 
@@ -76,7 +75,7 @@ resolve that absolute path once at run start and reuse it.
 
 ```sh
 scripts/existing-work.sh <term>... # tickets matching any term, tab-separated, capped at 25 rows (see stderr on overflow), for dedupe
-scripts/reserve-ids.sh <count>     # the next <count> contiguous IDs
+scripts/reserve-ids.sh <count>     # persistently reserve <count> contiguous IDs
 ```
 
 They find the project root by walking up from `$PWD` for a `.ai/sift/` directory and read
@@ -84,9 +83,11 @@ the prefix from `.ai/sift/config/config.yaml`; override with `SIFT_ROOT` / `SIFT
 Exit 2 from either of them is a setup error and never a verdict on the work: the tree or the
 prefix could not be resolved, or, for `existing-work.sh`, no search term was given at all.
 
-Both write nothing, and there is no third script that does: a priming run's only writes are
-the ticket files the drafting agents create, one file each, plus `MILESTONES.md` when the
-user agreed to a new milestone.
+`existing-work.sh` reads only. `reserve-ids.sh` persists its high-water mark under
+`.id-sequence/` before printing IDs; all sessions and follow-up writers must use the same
+reservation protocol. Exit 3 means the lock is busy or unavailable: retry after its owner
+finishes, never fall back to calculating the next ID yourself. Ticket files and agreed
+milestone definitions are the run's other writes.
 
 ## Phase 1 — Analyse
 
@@ -116,18 +117,16 @@ findings from uninspected paths.
 
 ### Synthesize milestones
 
-After dedupe and before presenting the slate, run one read-only milestone-planning
-sub-agent using `references/milestone-planner-prompt.md`. Give it the surviving findings,
-the existing milestone names and descriptions, and any scope fence. The planner reads the
-project's stated-intent sources and returns outcome-based milestone proposals plus one
-assignment for every survivor. The orchestrator works from that report and does not inspect
-the source to second-guess it.
+After dedupe, assign milestones yourself using the surviving findings, their stated-intent
+evidence and existing milestone definitions. Do not launch a separate milestone planner or
+repeat the source sweep. If evidence is insufficient, ask the same sweep agent a focused
+follow-up. Include shared interfaces, defaults and acceptance criteria in the proposed
+slate so the drafter does not have to design them independently.
 
 `backlog` is a temporary unclassified bucket, not the default for a shaped slate. When it
 is the only existing milestone and the survivors express more than one coherent outcome,
-the planner must propose named milestones. An all-`backlog` slate is allowed only when the
-planner gives a concrete rationale that the orchestrator shows to the user. Never invent a
-fixed milestone count: one outcome may be right, and several may be right. Cluster by the
+propose named milestones. An all-`backlog` slate is allowed only when you
+provide a concrete rationale to the user. Never invent a fixed milestone count: one outcome may be right, and several may be right. Cluster by the
 project result the work delivers, never mechanically by ticket `type` or directory.
 
 Every proposed name must be kebab-case, repository-specific rather than convention-wide,
@@ -149,7 +148,7 @@ For a clustered row, apply the analysis reference's
 [one-citation-per-site rule](references/analysis.md#one-citation-per-site) so the user can
 strike, split or re-merge individual sites.
 Present every new milestone with its short outcome description before the ticket rows. If
-the slate leaves everything in `backlog`, include the milestone planner's explicit
+the slate leaves everything in `backlog`, include your explicit
 rationale. Then ask, and change what the user asks you to change.
 
 Keep negotiation in chat and create no pre-approval files. Follow
@@ -164,12 +163,10 @@ Keep negotiation in chat and create no pre-approval files. Follow
 scripts/reserve-ids.sh <number of agreed slate rows>
 ```
 
-That call is the only allocator in the run, and each drafting agent receives its ID as an
-input. The consequence is the reason: IDs are sequential, immutable and never reused, so
-two agents that each pick "the next ID" collide — and unlike a wrong `priority`
-or a weak `## Direction`, a collision cannot be repaired afterwards by any `find`/`sed`
-migration. The script takes its high-water mark from the ticket filenames in both
-buckets, which is every ID the tree has ever issued.
+Reserve once for the approved slate. The allocator compares bucket filenames and the
+persistent per-prefix mark under a shared lock, then advances the mark before returning.
+Give each row one returned ID; unused IDs stay reserved. Validate metadata before dispatch,
+including lowercase effort, known milestones, positive waves and dependency ordering.
 
 **Milestones.** Use the milestone assignments agreed in the slate; do not collapse them
 back to the names that happened to exist before analysis. A `milestone` value not listed
@@ -179,24 +176,16 @@ For every agreed new milestone, write its heading and outcome description into
 before dispatching anything into it. Retain `backlog` for genuinely unclassified work,
 not as the bootstrap default.
 
-**Fan out.** One drafting agent per agreed slate row, using
-`references/drafting-agent-prompt.md` verbatim: the template, its placeholder table, and
-its retry for an agent that returns blocked. Resolve every placeholder before dispatch,
-today's date included, so a batch that straddles midnight still carries one `created` date
-throughout. `{{CLUSTER}}` is `none` for an unclustered row and otherwise the same
-kebab-case value on every member of the cluster — you own that value, exactly as you own
-the IDs, because members that spell it differently are not a group. `{{WAVE}}` is the
-agreed wave for that row, spelled as the exact positive whole number and never as a range,
-a guess or the word "next" — you own it for the same reason, because a ticket whose wave
-disagrees with the edges the slate drew is dispatched in the wrong order. Agents may run
-concurrently — one file is one ticket and each agent owns exactly one file, which is what
-makes that safe.
+**Draft one batch by default.** Use `references/drafting-agent-prompt.md` verbatim.
+Supply the approved rows, shared design decisions and one date for the whole slate. Split
+only when subject boundaries or batch size make separate contexts useful, never mechanically
+by ticket. Every batch owns disjoint paths. Use a fresh task context containing these inputs
+when the host supports it; do not copy the negotiation transcript. Resume the same drafter
+for corrections and preserve completed rows when a later row is blocked.
 
-The wave lands in the same write that creates the ticket, so there is nothing left to
-publish once the agents return: `wave:` is front matter, `sift-drain` reads it from the
-ticket files, and no shared file has to be kept in step with them. An agent that returns
-blocked twice writes nothing; its reserved ID simply goes unused, which costs nothing, and
-the wave it was assigned is a gap in nothing at all.
+Wave, cluster and dependency values are coordinator-owned inputs. Each row writes its wave
+with the ticket. A reserved sibling ID may not exist until drafting finishes; that is not a
+reason to investigate the sibling or change the edge. Validate the complete tree afterward.
 
 ## Phase 4 — Verify and report
 
@@ -246,9 +235,7 @@ Then report:
 
 - **`references/analysis.md`** — the goal-gap sweep: stated intent, evidence, scope,
   dimensions, finding format, plurality, clustering, dedupe and chat-only negotiation.
-- **`references/milestone-planner-prompt.md`** — the read-only outcome clustering pass
-  that assigns every surviving finding before slate negotiation.
-- **`references/drafting-agent-prompt.md`** — the canonical per-row drafting sub-agent
+- **`references/drafting-agent-prompt.md`** — the canonical batch drafting sub-agent
   prompt, its placeholder table, and the retry for an agent that returns blocked.
 
 Each bullet above claims a file exists and says what is inside it, so each is pinned on a
@@ -256,6 +243,5 @@ section that bullet advertises:
 
 ```text
 @PIN: src/skills/sift-prime/references/analysis.md ## The evidence bar
-@PIN: src/skills/sift-prime/references/milestone-planner-prompt.md # Canonical milestone-planning sub-agent prompt
 @PIN: src/skills/sift-prime/references/drafting-agent-prompt.md ## When a drafting agent returns blocked
 ```

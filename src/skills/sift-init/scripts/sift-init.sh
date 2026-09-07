@@ -202,7 +202,8 @@ fi
 # Install shipped README and schemas byte for byte.
 
 install_file "$assets/README.md" "README.md" || exit 2
-for x in "$assets"/schemas/*.xsd; do
+install_file "$assets/scripts/sift.sh" "scripts/sift.sh" || exit 2
+for x in "$assets"/schemas/*.xsd "$assets"/schemas/*.xml; do
   [ -f "$x" ] || continue
   install_file "$x" "schemas/$(basename "$x")" || exit 2
 done
@@ -217,7 +218,8 @@ check_drift() {  # check_drift <shipped source> <relative destination> — reads
 }
 
 check_drift "$assets/README.md" "README.md"
-for x in "$assets"/schemas/*.xsd; do
+check_drift "$assets/scripts/sift.sh" "scripts/sift.sh"
+for x in "$assets"/schemas/*.xsd "$assets"/schemas/*.xml; do
   [ -f "$x" ] || continue
   check_drift "$x" "schemas/$(basename "$x")"
 done
@@ -226,7 +228,7 @@ done
 # Compare the installed set back to the shipped set. Extra files are `orphan`,
 # not `stale`, and are reported with a manual removal command, never deleted.
 # Guard the unmatched glob with `[ -f ]`; do not depend on bash `nullglob`.
-for x in "$sift"/schemas/*.xsd; do
+for x in "$sift"/schemas/*.xsd "$sift"/schemas/*.xml; do
   [ -f "$x" ] || continue
   base=$(basename "$x")
   [ -f "$assets/schemas/$base" ] || note_orphan "schemas/$base"
@@ -275,12 +277,10 @@ printf '%s' "$kept"
 # Print refresh commands here because the installed README may itself be stale.
 if [ -n "$stale" ]; then
   printf '%s' "$stale"
-  printf '\nThose files are the convention itself, shipped whole — not repository state:\n'
-  printf 'no ticket, milestone list or config lives in them, so they are the only\n'
-  printf 'two paths in the tree that are safe to overwrite. Nothing else here may be.\n'
-  printf 'Take the current copy when you are ready (review first if you annotated either):\n\n'
-  printf '  cp %s/README.md %s/README.md\n' "$assets" "$sift"
-  printf '  cp %s/schemas/*.xsd %s/schemas/\n' "$assets" "$sift"
+  printf '\nReview local changes before refreshing shipped assets:\n\n'
+  printf '  cp %q %q\n' "$assets/README.md" "$sift/README.md"
+  printf '  cp %q/*.xsd %q/*.xml %q/\n' "$assets/schemas" "$assets/schemas" "$sift/schemas"
+  printf '  cp %q %q\n' "$assets/scripts/sift.sh" "$sift/scripts/sift.sh"
 fi
 
 # Orphans need an explicit deletion; copying current assets cannot remove them.

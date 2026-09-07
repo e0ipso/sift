@@ -102,7 +102,7 @@ fi
 
 # Milestone folders, categories, and tickets are created on demand.
 missing=''
-for entry in README.md MILESTONES.md config/config.yaml open archive schemas; do
+for entry in README.md MILESTONES.md config/config.yaml open archive schemas scripts/sift.sh; do
   if [ ! -e "$sift/$entry" ]; then
     if [ -z "$missing" ]; then missing="$entry"; else missing="$missing,$entry"; fi
   fi

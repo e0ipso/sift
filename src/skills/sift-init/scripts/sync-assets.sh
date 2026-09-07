@@ -31,20 +31,22 @@ fail() { echo "sync-assets: $*" >&2; errors=$((errors + 1)); }
 # Confirm we landed on the right root (guards against a relocated skill path).
 [ -d "$root/src/skills/sift-init" ] || die "resolved root $root lacks src/skills/sift-init"
 
-mkdir -p "$assets/schemas"
+[ -f "$root/src/operations/sift.sh" ] || die "normative operations script not found"
+mkdir -p "$assets/schemas" "$assets/scripts"
+cp "$root/src/operations/sift.sh" "$assets/scripts/sift.sh"
 
 # --- Copy README ------------------------------------------------------------
 cp "$root/README.md" "$assets/README.md"
 
 # --- Copy every normative schema --------------------------------------------
 # A bare glob that matches nothing stays literal; the -f guard skips that case.
-for src in "$root/schemas"/*.xsd; do
+for src in "$root/schemas"/*.xsd "$root/schemas"/*.xml; do
   [ -f "$src" ] || continue
   cp "$src" "$assets/schemas/$(basename "$src")"
 done
 
 # --- Drop asset schemas that no longer exist at the root --------------------
-for dst in "$assets/schemas"/*.xsd; do
+for dst in "$assets/schemas"/*.xsd "$assets/schemas"/*.xml; do
   [ -f "$dst" ] || continue
   base=$(basename "$dst")
   if [ ! -f "$root/schemas/$base" ]; then
@@ -54,6 +56,9 @@ done
 
 # --- Verify byte-for-byte match (content + membership) ----------------------
 errors=0
+if ! cmp -s "$root/src/operations/sift.sh" "$assets/scripts/sift.sh"; then
+  fail "scripts/sift.sh missing or differs after copy"
+fi
 
 if [ ! -f "$assets/README.md" ]; then
   fail "missing asset README.md after copy"
@@ -61,7 +66,7 @@ elif ! cmp -s "$root/README.md" "$assets/README.md"; then
   fail "README.md still drifts after copy"
 fi
 
-for src in "$root/schemas"/*.xsd; do
+for src in "$root/schemas"/*.xsd "$root/schemas"/*.xml; do
   [ -f "$src" ] || continue
   base=$(basename "$src")
   dst="$assets/schemas/$base"
@@ -72,7 +77,7 @@ for src in "$root/schemas"/*.xsd; do
   fi
 done
 
-for dst in "$assets/schemas"/*.xsd; do
+for dst in "$assets/schemas"/*.xsd "$assets/schemas"/*.xml; do
   [ -f "$dst" ] || continue
   base=$(basename "$dst")
   if [ ! -f "$root/schemas/$base" ]; then
@@ -87,10 +92,10 @@ fi
 
 readme_bytes=$(wc -c < "$assets/README.md" | tr -d ' ')
 schema_count=0
-for f in "$assets/schemas"/*.xsd; do
+for f in "$assets/schemas"/*.xsd "$assets/schemas"/*.xml; do
   [ -f "$f" ] || continue
   schema_count=$((schema_count + 1))
 done
 
-echo "sync-assets: OK — README.md ($readme_bytes bytes) and $schema_count schema(s) match $root"
+echo "sync-assets: OK — README.md ($readme_bytes bytes), scripts/sift.sh and $schema_count XSD/XML file(s) match $root"
 exit 0

@@ -23,6 +23,10 @@ ID format, the two-bucket directory layout, the required front-matter keys, the
 closed `type` set, the roadmap/`depends_on` relationship, the canonical body
 sections, and the status of the XSD schemas.
 
+`src/operations/sift.sh` implements the cookbook operations. Sift-init copies it to
+`.ai/sift/scripts/sift.sh` alongside README.md and the XSD/XML assets. The README lists
+commands; tests execute the script bodies and installed command interface.
+
 `AGENTS.md` is the repo-level guide: what sift is, the invariants README.md
 fixes, and the bar that edits to README.md must clear. `CLAUDE.md` is only an
 `@AGENTS.md` include.

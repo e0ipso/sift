@@ -120,13 +120,13 @@ scripts/sift-init.sh --root "$ROOT" --prefix ACME [--milestone <name>]
 ├── README.md              <- copied byte for byte from the skill assets
 ├── MILESTONES.md          <- generated with the first milestone
 ├── config/config.yaml     <- generated with the prefix
-├── schemas/*.xsd          <- copied byte for byte from the skill assets
+├── schemas/*.{xsd,xml}    <- schemas and optional XML example
+├── scripts/sift.sh        <- local tracker operations
 ├── open/<milestone>/      <- empty; the first ticket creates its category
 └── archive/               <- empty
 ```
 
-`README.md` and `schemas/*.xsd` are copied, never generated, because they are the
-shipped convention. A repeat run repairs missing entries and keeps every existing
+`README.md`, `scripts/sift.sh` and the XSD/XML assets are copied byte for byte. A repeat run repairs missing entries and keeps every existing
 entry. It does not restore a missing `.gitignore`; that absence is the repository's
 opt-in to tracking the sift tree.
 
@@ -144,8 +144,8 @@ diagnostic; never compensate by overwriting an existing path.
 
 ## 4. Review installed convention drift
 
-**Input and comparison.** Every materialization run compares the shipped `README.md`
-and `schemas/*.xsd` with the installed copies. This check reads only.
+**Input and comparison.** Compare README, script and XSD/XML assets with their installed
+copies. This check reads only.
 
 **Output.** A differing installed copy prints a `stale` line. An installed schema that
 the skill no longer ships prints an `orphan` line. Matching files stay on the ordinary
@@ -154,7 +154,8 @@ paths already substituted:
 
 ```sh
 cp <skill>/assets/README.md <root>/.ai/sift/README.md
-cp <skill>/assets/schemas/*.xsd <root>/.ai/sift/schemas/
+cp <skill>/assets/schemas/*.xsd <skill>/assets/schemas/*.xml <root>/.ai/sift/schemas/
+cp <skill>/assets/scripts/sift.sh <root>/.ai/sift/scripts/sift.sh
 ```
 
 For each orphan, it prints an `rm` command instead. Copying cannot remove a withdrawn
@@ -186,9 +187,8 @@ the gate becomes ready.
 
 ## 6. Maintain the shipped assets
 
-The root `README.md` and `schemas/` are normative. Their installed copies live under
-`src/skills/sift-init/assets/`. After changing either source, run this command in the
-same change:
+Sources are `README.md`, `schemas/` and `src/operations/sift.sh`; shipped copies live in
+`src/skills/sift-init/assets/`. After changing a source, run:
 
 ```sh
 src/skills/sift-init/scripts/sync-assets.sh

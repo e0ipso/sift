@@ -23,8 +23,9 @@ Prime and Drain install independently. Shared rules are inventoried under Duplic
 between skills in AGENTS.md, with file paths and constructs checked by the static suite.
 Change both copies together and run their agreement tests in prime-backlog.test.sh.
 
-The allocator is shipped once in each skill. Its executable recipe also matches the
-normative README cookbook. The agreement test drives Prime, Drain and the cookbook against
+Prime and Drain each ship an allocator. Sift-init ships the operations script containing
+the same protocol. Its executable recipe also matches the
+reserve operation in `src/operations/sift.sh`. The agreement test drives Prime, Drain and the cookbook against
 one tracker, including concurrent reservations and a symlinked tracker path. A separate
 check proves that IDs emitted by Prime are accepted by Drain's log validator.
 

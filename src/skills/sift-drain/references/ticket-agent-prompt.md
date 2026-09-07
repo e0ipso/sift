@@ -58,7 +58,7 @@ Read the assigned tickets in full and these sections of $SIFT_ROOT/.ai/sift/READ
   @README-SECTION: ## Ticket body
 Read these only under the stated conditions:
   @README-SECTION: ## Operations cookbook (terminal)
-    If a ticket changes a recipe.
+    If a ticket changes an operation.
   @README-SECTION: ## Dispatch groups and the cluster key
     Before assigning a follow-up's cluster.
   @README-SECTION: ## Run log

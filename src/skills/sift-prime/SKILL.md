@@ -108,8 +108,8 @@ Resume the same drafter for corrections and preserve completed rows on partial f
 
 ## Phase 4: Verify and report
 
-Run the installed `.ai/sift/README.md` cookbook's Front-matter consistency check and
-Validate front-matter across the tree recipes after all batches return. Fix findings
+After all batches return, run `bash .ai/sift/scripts/sift.sh consistency` and
+`bash .ai/sift/scripts/sift.sh required`. Fix findings
 caused by this run. A reserved dependency may be absent during drafting; validate it here.
 
 Report written IDs with titles, types and priorities, grouped by wave; blocked rows and

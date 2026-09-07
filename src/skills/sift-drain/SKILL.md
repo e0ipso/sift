@@ -79,9 +79,12 @@ Repeat until no dispatchable work remains in this wave:
 3. Stamp `drain-log.sh dispatch` immediately before dispatch. Use
    [ticket-agent-prompt.md](references/ticket-agent-prompt.md) verbatim with its placeholders
    resolved. Prefer a fresh task context containing the assignment over inherited history.
-4. Use the session's model tier for implementation by default. Use a stronger tier for
-   difficult architecture, concurrency or verification. Bounded documentation or metadata
-   tasks may use a cheaper tier with explicit inputs and checks. Honor user preferences.
+4. Choose the worker's model tier and reasoning effort from the work, not from the ticket's
+   `effort` field, which measures size. Use the session's tier by default. Use a stronger
+   tier and higher reasoning effort for difficult architecture, concurrency or verification.
+   Bounded documentation or metadata tasks may use a cheaper tier with lower reasoning
+   effort, explicit inputs and checks. Apply reasoning effort only where the harness exposes
+   it. Honor user preferences.
 5. On return, handle tamper first, then record each ticket's reported status with
    `drain-log.sh return`. For each done ticket, cherry-pick its commit with `-n`, set
    status, resolution and updated, then move it to the mirrored archive path. Land one

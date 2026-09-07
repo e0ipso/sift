@@ -22,7 +22,7 @@ API change. Hold it to that bar:
 - **State the migration alongside the change.** A rename that existing trees
   cannot absorb with a documented `find`/`sed` recipe is not ready.
 - **Keep every cookbook command runnable as written against a real tree.** They
-  are the reference implementation, so a stale recipe is a broken build.
+  call `scripts/sift.sh`; keep its implementation and installed copy aligned.
 - **Keep the spec repository-agnostic.** Concrete prefixes, milestone names, or
   project names belong in the consuming repo's config, never hardcoded in the
   convention text. Spec text writes `<PREFIX>` and `<milestone>` as placeholders

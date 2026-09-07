@@ -158,6 +158,7 @@ run_cmd "$root" bash "$OPS" archive ACME-0001 done 'Fixed and checked'
 assert_eq 0 "$R_STATUS" "archive uses supplied resolution"
 assert_contains "$(cat "$root/.ai/sift/archive/next-release/bug/ACME-0001--first.md")" \
   'resolution: "Fixed and checked"' "the archived ticket stores the supplied resolution"
+assert_no_dir "$root/.ai/sift/open/next-release" "the milestone folder the move emptied is gone"
 run_cmd /tmp env SIFT_ROOT="$root" bash "$OPS" find ACME-0001
 assert_contains "$R_OUT" 'archive/next-release/bug/ACME-0001--first.md' "SIFT_ROOT selects the shared tree from another cwd"
 

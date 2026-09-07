@@ -44,7 +44,8 @@ reference with the config change.
 ```
 
 Each file is one ticket. `open/` holds actionable work, including blocked and in-progress
-tickets. `archive/` holds terminal tickets. Milestone and category folders match front-matter.
+tickets. `archive/` holds terminal tickets. Milestone and category folders match front-matter
+and exist only while they hold a ticket; the two buckets themselves always exist.
 The tree is ignored by default; search it with `find` and `command grep` or no-ignore flags.
 
 ## File naming
@@ -209,8 +210,10 @@ not UTC text. Writers use `date -u +%Y-%m-%dT%H:%M:%SZ` and `date +%s`.
    `status: wontfix` and a `resolution`. Files are deleted only by the human owner.
 3. **Front-matter is the source of truth**; folders are an index. When you `mv` a
    ticket, update `milestone`/`status` front-matter in the same change, and vice versa.
-4. **Archiving = edit + mv.** Set `status`, `resolution`, `updated`, then `mv` the file
-   to the mirrored path under `archive/` (`mkdir -p` the target first).
+4. **Archiving = edit + mv + prune.** Set `status`, `resolution`, `updated`, then `mv` the
+   file to the mirrored path under `archive/` (`mkdir -p` the target first). Delete the
+   category and milestone folders the move left empty. No empty folder stays under `open/`
+   or `archive/`; never delete the buckets themselves.
 5. **One problem per ticket, and evidence-based.** Claims about code cite `file:line`.
 6. **Bump `updated`** whenever you change anything meaningful.
 7. Cross-reference tickets inline as `<PREFIX>-XXXX`, as plain text.
@@ -250,7 +253,7 @@ bash .ai/sift/scripts/sift.sh --help
 | `dependents ID` | References to an ID, excluding its own file |
 | `next` | Unblocked critical tickets; drain uses its wave graph instead |
 | `move ID MILESTONE` | Move an open ticket and update its milestone |
-| `archive ID STATUS RESOLUTION` | Set terminal status, resolution and updated; move to archive |
+| `archive ID STATUS RESOLUTION` | Set terminal status, resolution and updated; move to archive; delete emptied folders |
 | `consistency` | Missing waves and unresolved dependencies |
 | `required` | Missing required keys |
 | `resolutions` | Terminal tickets without a resolution |
@@ -279,6 +282,14 @@ cp "$SKILL/assets/scripts/sift.sh" .ai/sift/scripts/sift.sh
 config, logs or reservation marks. Orphan schemas remain until the owner removes them.
 
 Migration is additive: sift-init installs `scripts/sift.sh`; no ticket path or key changes.
+Folders emptied before the prune rule existed stay until removed once:
+
+```sh
+find .ai/sift/open .ai/sift/archive -depth -mindepth 1 -type d | while read -r d; do
+  rmdir "$d" 2>/dev/null || :
+done
+```
+
 Replace pasted cookbook recipes with the commands above. When upgrading from read-only ID
 allocation, stop old writers and materialize their outstanding IDs as tickets first. Update
 Prime and Drain together before restarting; the first reservation seeds its mark from both

@@ -320,6 +320,12 @@ RESOLUTION="$RESOLUTION" STATUS="$STATUS" TODAY="$(date +%F)" awk '
 ' "$f" > "$f.tmp" && mv "$f.tmp" "$f" || { rm -f "$f.tmp"; false; }
 dest=$(printf '%s\n' "$f" | sed 's#/open/#/archive/#')
 mkdir -p "$(dirname "$dest")" && mv "$f" "$dest"
+# Delete the category and milestone folders the move emptied, never the bucket.
+# rmdir is the emptiness test: it refuses a folder another writer just filled.
+dir=$(dirname "$f")
+while [ "$dir" != .ai/sift/open ] && rmdir "$dir" 2>/dev/null; do
+  dir=$(dirname "$dir")
+done
 # END archive
 ;;
 consistency)

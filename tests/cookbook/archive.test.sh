@@ -3,7 +3,8 @@
 #
 # One recipe, two obligations, both pinned here:
 #   SFT-0011  `resolution:` is inserted when absent, replaced when present
-#   rule 4    archiving is the front-matter edit and the mv, nothing else
+#   rule 4    archiving is the front-matter edit, the mv, and the prune of the
+#             category and milestone folders the mv emptied — never the bucket
 
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd -P)"
@@ -34,6 +35,8 @@ archive "$d" SFT-0042 'done' 'Fixed in commit abc1234'
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--tenant-caching.md"
 
 test_case "happy path: the front-matter edit and the move, and nothing else"
+# Two siblings stay behind in open/backlog/bug, so the prune has nothing to do
+# here; the folder-removal cases below drive it.
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_no_file "$d/.ai/sift/open/backlog/bug/SFT-0042--tenant-caching.md" "the open file is gone"
 assert_file "$dest" "the ticket lands at the mirrored archive path"
@@ -44,6 +47,39 @@ assert_eq 1 "$(grep -c '^resolution:' "$dest")" "exactly one resolution key"
 assert_file "$d/.ai/sift/open/backlog/bug/SFT-0041--earlier.md" "an unrelated open ticket is untouched"
 assert_file "$d/.ai/sift/open/backlog/bug/SFT-0043--later.md" \
   "a ticket depending on the archived one is untouched"
+
+# --- Prune: the folders the move emptied go with the ticket (rule 4) ----------
+
+test_case "the last ticket takes its category and milestone folders with it"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0042 alone 'Alone in its milestone' > /dev/null
+archive "$d" SFT-0042 'done' 'Landed'
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_file "$d/.ai/sift/archive/backlog/bug/SFT-0042--alone.md" "the ticket reaches the archive"
+assert_no_dir "$d/.ai/sift/open/backlog/bug" "the emptied category folder is gone"
+assert_no_dir "$d/.ai/sift/open/backlog" "and so is the emptied milestone folder"
+assert_eq 0 "$(test -d "$d/.ai/sift/open"; echo $?)" "open/ itself survives with nothing in it"
+assert_eq 0 "$(test -d "$d/.ai/sift/archive"; echo $?)" "archive/ is where it was"
+
+test_case "a sibling in another category keeps the milestone folder"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0042 last-bug 'Last bug' > /dev/null
+ticket "$d" open backlog/docs SFT-0043 a-doc 'A doc' > /dev/null
+archive "$d" SFT-0042 'done' 'Landed'
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_no_dir "$d/.ai/sift/open/backlog/bug" "the emptied category folder is gone"
+assert_file "$d/.ai/sift/open/backlog/docs/SFT-0043--a-doc.md" "the sibling and its folders stay"
+
+test_case "a folder that still holds a dotfile is not empty and stays"
+# rmdir is the emptiness test, so anything at all — a .gitkeep, a stray
+# editor file — keeps the folder. The rule removes folders with nothing in
+# them; it does not decide what else may live beside a ticket.
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open backlog/bug SFT-0042 kept 'Kept' > /dev/null
+: > "$d/.ai/sift/open/backlog/bug/.gitkeep"
+archive "$d" SFT-0042 'done' 'Landed'
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_file "$d/.ai/sift/open/backlog/bug/.gitkeep" "the dotfile and its folder are untouched"
 
 # --- resolution: insert-or-replace (SFT-0011) --------------------------------
 
@@ -122,6 +158,8 @@ test_case "a second archiving pass does not duplicate the key"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open backlog/bug SFT-0042 twice 'Twice' > /dev/null
 archive "$d" SFT-0042 'done' 'First pass'
+# The first pass pruned open/backlog/bug along with the ticket; put it back.
+mkdir -p "$d/.ai/sift/open/backlog/bug"
 mv "$d/.ai/sift/archive/backlog/bug/SFT-0042--twice.md" "$d/.ai/sift/open/backlog/bug/"
 archive "$d" SFT-0042 'done' 'Second pass'
 dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--twice.md"
@@ -233,7 +271,9 @@ matrix_case() {
   local dest="$d/.ai/sift/archive/backlog/bug/SFT-0042--tenant.md"
   if [ "$R_STATUS" -eq 0 ] &&
      [ -f "$dest" ] &&
-     [ "$(fm "$dest" resolution)" = '"Fixed & done"' ]
+     [ "$(fm "$dest" resolution)" = '"Fixed & done"' ] &&
+     [ ! -d "$d/.ai/sift/open/backlog" ] &&
+     [ -d "$d/.ai/sift/open" ]
   then t_ok "$R_LABEL"
   else t_fail "$R_LABEL" "status=$R_STATUS" "stderr=$R_ERR"
   fi

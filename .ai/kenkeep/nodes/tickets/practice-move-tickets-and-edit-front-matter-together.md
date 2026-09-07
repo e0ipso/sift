@@ -20,11 +20,14 @@ Front-matter is the source of truth; folders are an index. When you `mv` a
 ticket, update its `milestone` / `status` front-matter in the same change, and
 vice versa. Bump `updated` whenever you change anything meaningful.
 
-Archiving is edit + mv: set `status`, a non-empty one-line `resolution`, and
-`updated`, then `mkdir -p` the mirrored path under
-`archive/<milestone>/<category>/` and move the file there. Re-milestoning is the
-same shape — `mkdir -p` the destination keeping the category, `mv`, then rewrite
-the `milestone:` key.
+Archiving is edit + mv + prune: set `status`, a non-empty one-line `resolution`,
+and `updated`, then `mkdir -p` the mirrored path under
+`archive/<milestone>/<category>/` and move the file there. Then `rmdir` the
+category and milestone folders the move emptied, stopping at the bucket:
+`open/` and `archive/` always exist. `rmdir` doubles as the emptiness test, so a
+folder another agent just wrote into is left alone. Re-milestoning is the same
+shape — `mkdir -p` the destination keeping the category, `mv`, then rewrite the
+`milestone:` key.
 
 **Why:** both values are duplicated into front-matter precisely so `grep` still
 works after a file moves. Splitting the move from the edit leaves the tree

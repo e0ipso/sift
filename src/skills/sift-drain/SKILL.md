@@ -87,8 +87,9 @@ Repeat until no dispatchable work remains in this wave:
    it. Honor user preferences.
 5. On return, handle tamper first, then record each ticket's reported status with
    `drain-log.sh return`. For each done ticket, cherry-pick its commit with `-n`, set
-   status, resolution and updated, then move it to the mirrored archive path. Land one
-   commit per ticket containing implementation and tracker changes where tracked.
+   status, resolution and updated, then move it to the mirrored archive path and delete the
+   folders the move emptied. Land one commit per ticket containing implementation and
+   tracker changes where tracked.
 6. Assign every filed follow-up to this or a later wave. Run `ticket-check.sh` after your
    bookkeeping and fix any findings. Report one progress line per ticket and surface every
    self-filed ID. Rewire the graph and dispatch newly ready sittings.

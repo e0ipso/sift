@@ -1,69 +1,36 @@
 # Goal-gap analysis
 
-The sweep measures one distance: what the project's own documents say the project is,
-against what is actually on disk. Everything proposed is a gap in that distance and
-nothing else. An improvement nobody has claimed to want is somebody else's backlog — the
-value of this skill is that the user recognises every row of the slate as their own stated
-intent, unmet.
+Find gaps between the project's stated intent and its implementation.
 
 ## Sources of stated intent
 
-These four, in this order, are what the sweep is allowed to measure against:
+Read in this order:
 
-1. **The repository `README.md`** — what the project claims it does, for whom.
-2. **`AGENTS.md` / `CLAUDE.md` and every file they include.** The rules the project binds
-   its agents to are intent in its strongest form: a rule stated there and unenforced on
-   disk is a gap the project has already agreed exists.
-3. **`.ai/sift/MILESTONES.md`** — where the project says it is going next, and the names
-   the agreed work will have to slot into.
-4. **The knowledge base, if the project ships one** — its entry catalog or index first,
-   then the entries the fence or the dimension touches.
+1. Repository `README.md`.
+2. `AGENTS.md` / `CLAUDE.md` and their included files.
+3. `.ai/sift/MILESTONES.md`.
+4. Knowledge-base index, then entries relevant to the scope or dimension.
 
-Nothing else is intent. A framework's best practice, a linter default the project never
-adopted, an architecture you would have chosen instead: these are opinions, and opinions
-are what the evidence bar exists to keep out of the slate.
+Do not propose practices, defaults or architecture the project has not adopted.
 
 ## The evidence bar
 
-Where this section restates a rule of the convention, an `@RULE: <repo-root-relative
-file> <N> <verbatim rule substring>` marker sits in a fence beside the sentence making
-the claim — that marker is where the ordinal lives, so the sentence itself can say what
-the rule requires. `tests/static/readme-rule-citations.test.sh` extracts each marker and
-resolves the cited ordinal against README's bounded `## Rules for agents` list.
+Rule markers: `tests/static/readme-rule-citations.test.sh`.
 
-Every citation on a candidate uses exactly one of two formats:
-
-- **`file:line`** — for a claim about something that exists.
-- **`absent: <path>`** — for a claim about something that does not.
-
-A candidate that can carry neither is dropped. Do not reword it to avoid the evidence bar
-or keep it at a lower priority. The convention already requires code claims to cite
-`file:line`; the drafting agent cannot repair a missing citation because it never read the
-code.
+Every claim needs `file:line` for existing code or `absent: <path>` for an exact path
+checked and missing. Drop uncitable candidates. Lower priority does not excuse missing
+evidence; the drafter cannot supply it later.
 
 ```text
 @RULE: README.md 5 Claims about code cite
 ```
 
-`absent: <path>` names the exact path checked. For example,
-`absent: .github/workflows/` is verifiable; "there is no CI" is not.
-
 ## The scope fence
 
-The user's optional prompt is a **hard scope fence**, never a priority hint and never a
-theme. Fenced, the sweep reads and reports only inside the declared fence. Its report may
-state that the run was fenced and name the scope inspected, but every finding and citation
-comes from that scope; it makes no claim about paths it did not inspect. Unfenced, the sweep
-runs at full breadth across the stated-intent sources and all seven dimensions.
-
-The fence moves where the analysis looks. It never moves the evidence bar. A narrow fence
-means fewer files read, not a lower standard for what those files have to prove, and
-"there was not much in scope" is never a reason to let an uncitable candidate through.
-
-The paired markers below are machine-read by
-`tests/static/prime-scope-contract.test.sh`. The test holds every restatement to the same
-read-and-report boundary and rejects a fenced contract that also asks for findings from
-uninspected paths.
+The user's optional prompt is a hard scope fence. Read and report only inside it. Name
+the inspected scope without claiming anything about uninspected paths. Without a fence,
+cover all stated-intent sources and seven dimensions. Keep the same evidence bar in both
+cases. `tests/static/prime-scope-contract.test.sh` checks this boundary.
 
 ```text
 @PRIME-SCOPE: fenced reads-and-reports-inside
@@ -72,145 +39,92 @@ uninspected paths.
 
 ## The sweep dimensions
 
-The dimensions are the convention's closed `type` set, and they are named that way on
-purpose: the dimension that found a candidate decides the candidate's `type`, and `type`
-decides the category folder it will be written into. A finding that fits no dimension
-fits no `type`, and there is nowhere on disk to put it.
+Each dimension assigns the matching ticket `type` and category folder.
 
-That makes the `Dimension` column below a restatement of the convention's own set, so it is
-pinned to it: the line below names the file and the verbatim construct that has to still be
-there, and `tests/static/skill-prose-pins.test.sh` extracts it and fails when the set has
-changed underneath this table. Add or drop a dimension only together with the convention.
+Pins: `tests/static/skill-prose-pins.test.sh`.
 
 ```text
 @PIN: README.md bug | hardening | feature | test | docs | dx | release
 ```
 
-| Dimension | What it looks for | Usual citation |
-|---|---|---|
-| `bug` | behaviour on disk contradicting what the docs, the tests or the code's own comments say it does | `file:line` |
-| `hardening` | unvalidated input, a missing error path, a portability trap, a guard the project's rules demand and the code omits | `file:line` |
-| `feature` | capability the documents promise or the milestones require, with nothing behind it | `absent: <path>` |
-| `test` | behaviour whose breakage no assertion would catch; suites that skip what they claim to cover | `absent: <path>` |
-| `docs` | documented behaviour that has drifted from the code; public surface nothing describes | either |
-| `dx` | friction in the project's own workflow — a step every contributor repeats by hand that nothing scripts | either |
-| `release` | packaging, versioning, registration and distribution the project claims but has not wired | `absent: <path>` |
+| Dimension | Look for |
+|---|---|
+| `bug` | Behaviour contradicting docs, tests or code comments |
+| `hardening` | Missing validation, error handling, portability or required guards |
+| `feature` | Promised or milestone-required capability missing from code |
+| `test` | Behaviour without assertions; suites skipping claimed coverage |
+| `docs` | Stale documentation or undocumented public behaviour |
+| `dx` | Repeated manual work in the project's contributor workflow |
+| `release` | Missing promised packaging, versioning, registration or distribution |
 
-**One read-only sub-agent per dimension** — or per slice of the fence when the run is
-fenced, because seven dimension agents against a three-file fence is seven readings of
-the same three files. Sweep agents read. They write nothing, edit nothing, and run no
-`git` command that changes state.
-
-**The orchestrator reads their reports, never the source.** Sweeping a repository inline
-buries the orchestrator's context in exactly the material it delegated away, and the
-orchestrate-never-implement discipline `sift-drain` holds applies here without amendment.
-
-`.ai/sift` is gitignored by default, so ignore-aware search silently returns nothing from
-it. Sweep agents that look inside the tree use `find` plus `command grep`.
+Use one read-only sub-agent per dimension, or per scope slice for a fenced run. Sweep
+agents write nothing and run no state-changing git commands. The orchestrator consumes
+their reports without rereading source. Use `find` and `command grep` inside ignored
+`.ai/sift` paths.
 
 ## What a finding looks like when it reaches the orchestrator
 
-Sweep agents return findings in this shape and nothing else — no source excerpts, no
-diffs, no narration of what they read:
+Return only this block per finding, without source excerpts or narration:
 
 ```
 finding:  <imperative title>
 type:     bug | hardening | feature | test | docs | dx | release
 why:      <one line: what is wrong or missing, and who it costs>
-evidence: <file:line, or absent: <path> — one or more>
+evidence: <file:line, or absent: <path>; one or more>
 ```
 
-That is the whole handoff, and each line has a destination. `why` becomes the slate row's
-rationale and the seed of `## Problem`. `evidence` is carried verbatim into `## Evidence`
-by the drafting agent, which is why it has to be right here rather than plausible here.
+The drafter uses `why` for Problem and copies `evidence` verbatim.
 
 ## Plurality
 
-Propose a slate, not a single-ticket target. Independent dimensions may yield several
-candidates, but there is no floor, quota or target count. The user decides how many survive
-negotiation.
+There is no target count. Propose every qualifying candidate; the user chooses survivors.
 
 ## Clustering rules
 
-Cluster by root cause after the evidence bar and before dedupe. This step decides ticket
-boundaries; milestone planning later groups survivors by outcome. A merged candidate
-remains one problem with several sites.
+Cluster by root cause after the evidence bar and before dedupe. Milestones later group
+survivors by outcome.
 
 ### The one-Direction test
 
-A cluster is valid only when one `## Direction` applies unchanged to every member site.
-Shared symptoms do not qualify. Write the Direction to test the merge; if any site needs a
-different action, keep it separate.
+Merge sites only when one `## Direction` applies unchanged to each. Write it to check.
+Separate sites that need different actions, even if their symptoms match.
 
 ### One citation per site
 
-A clustered candidate keeps one `file:line` citation per site, and its slate row shows every
-site with its citation. A member without its own citation is dropped under the evidence bar.
-The user may split the row, drop a site or merge rows during negotiation.
+Keep and show one `file:line` citation per site. Drop uncitable members. The user may split,
+merge or remove sites during negotiation.
 
 ### Split tickets keep the cluster
 
-Members with different Directions or milestones stay in separate tickets. If they still
-share one root cause, give each ticket the same optional kebab-case `cluster` value so
-`sift-drain` can group them at dispatch. A shared symptom without a shared root cause gets
-separate tickets and no `cluster` key.
+Different Directions or milestones require separate tickets. If they share a root cause,
+assign the same optional kebab-case `cluster`. A shared symptom alone does not qualify.
 
 ## Dedupe
+
+After the sweep, query each surviving candidate separately:
 
 ```sh
 scripts/existing-work.sh <term>...
 ```
 
-Query once for every candidate that survives the evidence bar, and only after the sweep has
-returned findings — never before, and never as one call over the scope fence's own
-vocabulary. That scope-wide prefetch is the anti-pattern the bounds exist to catch: on a
-single-subject project the fence's words appear in nearly every ticket body, so a call built
-from them selects most of the archive instead of narrowing to one candidate. The script only
-matches text: it searches `open/` and `archive/` for the terms you pass and returns the
-tickets that matched, one row per ticket, ranked by distinct-term match count and capped at
-`SIFT_MATCH_LIMIT` rows (default 25) when more tickets match than that:
+Use multiple distinguishing terms for its files, symptom or mechanism, including alternate
+wording. Do not prefetch with scope-wide vocabulary. The helper searches open and archived
+tickets and returns tab-separated ID, status, type, title and resolution.
 
-```
-<ID><TAB><status><TAB><type><TAB><title><TAB><resolution>
-```
+Drop duplicates of open, blocked, in-progress or terminal tickets, including `wontfix`.
+Name their IDs in the slate. Ignore rows that merely share words. A resolution ending in
+`...` is truncated; read that ticket before quoting its resolution verbatim.
 
-`resolution` is empty for open tickets and carries the closing line for archived ones,
-truncated at 200 characters with a trailing `...` when the real text runs longer. No match
-prints nothing and exits 0, the same as an empty backlog.
-
-Choosing terms and judging the rows that come back are the model's job, not the script's.
-For each candidate, pick terms that distinguish it from the rest of the project — the file
-paths it touches, the symptom it produces, the mechanism it names — not the subject words
-every ticket in the project shares. More than one term is still required. Then judge every
-returned row yourself:
-
-- **Already open** — drop it, and name the open ID when you present the slate. `blocked`
-  and `in-progress` both live in `open/` and both count as already filed.
-- **Already terminal** — drop it. When the row's `resolution` carries the `...` truncation
-  marker, read that one ticket file and quote its real `resolution` verbatim from the file,
-  not from the row, including a `wontfix` decision.
-- **Kept** — no returned row is a genuine collision. A row that shares words with the
-  candidate but not its subject is noise, not a match, and you discard it.
-
-An empty result proves only that no ticket in either bucket contains the terms you chose —
-it does not prove no duplicate exists. That is why the term choice carries the weight: pass
-more than one distinguishing term, including a word for the same file, symptom or mechanism
-that the candidate's own author might not have used.
-
-A stderr notice means the query overflowed: the script still exits 0 — a capped answer is a
-successful answer with a stated limitation, not an error — but stderr names how many tickets
-matched and how many rows were shown. An answer that overflowed is incomplete: narrow the
-terms to the candidate's distinguishing vocabulary and re-query rather than judging from
-the rows that fit.
+Empty output with exit 0 means no terms matched, not proof of novelty. Try alternate terms.
+An overflow notice on stderr means the results are incomplete despite exit 0; narrow and
+repeat the query before judging duplicates.
 
 ## When the corpus and the sweep disagree
 
-An open ticket whose evidence has moved on is not a new candidate. Report the change as a
-note beside the slate; this skill does not rewrite existing tickets.
+If an open ticket's evidence is stale, note it beside the slate. Do not rewrite it or
+propose it as new work.
 
 ## Chat-only negotiation
 
-Keep findings and the proposed slate in the orchestrator's context and in the conversation.
-Before the user approves the slate, create no files anywhere: no scratch slate, `.prime/`
-directory, draft or other artifact under `.ai/sift`. If the session stops before approval,
-rerun the analysis. File writes begin only with the approved drafting phase.
+Keep findings in the conversation until approval. Create no scratch files or drafts
+anywhere. If the session ends before approval, rerun the analysis.

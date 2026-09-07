@@ -23,8 +23,8 @@ contract_errors() {
   for heading in \
     '## 1. E2E specialist agent' \
     '## 2. Batch coverage agent' \
-    '## 3. Fix agents — one per root cause' \
-    '## 4. Knowledge capture — once, for the whole wave'
+    '## 3. Root-cause fixes' \
+    '## 4. Wave knowledge capture'
   do
     prompt="$(gate_prompt "$file" "$heading")"
     [ -n "$prompt" ] || { printf '%s: missing prompt\n' "$heading"; continue; }
@@ -50,7 +50,7 @@ contract_errors() {
     printf '%s\n' "$flattened" | grep -Fq 'type: dx' ||
       printf '%s: does not route upstream proposals to the orchestrator\n' "$heading"
     case "$heading" in
-      '## 4. Knowledge capture — once, for the whole wave') ;;
+      '## 4. Wave knowledge capture') ;;
       *) printf '%s\n' "$flattened" | grep -Fq 'Do not capture durable knowledge' ||
            printf '%s: does not defer durable knowledge capture\n' "$heading" ;;
     esac
@@ -79,8 +79,8 @@ assert_eq "" "$errors" "every ownership rule remains inside the dispatched promp
 for heading in \
   '## 1. E2E specialist agent' \
   '## 2. Batch coverage agent' \
-  '## 3. Fix agents — one per root cause' \
-  '## 4. Knowledge capture — once, for the whole wave'
+  '## 3. Root-cause fixes' \
+  '## 4. Wave knowledge capture'
 do
   for damage in 'Merge the branch before reporting.' 'Write tracker state before reporting.'; do
     test_case "$heading rejects: $damage"
@@ -103,11 +103,11 @@ test_case "a missing actor-local rule fails the ownership check"
 damaged="$(newdir)/wave-gate.md"
 awk '
   $0 == "## 1. E2E specialist agent" { target = 1 }
-  target && !hit && /NEVER `git push`/ { sub(/NEVER `git push`/, ""); hit = 1 }
+  target && !hit && /Never `git push`/ { sub(/Never `git push`/, ""); hit = 1 }
   { print }
 ' "$repo/src/skills/sift-drain/references/wave-gate.md" > "$damaged"
 prompt="$(gate_prompt "$damaged" '## 1. E2E specialist agent')"
-assert_not_contains "$prompt" 'NEVER `git push`' "the no-push rule is gone from the damaged prompt"
+assert_not_contains "$prompt" 'Never `git push`' "the no-push rule is gone from the damaged prompt"
 errors="$(contract_errors "$damaged")"
 assert_contains "$errors" '## 1. E2E specialist agent: does not prohibit git push' \
   "the ownership check rejects a rule left outside the dispatched prompt"
@@ -119,7 +119,7 @@ test_case "a recased ban phrase keeps its exemption"
 damaged="$(newdir)/wave-gate.md"
 sed 's/Do not merge\./do not merge./' \
   "$repo/src/skills/sift-drain/references/wave-gate.md" > "$damaged"
-prompt="$(gate_prompt "$damaged" '## 4. Knowledge capture — once, for the whole wave')"
+prompt="$(gate_prompt "$damaged" '## 4. Wave knowledge capture')"
 assert_contains "$prompt" 'do not merge.' "the ban phrase is lowercased in the damaged copy"
 assert_eq "" "$(contract_errors "$damaged")" \
   "a recased ban is still a ban, not a merge assignment"

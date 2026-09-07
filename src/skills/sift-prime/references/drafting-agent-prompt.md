@@ -1,15 +1,13 @@
 # Canonical batch drafting sub-agent prompt
 
-Use one drafter for the approved slate by default. Split only when distinct subjects or
-batch size would prevent careful drafting; each batch owns disjoint ticket paths. Reuse
-the same drafter for corrections. Do not add a coordinator above per-ticket drafters.
+Use one drafter for the slate. Split only for distinct subjects or an oversized batch,
+with disjoint ticket paths. Reuse the drafter for corrections; add no coordinator layer.
 
 Resolve every placeholder before dispatch. Each row in TICKET_ROWS contains id, absolute
 file path, title, type, priority, lowercase effort, milestone, positive wave, depends_on,
 cluster or none, evidence in citation order, why, agreed direction, acceptance criteria,
-and the absolute schema path. Shared decisions include interfaces, defaults and constraints
-that must agree between rows. Missing decisions are explicit, not an invitation to invent
-requirements. Assigned dependencies may name another row that has not been written yet.
+and the absolute schema path. Supply shared interfaces, defaults, constraints and open decisions. Dependencies may name
+unwritten rows in this slate.
 
 | Placeholder | Source |
 |---|---|
@@ -18,28 +16,14 @@ requirements. Assigned dependencies may name another row that has not been writt
 | `{{PROJECT_ROOT}}` | absolute project root |
 | `{{TODAY}}` | date resolved once for the whole slate |
 
-**Two claims the template makes about other files are pinned here.** STEP 3 names the XSD
-root element that belongs to each `type`, and the body headings STEP 4 lists are the
-convention's, copied from README's templates — both restate something that lives elsewhere,
-and a rename on the other side would starve the drafting agent of the very rule this prompt
-is trying to hand it. Each restatement is tagged on a line of the form
-`@PIN: <repo-root-relative file> <verbatim construct>`, and
-`tests/static/skill-prose-pins.test.sh` extracts every one, resolving it against the
-repository root. The tags sit here rather than beside the sentences below because the
-template is a fenced block dispatched to a sub-agent verbatim; nothing is added to the text
-that agent receives.
+STEP 3 names the XSD roots; STEP 4 lists the ticket body headings. Keep these pins aligned.
 
-The three root elements STEP 3 names:
+Pins: `tests/static/skill-prose-pins.test.sh`.
 
 ```text
 @PIN: schemas/bug-ticket.xsd <xs:element name="bug-ticket">
 @PIN: schemas/feature-ticket.xsd <xs:element name="feature-ticket">
 @PIN: schemas/task-ticket.xsd <xs:element name="task-ticket">
-```
-
-The headings STEP 4 lists, each a section of README's body templates:
-
-```text
 @PIN: README.md ## Problem
 @PIN: README.md ## Expected behaviour
 @PIN: README.md ## Steps to reproduce
@@ -49,14 +33,7 @@ The headings STEP 4 lists, each a section of README's body templates:
 @PIN: README.md ## Acceptance criteria
 ```
 
-**Where the template restates a README rule, the restatement is pinned.** Each such
-passage is followed inside the template fence by an `@RULE: <repo-root-relative file> <N>
-<verbatim rule substring>` marker, which is where the ordinal lives so the prose does not
-have to carry it. The substring comes from the cited rule itself, not from the
-template's paraphrase. `tests/static/readme-rule-citations.test.sh` extracts those markers
-and resolves them by position against README's bounded `## Rules for agents` list.
-
----
+Rule markers: `tests/static/readme-rule-citations.test.sh`.
 
 ## Template
 
@@ -79,9 +56,8 @@ and resolves them by position against README's bounded `## Rules for agents` lis
    @README-SECTION: ## Front-matter schema
    @README-SECTION: ## Ticket body
    @README-SECTION: ## Drafting a ticket
-   Read .ai/sift/MILESTONES.md once and check every assigned milestone. Do not read the
-   whole README or the operations cookbook. Use bounded reads that fit the tool output
-   limit. Use find and command grep inside the ignored tracker.
+   Read .ai/sift/MILESTONES.md once. Keep reads bounded to avoid truncated output. Use
+   find and command grep inside the ignored tracker.
 @RULE: README.md 3 Front-matter is the source of truth
 @RULE: README.md 5 Claims about code cite
 @RULE: README.md 10 Use the body template for the ticket's
@@ -125,8 +101,7 @@ and resolves them by position against README's bounded `## Rules for agents` lis
    dependency validation belongs to the coordinator after all batches finish.
 
 6. Return exactly these fields and no other text. Repeat this block once per assigned row;
-   keep each block to four lines. Report only unresolved decisions or evidence discrepancies
-   in the issue field, not a narrative or a copy of the ticket.
+   keep each block to four lines. Include only unresolved decisions or discrepancies in issue.
 
      status: written | blocked
      ticket: <ID>

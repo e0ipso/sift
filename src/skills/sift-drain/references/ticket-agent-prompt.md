@@ -6,29 +6,20 @@ when supported; avoid inheriting the coordinator transcript.
 This file is the sole full worker contract. Its Step 6 block is the sole exact worker report
 schema. The orchestrator skill consumes that schema but does not copy it.
 
-`tests/static/skill-prose-pins.test.sh` reads the authority tags in this file.
+Pins: `tests/static/skill-prose-pins.test.sh`.
 
 ```text
 @PIN: src/skills/sift-drain/SKILL.md ## Consume worker reports
 ```
 
-One dispatch hands one worker a SITTING of tickets: the set the orchestrator's wave graph
-assigned to this node, listed in the order they must be worked. A sitting of one is the
-ordinary small case and needs no special form — the template reads correctly with a single
-stanza in `{{TICKET_BLOCK}}`, and every per-ticket instruction in it simply runs once.
-
-You implement. You do not archive, you do not move a ticket between waves, and you do not
-merge. The orchestrator lands those writes after you return.
-
 | Placeholder | Source |
 |---|---|
 | `{{WAVE}}` | the wave number this sitting belongs to; a follow-up is filed into it |
 | `{{GROUP_SIZE}}` | how many tickets this sitting carries |
-| `{{GROUP_TICKETS}}` | space-separated IDs, sitting order. This is also the ORDER you work them in |
-| `{{TICKET_BLOCK}}` | one stanza per ticket in that order: id, title, the absolute path, `type`/`priority`/`effort` from that ticket's own front matter, and one or two sentences of summary the orchestrator wrote after reading it |
-| `{{LEAD_ID}}` / `{{LEAD_ID_LOWER}}` | the first ID in `{{GROUP_TICKETS}}`; the lowercase form names the shared branch |
+| `{{GROUP_TICKETS}}` | space-separated IDs in work order |
+| `{{TICKET_BLOCK}}` | one stanza per ticket: id, title, absolute path, type, priority, effort and brief summary |
 | `{{PROJECT_ROOT}}` | absolute path of the worktree already prepared by the coordinator |
-| `{{BRANCH}}` | ONE branch for the whole sitting, e.g. `feature/{{LEAD_ID_LOWER}}--{{slug}}` |
+| `{{BRANCH}}` | prepared branch for the sitting |
 | `{{BASE_BRANCH}}` | local integration branch, normally `main` |
 | `{{SIFT_ROOT}}` | original project root holding the shared live `.ai/sift` tracker |
 | `{{TEST_SCOPE_HINT}}` | test files you expect to be relevant across the sitting, or "agent's judgment" |
@@ -36,20 +27,9 @@ merge. The orchestrator lands those writes after you return.
 
 ## The bounded spec read
 
-STEP 1 names the `README.md` sections the worker reads, rather than sending it through
-the whole file. Each name sits on its own line behind the `@README-SECTION:` tag, spelled
-exactly as the heading is spelled in the spec, with the reason to read it on the line
-beneath.
-
-Those tagged lines are machine-read. `tests/static/prompt-readme-sections.test.sh` extracts
-them and asserts every heading named here still exists, character for character, in
-`README.md` and in `src/skills/sift-init/assets/README.md` — the copy that ships into a
-consuming repository as `.ai/sift/README.md`, which is the one the agent actually opens.
-Widen the bounded read by adding a tagged line; keep the heading text and nothing else on
-it. Rename a section in the spec without renaming it here and the suite fails, which is the
-point: an agent reading a named subset can otherwise be starved by a rename it never sees.
-
----
+STEP 1 names required and conditional sections using `@README-SECTION:` tags.
+`tests/static/prompt-readme-sections.test.sh` checks those headings against README.md and
+its shipped mirror. Update the tags with any heading rename.
 
 ## Template
 
@@ -62,182 +42,135 @@ Tickets, in sitting order:
 
 Step 1: Orient the sitting
 
-Work in {{PROJECT_ROOT}}, already on {{BRANCH}}. The live tracker is under
-{{SIFT_ROOT}}/.ai/sift. Set SIFT_ROOT={{SIFT_ROOT}} in your command environment using proper
-shell quoting, and use that root for every tracker read, new ticket and script invocation.
-Your worktree's .ai/sift may be absent or incomplete; do not initialize or symlink it.
-Interpret relative source citations against the assigned worktree, so edits and checks use
-its code. Read ticket files at the supplied absolute shared-tracker paths.
+Work in {{PROJECT_ROOT}} on {{BRANCH}}. Set SIFT_ROOT={{SIFT_ROOT}} with proper shell
+quoting. Use $SIFT_ROOT/.ai/sift for every tracker read and new ticket, and pass SIFT_ROOT
+to scripts. Read the supplied absolute ticket paths; resolve source citations against your
+worktree. Do not initialize or symlink the worktree's tracker.
 
-Run this stamp alone before any other orientation work:
+Run this stamp first:
   {{SCRIPTS_DIR}}/drain-log.sh phase orient
-The four phase commands in this contract are the only phase stamps for the sitting. Run each
-one alone as the first action in its phase. Never write RUNLOG.md by hand.
+The four phase commands in this contract are the only phase stamps for the sitting. Run
+each alone at its phase's start. Never write RUNLOG.md by hand.
 
-Read every ticket file listed above in full. Then read these sections of
-.ai/sift/README.md, not the whole file:
+Read the assigned tickets in full and these sections of $SIFT_ROOT/.ai/sift/README.md:
   @README-SECTION: ## Rules for agents
-    Read the tracker-write rules so you can keep tracker writes outside your branch.
   @README-SECTION: ## Front-matter schema
-    Read the required keys and allowed values before filing a ticket.
   @README-SECTION: ## Ticket body
-    Read the canonical body sections and the additions for `bug` and `feature` tickets.
-Read a conditional section only when its condition holds:
+Read these only under the stated conditions:
   @README-SECTION: ## Operations cookbook (terminal)
-    Read this when a ticket changes one of those recipes.
+    If a ticket changes a recipe.
   @README-SECTION: ## Dispatch groups and the cluster key
-    Read this before assigning a `cluster` to a follow-up.
+    Before assigning a follow-up's cluster.
   @README-SECTION: ## Run log
-    Read this when a ticket changes RUNLOG.md or its writer.
-Read another spec section only when a ticket directs you there.
+    If a ticket changes RUNLOG.md or its writer.
+Read other spec sections only when a ticket directs you there.
 
-Read the repository's agent instructions (AGENTS.md / CLAUDE.md and anything they include)
-and, if the project has a knowledge base, its index and the entries matching this task. That
-is where the project defines its commands and coding conventions. If those documents are
-silent, inspect manifests and continuous-integration configuration. Verify every supplied
-path against the live tree.
+Read project agent instructions and their includes, then the knowledge-base index and
+relevant entries. If they omit commands or conventions, inspect manifests and CI config.
+Verify supplied paths against the live tree. Use find and command grep in ignored .ai/sift.
+Batch independent reads; separate commands that depend on earlier output. Use completion
+signals or blocking waits for asynchronous work, not sleep polling or fixed retry loops.
 
-`.ai/sift` is usually gitignored, so ignore-aware search silently skips it: use `find`
-plus `command grep` there.
+Check {{GROUP_TICKETS}} against git log --oneline -30 and git branch --list in one pass.
+Verify live behaviour before implementing. Report work already present without repeating it.
+Resolve ordinary judgments using the ticket's Direction; record the choice. Block only
+questions that require the user.
 
-Group independent read-only commands into one shell call per intent. This includes file
-reads, git inspection, directory listings, searches, and version or configuration checks.
-Split a call when its arguments depend on earlier output. Do not use sleep-based polling or
-fixed retry loops. Use the harness completion signal or blocking wait form for asynchronous
-work.
+Recheck an owned file before editing it again. If another worker changed it, stop without
+overwriting. Leave unfinished edits uncommitted and report the files and sitting in tamper.
 
-Check every ticket for stale state in one pass. Look for {{GROUP_TICKETS}} in
-`git log --oneline -30` and `git branch --list`, then verify the behavior live before
-implementing it. If the work is already present, report that result and leave the tracker
-for the orchestrator.
-
-Apply ordinary judgment calls yourself. Follow the ticket's `## Direction`, record the
-choice, and continue. Mark a ticket `blocked` only when the user must answer an unresolved
-question.
-
-Check an owned file before returning to edit it. If another worker changed it after your
-last inspection, stop without overwriting the change. Leave your unfinished edits
-uncommitted and return with `tamper:` naming what changed and the sitting involved. The
-orchestrator will coordinate the write scopes.
-
-Limit writes to the current ticket, including documentation directly made inaccurate by
-its change, and the tests allowed in step 3. Keep those documentation updates in the same
-commit; do not file a separate ticket for them. If the documentation is owned by another
-active sitting, report the overlap before editing. Do not edit sift-drain skill files because a maintenance worker may own
-them. In `.ai/sift`, create only the follow-up ticket files described in step 5, and edit
-no ticket you did not create. The orchestrator alone archives tickets, merges onto
-{{BASE_BRANCH}}, and decides which wave a follow-up finally belongs in.
+Limit product writes to the current ticket, its allowed tests and documentation made
+inaccurate by its change. Commit those docs with the ticket; report overlapping ownership
+before editing. Do not edit sift-drain skill files. Tracker writes are limited to new
+follow-ups in step 5. The orchestrator archives, merges onto {{BASE_BRANCH}} and adjusts waves.
 
 Step 2: Check the prepared workspace
 
-Verify that the current directory and branch match the assigned worktree and {{BRANCH}}.
-Do not create another branch or check out {{BASE_BRANCH}}. If setup is wrong, return the
-mismatch for the coordinator to repair. Never push. Keep all product edits in this worktree.
+Verify the assigned directory and {{BRANCH}}. Report setup mismatches for coordinator
+repair. Do not create a branch, check out {{BASE_BRANCH}} or push. Work only in this worktree.
 
 Step 3: Implement and commit each ticket
 
-Run this stamp alone before touching the first ticket:
+Run this stamp first:
   {{SCRIPTS_DIR}}/drain-log.sh phase implement
-Work through {{GROUP_TICKETS}} in order. Finish 3a through 3d for one ticket before opening
-the next. If you cannot finish a ticket, restore only its unfinished edits, leave it without
-a commit, and continue. Keep every earlier ticket commit; failure later in the sitting does
-not discard finished work.
+Work through {{GROUP_TICKETS}} in order, completing 3a through 3d before the next ticket.
+If a ticket fails, restore only its unfinished edits and continue. Preserve earlier commits.
+For tamper, follow step 1 instead of restoring edits.
 
 3a. Record a bug baseline
 
-For a bug ticket, reproduce the problem before changing code wherever feasible. Use a
-script or language shell for logic, a real request for a route, or the one affected browser
-spec. Record the observation. After the fix, repeat the same check and record the result. If
-a destructive sequence or race makes live reproduction unsafe, say so and use a scoped test
-observation instead.
+Reproduce bugs before changing code, then repeat the check after the fix. Use a script,
+language shell, real request or affected browser spec. Record both observations. If live
+reproduction is unsafe, explain why and use scoped test evidence.
 
 3b. Implement the ticket
 
-Implement directly under the project's conventions. Do not take a planning-skill detour or
-use a red/green/refactor cycle. Do not include work for a later ticket.
+Follow project conventions and the ticket's Direction. Implement directly, without a
+planning skill or red/green/refactor cycle. Do not implement later tickets yet.
 
-Write no new tests because the wave gate batches test authoring. If an acceptance criterion
-asks for tests, waive it and describe the missing coverage precisely in this ticket's
-`resolution:`. Tests are part of this ticket only when its `type` is `test`, when the ticket
-asks for a canary or pin test, or when an existing test asserts behavior this ticket changes.
-For the last case, make the smallest assertion update, un-skip any spec staged for this fix,
-and note why it changed. Fix existing tests that your change breaks.
+Defer new tests to the wave gate unless type is test or the ticket explicitly requests a
+canary or pin test. Record waived test criteria precisely in the resolution. Update existing
+assertions that this change invalidates, explain why, and un-skip specs staged for this fix.
+Fix existing tests broken by your change.
 
 3c. Verify the ticket scope
 
-Run only what this ticket changes, using the project's commands:
-  - Run the specific unit or integration files for the changed area
-    ({{TEST_SCOPE_HINT}}), never the full suite. Record exact test and assertion counts and
-    every file run.
-  - Scope lint and static analysis to touched files. Pass absolute paths so a tool that
-    changes working directory still checks the intended files.
-  - Run an end-to-end spec only for browser-visible acceptance criteria. If shared render
-    markup changed, run the full end-to-end suite once because those assertions ripple.
-  - Check every acceptance criterion in the real environment with disposable fixtures.
-    Remove them and confirm no residue remains.
-  - Treat the shared development environment as non-disposable. Do not reinstall it,
-    uninstall real components, or execute the destructive action a guard prevents. Call the
-    validator directly, use a dry-run or read-only form, and assert the refusal. Defer an
-    unsafe destructive sequence to the wave gate's integration tests and retain the
-    evidence for handoff.
+Use project commands:
+  - Run affected unit/integration files only, guided by {{TEST_SCOPE_HINT}}. Record files
+    and exact test/assertion counts.
+  - Scope lint and static analysis to touched files using absolute paths.
+  - Run e2e specs for browser-visible criteria. Shared render markup changes require one
+    full e2e run.
+  - Check acceptance criteria live with disposable fixtures; remove them and confirm cleanup.
+  - Never reinstall the shared environment, uninstall real components or execute a
+    destructive action a guard prevents. Check its validator or read-only/dry-run refusal.
+    Defer unsafe sequences to wave-gate integration tests with supporting evidence.
 
 3d. Commit the ticket
 
-Commit only this ticket's product changes and allowed test edits. Give each finished ticket
-one implementation commit; never combine tickets or squash the sitting. Keep the one-line
-resolution, including every waiver, for the final report.
+Make one implementation commit per finished ticket, including only its product changes and
+allowed tests. Never squash tickets together. Keep a one-line resolution with every waiver.
 
 Step 4: Verify the finished sitting
 
-Run this stamp alone before the sitting-wide checks:
+Run this stamp first:
   {{SCRIPTS_DIR}}/drain-log.sh phase verify
-For a one-ticket sitting, reuse step 3c results if the checked files and dependencies have
-not changed since those checks. The commit and phase stamp alone do not invalidate them.
-Run only missing checks or checks invalidated by later edits. For a multi-ticket sitting,
-run the union of the step 3c test files once against the finished branch and lint/static
-analysis across touched files. Report the final results once, identifying reused checks.
-Do not run the full suite or ticket-check.sh; the wave gate owns the full run and the
-coordinator owns tracker checks. Amend a failure fix into the ticket commit that caused it;
-if no ticket caused it alone, retain a separate fix commit in the report.
+For one ticket, reuse step 3c checks unless checked files or dependencies changed. Commits
+and phase stamps do not invalidate checks. Run only missing or invalidated checks.
+For multiple tickets, run their test-file union and touched-file lint/static analysis once
+on the finished branch. Identify reused checks in the final report.
+
+Do not run the full suite or ticket-check.sh. The wave gate owns full verification; the
+coordinator checks tracker state. Amend fixes into the responsible ticket commit. If no
+single ticket caused the failure, report a separate fix commit.
 
 Step 5: File warranted follow-ups
 
-Run this stamp alone before filing follow-ups:
+Run this stamp first:
   {{SCRIPTS_DIR}}/drain-log.sh phase bookkeep
-For genuinely separate work, reserve the needed IDs in one call to
-{{SCRIPTS_DIR}}/reserve-ids.sh <count>, with SIFT_ROOT pointing to the shared tracker.
-Exit 3 means retry after the current allocation owner finishes; never calculate a next ID
-or reuse a reserved one. If allocation cannot complete, report the unfiled finding and its
-evidence under issues so the coordinator can file it. Never silently drop it.
-Write an out-of-scope bug, deferred improvement, or unresolved gap as a new ticket under
-`.ai/sift/open/<milestone>/<category>/` using `.ai/sift/README.md`. Use the body for its
-`type`; a `bug` needs `## Expected behaviour`, and a `feature` states its motivation under
-`## Problem`. Use each matching `.ai/sift/schemas/*.xsd` once as a checklist and write Markdown
-directly without an XML scratch draft.
+For separate work, call {{SCRIPTS_DIR}}/reserve-ids.sh <count> once with shared SIFT_ROOT.
+On exit 3, retry after the allocation owner finishes. Never calculate IDs or reuse reserved
+ones. If allocation fails, report the unfiled finding and evidence under issues.
 
-Give every ticket you file `wave: {{WAVE}}`. An open ticket with no wave is in no load and
-is dispatched by nobody, and this wave is where the work surfaced; the orchestrator moves
-it to a later wave if that is where it belongs. Set no other wave and touch no other
-ticket's.
+Write follow-ups under $SIFT_ROOT/.ai/sift/open/<milestone>/<category>/ using the README's
+body template for their type. Read each matching schema once as a checklist; write Markdown
+directly without XML scratch drafts. Give every new ticket wave: {{WAVE}}. The coordinator
+may move it later. Do not edit other tickets or assign another wave.
 
-Do not file, comment on, or patch an external tracker. Record a warranted upstream fix as a
-local `type: dx` ticket so the human can file it.
-
-Leave knowledge capture to the wave gate. Do not run a capture skill or write a knowledge
-entry. Put durable knowledge from this sitting in `deferred to the wave gate:` so the gate
-can curate it with every worker report from the wave.
+Do not file, comment on, or patch an external tracker. File upstream proposals locally as
+type: dx for the human to submit. Defer durable knowledge in the report to the wave gate;
+do not run a capture skill or write knowledge entries.
 
 Step 6: Return one final report
 
 Every self-filed ticket ID from step 5 must appear in the final `tickets filed` field.
-Return exactly these fields and nothing else. Keep routine reports under 250 words per
-sitting, adding only evidence needed for blockers or failures. State each fact once. Do not
-include diffs, implementation narration, or full command output.
+Return only these fields, normally under 250 words. Expand only for blocker or failure
+evidence. State each fact once; omit diffs, narration and raw command output.
 
   status: one line per ticket: <TICKET-ID>: done | blocked | not started
   branch: {{BRANCH}}
-  commits: <TICKET-ID> <hash> — one per ticket; identify any separate sitting fix
-  resolution: <TICKET-ID>: <one line, including waivers> — one per ticket reported done
+  commits: <TICKET-ID> <hash>; one per ticket; identify any separate sitting fix
+  resolution: <TICKET-ID>: <one line, including waivers>; one per ticket reported done
   verification: final scoped results and files, including reused checks; tests/assertions,
                 lint/static analysis, applicable e2e totals and concise bug before/after
                 evidence; cleanup confirmed or the precise reason a check could not run
@@ -251,9 +184,7 @@ include diffs, implementation narration, or full command output.
 
 ## Resume a stalled sitting
 
-Resume the same worker with this template when it pauses on an ordinary judgment call. Do
-not use it for reported tamper; the orchestrator must coordinate the overlapping sittings
-before either worker continues.
+Resume ordinary judgment calls with this template. Coordinate tamper before resuming.
 
 | Placeholder | Source |
 |---|---|
@@ -263,8 +194,6 @@ before either worker continues.
 You stopped to ask: {{QUESTION_AS_YOU_UNDERSTAND_IT}}
 
 Resolve it yourself and finish the sitting; no answer is coming.
-  - For a knowledge-base curation conflict, prefer the live tree and the newest user
-    directives. Zero durable candidates is a valid outcome.
   - For implementation scope, apply the ticket's Direction as written, record the judgment
     call in your report, and continue.
   - If this is interference or tamper, do not overwrite anything. Return with `tamper:`
@@ -276,8 +205,7 @@ Resolve it yourself and finish the sitting; no answer is coming.
 
 ## Redispatch on failure
 
-The failure policy and redispatch decision live in `SKILL.md`. This section holds the exact
-worker messages used when that policy calls for a retry or a blocked-body edit.
+Use these messages when the skill's failure policy calls for a retry or blocked-body edit.
 
 ```text
 @PIN: src/skills/sift-drain/SKILL.md **Failure policy:**
@@ -296,7 +224,7 @@ For the retry, narrow `{{GROUP_TICKETS}}`, `{{GROUP_SIZE}}`, and `{{TICKET_BLOCK
 PRIOR ATTEMPT FAILED for {{FAILED_TICKETS}}. Context from the previous worker:
 {{FAILURE_REPORT}}
 Diagnose the root cause before changing anything; do not repeat the same approach. Any
-ticket of that sitting not named above is already landed — leave it alone.
+ticket of that sitting not named above is already landed. Leave it alone.
 ```
 
 For a blocked-body edit requested by the skill's failure policy, dispatch this small worker
@@ -314,15 +242,14 @@ Report: status, commit hash, one-paragraph reason.
 
 ## Tamper check-back
 
-The skill and `run-management.md` own the tamper decision. When that decision needs the
-workers to propose a safe split or ordering, resume or dispatch with:
+For a safe split or ordering, resume or dispatch with:
 
 ```text
 @PIN: src/skills/sift-drain/references/run-management.md ## Worker check-back
 ```
 
 ```
-COORDINATION — another sitting changed files you also touch.
+Another sitting changed files you also touch.
 What you reported: {{TAMPER}}
 What the other sitting reported: {{OTHER_REPORT}}
 Do not overwrite. Propose a split of remaining work that leaves each sitting a disjoint

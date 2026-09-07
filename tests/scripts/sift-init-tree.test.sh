@@ -94,6 +94,7 @@ FIXTURE_MS=backlog
 # <initializer-only entry>|<why make_tree deliberately does not carry it>
 INIT_ONLY_EXCUSED=".gitignore|repository tracking policy does not belong in a throwaway fixture tree
 open/$FIXTURE_MS/|init creates the first milestone folder; fixtures create it with the first ticket
+schemas/bug-ticket.example.xml|fixture cases do not read optional drafting examples
 schemas/bug-ticket.xsd|fixture cases never read XSD payloads from their throwaway trees
 schemas/feature-ticket.xsd|fixture cases never read XSD payloads from their throwaway trees
 schemas/sift-common.xsd|fixture cases never read XSD payloads from their throwaway trees

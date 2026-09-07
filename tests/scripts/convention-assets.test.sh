@@ -18,9 +18,11 @@ test_case "the skill's assets match the normative spec"
 assert_same "$REPO_ROOT/README.md" "$SKILL/assets/README.md" \
   "assets/README.md is the root README byte for byte"
 
+assert_same "$REPO_ROOT/src/operations/sift.sh" "$SKILL/assets/scripts/sift.sh" "operation asset matches source"
+
 test_case "the schema set matches in both directions"
-root_set="$(cd "$REPO_ROOT/schemas" && ls *.xsd | LC_ALL=C sort)"
-asset_set="$(cd "$SKILL/assets/schemas" && ls *.xsd | LC_ALL=C sort)"
+root_set="$(cd "$REPO_ROOT/schemas" && ls *.xsd *.xml | LC_ALL=C sort)"
+asset_set="$(cd "$SKILL/assets/schemas" && ls *.xsd *.xml | LC_ALL=C sort)"
 assert_eq "$root_set" "$asset_set" "no schema is missing from or stale in the skill"
 for x in $root_set; do
   assert_same "$REPO_ROOT/schemas/$x" "$SKILL/assets/schemas/$x" "$x matches"
@@ -32,6 +34,7 @@ run_cmd "$root" "$INIT" --root "$root" --prefix SFT
 assert_eq 0 "$R_STATUS" "init exits 0"
 assert_same "$REPO_ROOT/README.md" "$root/.ai/sift/README.md" \
   "the initialised tree's README is the normative one"
+assert_same "$REPO_ROOT/src/operations/sift.sh" "$root/.ai/sift/scripts/sift.sh" "installed operations match source"
 for x in $root_set; do
   assert_same "$REPO_ROOT/schemas/$x" "$root/.ai/sift/schemas/$x" "the tree's $x matches"
 done
@@ -97,13 +100,13 @@ test_case "the report carries the remedy, not just the finding"
 # a copy of the recipe cannot make that claim.
 REFRESH="$(readme_refresh_resolved "$SKILL" "$root")"
 assert_ne "" "$REFRESH" "the refresh recipe extracts from README.md"
-assert_eq 2 "$(printf '%s\n' "$REFRESH" | grep -c .)" "and it is the two documented commands"
+assert_eq 3 "$(printf '%s\n' "$REFRESH" | grep -c .)" "and it is the three documented commands"
 assert_contains "$R_OUT" "$(printf '%s\n' "$REFRESH" | sed -n '1p')" \
   "the README refresh is printed with both paths resolved"
 assert_contains "$R_OUT" "$(printf '%s\n' "$REFRESH" | sed -n '2p')" \
   "and so is the schema refresh"
-assert_contains "$R_OUT" 'not repository state' \
-  "with the reason exactly these two paths are safe to overwrite"
+assert_contains "$R_OUT" 'Review local changes before refreshing shipped assets'  \
+  "the report asks for review before replacing assets"
 
 test_case "the drift check writes nothing at all"
 # The regression guard on a check that must never repair. Reporting drift is the
@@ -211,5 +214,27 @@ assert_eq "" "$(readme_refresh_resolved "$SKILL" "$root")" \
 README="$REPO_ROOT/README.md"
 assert_ne "" "$(readme_refresh_resolved "$SKILL" "$root")" \
   "and the real README still extracts, so the case put it back"
+
+
+test_case "refresh keeps script and XML in sync in a spaced project path"
+root="$(newdir)/project with spaces"
+mkdir -p "$root"
+run_cmd "$root" "$INIT" --root "$root" --prefix SFT
+assert_eq 0 "$R_STATUS" "install succeeds"
+printf '# local script annotation\n' >> "$root/.ai/sift/scripts/sift.sh"
+printf '<!-- local XML annotation -->\n' >> "$root/.ai/sift/schemas/bug-ticket.example.xml"
+before="$(tree_digest "$root")"
+run_cmd "$root" "$INIT" --root "$root" --prefix SFT
+assert_eq "$before" "$(tree_digest "$root")" "repeat init preserves modified script and XML"
+assert_contains "$R_OUT" 'stale    .ai/sift/scripts/sift.sh' "script drift is reported"
+assert_contains "$R_OUT" 'stale    .ai/sift/schemas/bug-ticket.example.xml' "XML drift is reported"
+commands="$(printf '%s\n' "$R_OUT" | grep '^  cp ')"
+assert_eq 3 "$(printf '%s\n' "$commands" | grep -c .)" "all three refresh commands are present"
+state_before="$(cat "$root/.ai/sift/config/config.yaml" "$root/.ai/sift/MILESTONES.md")"
+run_recipe "$root" "$commands"
+assert_eq 0 "$R_STATUS" "printed commands run with escaped paths"
+assert_same "$REPO_ROOT/src/operations/sift.sh" "$root/.ai/sift/scripts/sift.sh" "refresh copies the current script"
+assert_same "$REPO_ROOT/schemas/bug-ticket.example.xml" "$root/.ai/sift/schemas/bug-ticket.example.xml" "refresh copies the current XML"
+assert_eq "$state_before" "$(cat "$root/.ai/sift/config/config.yaml" "$root/.ai/sift/MILESTONES.md")" "refresh preserves repository configuration"
 
 summary

@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
-# recipes.sh — run the cookbook's own commands, extracted from README.md.
-#
-# The recipes in README.md are the reference implementation, so the tests must
-# execute the documented text rather than a paraphrase of it: a recipe that
-# drifts from its tests is exactly the failure this suite exists to catch.
-#
-# Each extractor pulls a fenced block out of README.md by its anchor line. A
-# reworded anchor makes the extractor return nothing and the test fail loudly,
-# which is the intended coupling.
+# Execute named operation bodies across the portability matrix and extract spec contracts.
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 README="$REPO_ROOT/README.md"
@@ -26,64 +18,37 @@ readme_block() {
   ' "$README"
 }
 
-recipe_prefix_setup()  { readme_block '**Set the prefix once per shell.**'; }
-recipe_allocate()      { readme_block '**Allocate the next ID**'; }
-recipe_wave_check()     { readme_block '**Front-matter consistency check**'; }
-recipe_frontmatter()   { readme_block '**Validate front-matter across the tree**'; }
-# The conditional half of the same rule: `resolution` is required only once a
-# status is terminal, which the nine-key loop above has no way to express.
-recipe_resolution()    { readme_block '**Find tickets archived without a'; }
-
-# Query recipes. All read-only, all driven by $PREFIX (and $MILESTONE where the
-# recipe names one), so they run verbatim — no parameter swap is needed.
-recipe_milestone_setup() { readme_block 'Recipes that name one milestone read'; }
-recipe_list_open()       { readme_block '**List every open ticket:**'; }
-recipe_triage()          { readme_block '**Triage view'; }
-recipe_count_milestone() { readme_block '**Count open tickets per milestone:**'; }
-recipe_find_ticket()     { readme_block '**Find a ticket wherever it lives:**'; }
-recipe_fulltext()        { readme_block '**Full-text search'; }
-recipe_dependents()      { readme_block '**Who depends on'; }
-recipe_next()            { readme_block '**Pick the next thing to work on**'; }
-
-# Front-matter parsing: the three `labels:` recipes share one awk program.
-recipe_labels_list()  { readme_block '**List every label in use**'; }
-recipe_labels_count() { readme_block '**Count tickets per label:**'; }
-
-# The label filter opens with a literal `LABEL=caching` from the worked example.
-# Swap it for a parameter expansion so a case can ask for a label no ticket
-# carries; the caller asserts the swap landed, so a README rewording cannot
-# silently degrade the test back to the example value.
-recipe_labels_filter() {
-  readme_block '**List tickets carrying one label**' \
-    | sed 's|^LABEL=caching$|LABEL=${LABEL?}|'
+OPERATIONS="$REPO_ROOT/src/operations/sift.sh"
+operation_block() {
+  awk -v name="$1" '
+    $0 == "# BEGIN " name { inside = 1; next }
+    $0 == "# END " name { exit }
+    inside { print }
+  ' "$OPERATIONS"
 }
 
-# Audit recipes: the two section-backfill lists and the folder/front-matter check.
-recipe_bug_sections()     { readme_block '**Find bug tickets missing'; }
-recipe_feature_missing()  { readme_block '**Find feature tickets whose Direction'; }
-recipe_folder_agreement() { readme_block '**Sanity-check folder/front-matter agreement:**'; }
-recipe_xmllint()          { readme_block '**Machine-check a draft'; }
-
-# The milestone move opens with a `DEST=<target-milestone>` placeholder, which is
-# a redirection rather than an assignment when run as written, and the worked
-# example's `ID=$PREFIX-0042`. Swap both so a case can drive them; callers assert
-# both swaps landed.
-recipe_move_milestone() {
-  readme_block '**Move a ticket to another milestone**' | sed \
-    -e 's|^DEST=<target-milestone>.*$|DEST=${DEST:?}|' \
-    -e 's|^ID=\$PREFIX-0042$|ID=${ID:?}|'
-}
-
-# The archive recipe opens with three literal assignments (the worked example's
-# ID, status and resolution). Swap them for parameter expansions so a case can
-# drive the recipe from the environment; every caller asserts the swap landed,
-# so a README rewording cannot silently degrade the test to the example values.
-recipe_archive() {
-  readme_block '**Archive a finished ticket**' | sed \
-    -e 's|^ID=\$PREFIX-0042$|ID=${ID:?}|' \
-    -e 's|^STATUS=done[[:space:]].*$|STATUS=${STATUS:?}|' \
-    -e "s|^RESOLUTION='Fixed in commit abc1234'.*$|RESOLUTION=\${RESOLUTION?}|"
-}
+recipe_prefix_setup() { operation_block prefix-setup; }
+recipe_allocate() { operation_block reserve; }
+recipe_wave_check() { operation_block consistency; }
+recipe_frontmatter() { operation_block required; }
+recipe_resolution() { operation_block resolutions; }
+recipe_milestone_setup() { operation_block milestone-setup; }
+recipe_list_open() { operation_block list; }
+recipe_triage() { operation_block triage; }
+recipe_count_milestone() { operation_block counts; }
+recipe_find_ticket() { operation_block find; }
+recipe_fulltext() { operation_block search; }
+recipe_dependents() { operation_block dependents; }
+recipe_next() { operation_block next; }
+recipe_labels_list() { operation_block labels; }
+recipe_labels_count() { operation_block label-counts; }
+recipe_labels_filter() { operation_block label; }
+recipe_bug_sections() { operation_block bugs; }
+recipe_feature_missing() { operation_block features; }
+recipe_folder_agreement() { operation_block folders; }
+recipe_xmllint() { operation_block validate-draft; }
+recipe_move_milestone() { operation_block move; }
+recipe_archive() { operation_block archive; }
 
 # --- The normative blocks that are not `sh` recipes (SFT-0052) ---------------
 #
@@ -108,11 +73,11 @@ recipe_archive() {
 # for, watch it return nothing, and call that the coupling working.
 ANCHOR_LAYOUT='## Directory layout'
 ANCHOR_FRONTMATTER='Every ticket starts with YAML front-matter.'
-ANCHOR_BODY_CANONICAL='Every body is built from four canonical sections'
-ANCHOR_BODY_BUG='— a bug ticket that does not say what'
-ANCHOR_BODY_FEATURE='`Problem` carries the motivation'
-ANCHOR_RUNLOG='Six columns, and a literal'
-ANCHOR_REFRESH='followed by the two commands below with the paths already resolved'
+ANCHOR_BODY_CANONICAL='Use these sections in order.'
+ANCHOR_BODY_BUG='For bugs, Expected behaviour'
+ANCHOR_BODY_FEATURE='For features, Problem states motivation'
+ANCHOR_RUNLOG='Six columns, with'
+ANCHOR_REFRESH='Only the specification, schemas and operation script are shipped assets:'
 
 readme_layout()              { readme_block "$ANCHOR_LAYOUT"; }
 readme_frontmatter_example() { readme_block "$ANCHOR_FRONTMATTER"; }

@@ -14,7 +14,7 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 RECIPE="$(recipe_archive)"
 TODAY="$(date +%F)"
 
-test_case "recipe is extracted from README.md and parameterised"
+test_case "recipe is extracted from the operations script and parameterised"
 assert_contains "$RECIPE" 'STATUS=${STATUS:?}' "the worked example's status is driven by the test"
 assert_contains "$RECIPE" 'RESOLUTION=${RESOLUTION?}' "…and its resolution"
 assert_not_contains "$RECIPE" 'ROADMAP' "the recipe touches no shared tracker file"

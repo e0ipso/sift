@@ -20,6 +20,8 @@ fake_repo() {
   skill="$t/src/skills/sift-init"
   mkdir -p "$skill/scripts" "$skill/assets/schemas" "$t/schemas"
   cp "$REAL_SKILL/scripts/sync-assets.sh" "$skill/scripts/"
+  mkdir -p "$t/src/operations"
+  printf '#!/bin/sh\necho operations\n' > "$t/src/operations/sift.sh"
   printf '# normative spec\n' > "$t/README.md"
   printf '<xsd>one</xsd>\n' > "$t/schemas/one.xsd"
   printf '<xsd>two</xsd>\n' > "$t/schemas/two.xsd"
@@ -40,6 +42,8 @@ relocated_repo() {
   skill="$t/nested/skills/sift-init"
   mkdir -p "$skill/scripts" "$skill/assets/schemas" "$t/schemas"
   cp "$REAL_SKILL/scripts/sync-assets.sh" "$skill/scripts/"
+  mkdir -p "$t/src/operations"
+  printf '#!/bin/sh\necho operations\n' > "$t/src/operations/sift.sh"
   printf '# some other tree spec\n' > "$t/README.md"
   printf '<xsd>one</xsd>\n' > "$t/schemas/one.xsd"
   printf '%s\n' "$t"
@@ -104,7 +108,7 @@ t="$(fake_repo)"; a="$(assets_of "$t")"
 sync "$t"
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_contains "$R_OUT" 'sync-assets: OK' "reports success"
-assert_contains "$R_OUT" '2 schema(s)' "counts what it synced"
+assert_contains "$R_OUT" '2 XSD/XML file(s)' "counts what it synced"
 assert_same "$t/README.md" "$a/README.md" "README.md is identical"
 assert_eq "one.xsd
 two.xsd" "$(cd "$a/schemas" && ls *.xsd | LC_ALL=C sort)" "the schema sets match"
@@ -238,7 +242,7 @@ assert_contains "$R_ERR" 'sync-assets: missing asset schema after copy: two.xsd'
   "each absent schema is named (two.xsd)"
 assert_contains "$R_ERR" 'sync-assets: stale asset schema survived sync: ghost.xsd' \
   "and the orphan that outlived the sync is named"
-assert_contains "$R_ERR" 'sync-assets: FAIL — 4 mismatch(es); assets are incomplete' \
+assert_contains "$R_ERR" 'sync-assets: FAIL — 5 mismatch(es); assets are incomplete' \
   "the verdict counts all four"
 
 test_case "the verdict's count moves with the number of mismatches"
@@ -248,8 +252,8 @@ t="$(fake_repo)"
 rm "$t/schemas/two.xsd"
 sync_shimmed "$t" "$shim"
 assert_eq 1 "$R_STATUS" "still exits 1"
-assert_contains "$R_ERR" 'sync-assets: FAIL — 2 mismatch(es); assets are incomplete' \
-  "one missing README and one missing schema make two, not four"
+assert_contains "$R_ERR" 'sync-assets: FAIL — 3 mismatch(es); assets are incomplete' \
+  "one missing README, script and schema make three"
 
 test_case "the skill documents one command and no hand-copying"
 skill_md="$(cat "$REAL_SKILL/SKILL.md")"

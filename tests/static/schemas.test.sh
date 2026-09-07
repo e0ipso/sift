@@ -9,7 +9,7 @@
 # — that is the rule the convention sets for every optional binary.
 #
 # The rule cuts both ways, and until SFT-0054 the absence bought nothing either.
-# README's worked draft and the render-mapping table beside it are the whole of
+# The XML example and the render-mapping table beside it are the whole of
 # the drafting instructions, and both were checked only inside the
 # `command -v xmllint` arm at the bottom of this file — the table not even
 # there. On the machine the convention actually targets, and which
@@ -258,7 +258,8 @@ draft_missing_required() {  # draft_missing_required <draft-text>
   set_diff "$DRAFT_REQUIRED" "$(printf '%s\n' "$1" | xml_elements | element_names)"
 }
 
-DRAFT="$(readme_block 'Draft into a scratch file outside')"
+XML_GUIDE="$REPO_ROOT/docs/xml-drafting.md"
+DRAFT="$(cat "$SCHEMAS/bug-ticket.example.xml")"
 DECLARED="$(xsd_declared_names)"
 BUG_ROOT_SEQ="$(xsd_decls "$SCHEMAS/bug-ticket.xsd" | elements_at 1)"
 # The required set the draft has to satisfy: bug-ticket.xsd's own declarations
@@ -282,7 +283,7 @@ VICTIM_B="$(printf '%s\n' "$BUG_ROOT_REQ" | sed -n '3p')"
 # either case back inside the `command -v xmllint` arm makes that run stop
 # printing its `ok` lines and turns the contract case red.
 test_case "the worked draft opens only elements the schemas declare, in the declared order"  # @BASELINE-CASE
-assert_ne "" "$DRAFT" "the worked draft extracts from README.md"
+assert_ne "" "$DRAFT" "the worked draft loads from schemas/bug-ticket.example.xml"
 assert_contains "$DRAFT" '<bug-ticket xmlns="urn:sift:ticket:v1">' \
   "and it is the bug-ticket draft the schemas are read against"
 assert_ne "" "$DECLARED" "the schemas' element declarations extract"
@@ -394,7 +395,7 @@ table_undeclared()       { set_diff "$(row_elements "$1")" "$DECLARED"; }
 table_unknown_headings() { set_diff "$(row_headings "$1")" "$TEMPLATE_HEADINGS"; }
 table_missing_rows()     { set_diff "$BODY_ELEMENTS" "$(row_elements "$1")"; }
 
-TABLE="$(mapping_rows < "$README")"
+TABLE="$(mapping_rows < "$XML_GUIDE")"
 # The headings the table's right column has to resolve against. Read from INSIDE
 # the three body-template fenced blocks, which is the opposite of what
 # static/prompt-readme-sections.test.sh does and is deliberate: these headings
@@ -423,7 +424,7 @@ BODY_ELEMENTS="$(
 )"
 
 test_case "both columns of the render-mapping table resolve"  # @BASELINE-CASE
-assert_ne "" "$TABLE" "the render-mapping table extracts from README.md"
+assert_ne "" "$TABLE" "the render-mapping table extracts from docs/xml-drafting.md"
 assert_ne "" "$(readme_body_canonical)" "the canonical body template extracts"
 assert_ne "" "$(readme_body_bug)" "the bug body template extracts"
 assert_ne "" "$(readme_body_feature)" "the feature body template extracts"
@@ -463,13 +464,13 @@ assert_eq "$VICTIM_B" "$(table_missing_rows "$droppedrow")" \
 
 # --- The optional extra ------------------------------------------------------
 
-test_case "README's worked draft validates, past four digits included"
+test_case "The XML example validates, past four digits included"
 if command -v xmllint > /dev/null 2>&1; then
   d="$(newdir)"
   cp "$SCHEMAS"/*.xsd "$d/"
   printf '%s\n' "$DRAFT" > "$d/draft.xml"
   assert_contains "$(cat "$d/draft.xml")" '<bug-ticket xmlns="urn:sift:ticket:v1">' \
-    "the draft came out of README.md"
+    "the draft came from schemas/bug-ticket.example.xml"
 
   run_cmd "$d" xmllint --noout --schema bug-ticket.xsd draft.xml
   assert_eq 0 "$R_STATUS" "the documented four-digit draft is valid"

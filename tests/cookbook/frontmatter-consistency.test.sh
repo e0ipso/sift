@@ -19,7 +19,7 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 RECIPE="$(recipe_wave_check)"
 
-test_case "recipe is extracted from README.md and reads only ticket front matter"
+test_case "recipe is extracted from the operations script and reads only ticket front matter"
 assert_contains "$RECIPE" 'NO WAVE' "the missing-wave finding is documented text"
 assert_contains "$RECIPE" 'UNRESOLVED DEPENDENCY' "the dependency finding is documented text"
 assert_not_contains "$RECIPE" 'ROADMAP' "no shared tracker file is read"

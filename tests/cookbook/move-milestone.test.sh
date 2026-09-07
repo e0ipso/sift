@@ -20,21 +20,16 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 RECIPE="$(recipe_move_milestone)"
 
-test_case "recipe is extracted from README.md and parameterised"
+test_case "recipe is extracted from the operations script and parameterised"
 assert_contains "$RECIPE" 'DEST=${DEST:?}' "the target milestone is driven by the test"
 assert_contains "$RECIPE" 'ID=${ID:?}' "…and the worked example's ID"
 assert_contains "$RECIPE" '> "$t.tmp" && mv "$t.tmp" "$t"' \
   "the documented temp-file form stands in for sed -i"
 assert_not_contains "$RECIPE" 'sed -i' "the banned flag appears nowhere in it"
 
-test_case "the cookbook preamble carries the set -e note the guards depend on"
-# SFT-0027. These guards end in `false`, so they only *stop* a run when the
-# shell is set to stop: run_recipe below prepends `set -e`, and the preamble is
-# the one place an operator is told to. Extraction is by the note's own anchor,
-# so dropping or rewording it fails here instead of silently.
-PREAMBLE="$(readme_block '**Run the writing recipes under `set -e`.**')"
-assert_contains "$PREAMBLE" 'set -e' "the preamble shows a paste-able wrapper that sets it"
-assert_contains "$RECIPE" 'false; }' "…and the guards still fail with false, never exit"
+test_case "the executable operations enable guard failures"
+assert_contains "$(cat "$OPERATIONS")" 'set -eu' "the script enables fail-fast execution"
+assert_contains "$RECIPE" 'false; }' "the existing guards remain in the operation"
 
 move() {  # move <dir> <id> <dest>
   run_recipe "$1" "$RECIPE" PREFIX=SFT ID="$2" DEST="$3"

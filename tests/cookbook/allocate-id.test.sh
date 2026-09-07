@@ -13,7 +13,7 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 RECIPE="$(recipe_allocate)"
 
-test_case "recipe is extracted from README.md"
+test_case "recipe is extracted from the operations script"
 assert_contains "$RECIPE" "printf '%s-%04d\\n'" \
   "the allocation one-liner is the documented text"
 assert_contains "$RECIPE" '[ -d "$SIFT/open" ]' \

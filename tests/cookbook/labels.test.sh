@@ -24,7 +24,7 @@ LIST="$(recipe_labels_list)"
 COUNT="$(recipe_labels_count)"
 FILTER="$(recipe_labels_filter)"
 
-test_case "recipes are extracted from README.md and the filter is parameterised"
+test_case "recipes are extracted from the operations script and the filter is parameterised"
 assert_contains "$LIST" 'infm && /^labels:/' "the list recipe carries the parser"
 assert_contains "$COUNT" 'sub(/^[[:space:]]*[0-9]+[[:space:]]+/' \
   "the count recipe strips uniq -c's count off the front instead of reading a field"

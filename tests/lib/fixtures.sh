@@ -95,6 +95,8 @@ make_tree() {
   mkdir -p "$dir/.ai/sift/open" "$dir/.ai/sift/archive" \
            "$dir/.ai/sift/schemas" "$dir/.ai/sift/config"
   printf 'prefix: %s\n' "$prefix" > "$dir/.ai/sift/config/config.yaml"
+  mkdir -p "$dir/.ai/sift/scripts"
+  cp "$REPO_ROOT/src/operations/sift.sh" "$dir/.ai/sift/scripts/sift.sh"
   printf '# sift\n' > "$dir/.ai/sift/README.md"
   printf '# Milestones\n\n## backlog\n' > "$dir/.ai/sift/MILESTONES.md"
 }

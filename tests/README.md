@@ -15,11 +15,14 @@ Exit code 0 means every selected file passed. Fixtures live under `mktemp -d` an
 removed on exit, including after a failure, unless `SIFT_TEST_KEEP` is set. Tests must not
 write inside the repository.
 
+The suite covers Sift's shipped files and repository contracts. Test the internal prompts
+and workflows of installed tools, such as Strikethroo, in their own repositories.
+
 ## Groups
 
 | Group | Contract |
 |---|---|
-| `cookbook/` | Runs the recipes extracted from `README.md` against throwaway trees. |
+| `cookbook/` | Runs operation bodies from `src/operations/sift.sh` against throwaway trees. |
 | `scripts/` | Exercises shipped skill scripts through their command-line interfaces. |
 | `static/` | Checks repository-wide contracts such as portability, shell lint, schemas, document pins, and the test harness itself. |
 | `e2e/` | Runs complete workflows across the public scripts and filesystem state. |
@@ -32,9 +35,10 @@ initialized tree as well as populated fixtures.
 
 ## Extracted documentation contracts
 
-Cookbook tests call [`readme_block`](lib/recipes.sh) to extract the fenced shell block after
-an anchor in `README.md`, then execute that exact text. A changed anchor or empty extraction
-must fail the case. Do not copy a recipe into a test.
+Cookbook tests extract named bodies from `src/operations/sift.sh` and execute that exact
+text across shell/awk combinations. CLI and installation cases exercise the shipped script.
+Refresh tests execute README's documented commands. Keep script blocks and document anchors
+non-empty; do not copy implementations into tests.
 
 The same ownership rule applies to normative fenced blocks that are not shell recipes. Add a
 named extractor in `lib/recipes.sh`, assert that it returned content, and compare it in the

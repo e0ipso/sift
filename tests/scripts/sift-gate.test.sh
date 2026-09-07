@@ -152,7 +152,7 @@ assert_no_dir "$root/.ai" "and still nothing is written"
 # --- Tree state --------------------------------------------------------------
 
 test_case "every required entry is required, one at a time"
-for entry in README.md MILESTONES.md config/config.yaml open archive schemas; do
+for entry in README.md MILESTONES.md config/config.yaml open archive schemas scripts/sift.sh; do
   root="$(newdir)"
   make_tree "$root" ACME
   rm -rf "${root:?}/.ai/sift/$entry"

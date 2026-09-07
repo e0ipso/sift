@@ -28,9 +28,9 @@ MILESTONE_SETUP="$(recipe_milestone_setup)"
 test_case "every recipe under test is the documented text"
 assert_contains "$TRIAGE" 'grep -rl' "triage"
 assert_contains "$COUNT" 'for m in .ai/sift/open/*/;' "count per milestone"
-assert_contains "$FIND_ONE" 'find .ai/sift -name "$PREFIX-0042--*.md"' "find one ticket"
-assert_contains "$FULLTEXT" "grep -ril 'cache invalidation'" "full-text search"
-assert_contains "$DEPENDENTS" 'grep -v "$PREFIX-0042--"' "dependents"
+assert_contains "$FIND_ONE" 'find .ai/sift -name "${ID:-$PREFIX-0042}--*.md"' "find one ticket"
+assert_contains "$FULLTEXT" 'grep -ril -e "${SIFT_SEARCH_TERM:-cache invalidation}"' "full-text search"
+assert_contains "$DEPENDENTS" 'grep -v "${ID:-$PREFIX-0042}--"' "dependents"
 assert_contains "$MILESTONE_SETUP" 'export MILESTONE=' "milestone export"
 
 q() {  # q <dir> <recipe-text> [VAR=VAL…] — run a query recipe as $PREFIX=SFT

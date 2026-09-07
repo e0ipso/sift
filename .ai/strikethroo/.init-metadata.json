@@ -1,7 +1,7 @@
 {
-  "version": "3.19.0",
+  "version": "3.21.0",
   "workspaceSchemaVersion": 4,
-  "timestamp": "2026-08-22T05:50:38.248Z",
+  "timestamp": "2026-09-03T09:53:44.930Z",
   "files": {
     "config/STRIKETHROO.md": "98331dd4834b916d0b603263ac8d8306a6591bfd5889ea83873b04c3b0437177",
     "config/config.yaml": "936282c890ec9187dc676a61809b865e5e871870065d24a7b279f4e1070069f1",
@@ -16,7 +16,7 @@
     "config/hooks/PRE_TASK_ASSIGNMENT.md": "03f6c50926ccb7460c4849cff9297f35b569695ca634d31adb91ad96cf30a1c1",
     "config/hooks/PRE_TASK_EXECUTION.md": "9641a1bdd70aea5a13ae53ecf01263a93a63727775dc86e26a54a52f34f1fca0",
     "config/hooks/TASK_EXECUTION_ROUTING.md": "d4d335937a349bf22b3f623eccb4a899929f4c9f1956b0d7257da7f006e827a7",
-    "config/schemas/self-review-v2.xsd": "d4ea0def1fd0e45e3ab968e33149b4ed30a10f74a5d6aef8cc242e1305fa8fb8",
+    "config/schemas/self-review-v2.xsd": "acfb96ca3cf0411bbb15aa3f08bb3bf524985bdf5ca05c690c699e6956161d33",
     "config/shared/anti-rationalization.md": "0d2c1a5c5efc39acdf05fcd9578d64bf43cdf602693085e3cf33fe2e9f69edb5",
     "config/shared/clarification-gate.md": "73f61cf5ea8b91c638dcb84a643af399c662014b1e05cd3b3a4a55aa7c773233",
     "config/shared/verification-gate.md": "002c6c5265e9612e64521172d99c49c8968d78ac6df907cdb352cc2b5d794ffd",

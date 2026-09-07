@@ -1,15 +1,5 @@
 # POST_EXECUTION Hook
 
-## Scope rule
-
-The work order and approved plan are the only scope authority. Do not use validation or
-cleanup to expand the approved change.
-
-- Preserve, replace, or remove legacy behaviour only when the work order or approved plan
-  declares that compatibility decision.
-- If the work order and approved plan conflict, or a required compatibility decision is
-  undeclared, return the decision to planning and obtain approval before implementation.
-
 ## Validation Gates
 
 Before marking the blueprint as complete, verify:
@@ -21,10 +11,9 @@ Before marking the blueprint as complete, verify:
 - [ ] Execute the **Self Validation** steps defined in the plan document. These are concrete verification procedures (e.g., Playwright browser checks, database CLI queries, screenshots) that confirm the implementation works in the real system. If any step fails, treat it as a validation gate failure
 
 ## Cleanup
+Assess weather the current plan has left tech debt behind or if it has created dead code. None of those are acceptable. Fix them and leave behind the most maintainable code change possible.
 
-Cleanup is limited to touched files and to debt introduced by the approved change or dead
-code that the approved change made obsolete. Do not use cleanup to fix unrelated
-pre-existing debt.
+Backwards compatibility and legacy support are only tolerated if explicitly expressed by the user. Unless it is called out in the plan, you are to assume that backwards compatibility layers are tech debt that should be eliminated.
 
 ## Failure Behavior
 

@@ -30,6 +30,7 @@ PRIME="$REPO_ROOT/src/skills/sift-prime/scripts"
 # join, because a sweep asserting a SUCCESSFUL resolution would have to run it for real.
 SCRIPTS="$DRAIN/next-ticket.sh:
 $DRAIN/wave-status.sh:
+$DRAIN/ticket-snapshot.sh:
 $DRAIN/ticket-check.sh:
 $DRAIN/list-labels.sh:
 $DRAIN/tickets-by-label.sh:caching

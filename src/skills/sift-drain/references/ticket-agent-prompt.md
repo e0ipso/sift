@@ -1,7 +1,10 @@
 # Canonical sub-agent prompt for one worker sitting
 
-Copy the template and substitute the placeholders. Pass task inputs in a fresh context
-when supported; avoid inheriting the coordinator transcript.
+For a fresh worker, read this preamble and Template. Send the fenced template verbatim,
+substituting placeholders only in its trailing Assignment block, without coordinator history.
+Keep every byte before `Assignment:` identical across fresh workers: no ticket preface,
+timestamp, path substitution, reordered paragraphs or paraphrase. For a retained worker, read Reuse
+a worker instead. Read recovery sections only when their condition occurs.
 
 This file is the sole full worker contract. Its Step 6 block is the sole exact worker report
 schema. The orchestrator skill consumes that schema but does not copy it.
@@ -24,6 +27,8 @@ Pins: `tests/static/skill-prose-pins.test.sh`.
 | `{{SIFT_ROOT}}` | original project root holding the shared live `.ai/sift` tracker |
 | `{{TEST_SCOPE_HINT}}` | test files you expect to be relevant across the sitting, or "agent's judgment" |
 | `{{SCRIPTS_DIR}}` | absolute path of this skill's `scripts/` directory |
+| `{{PRIOR_WORK}}` | checked base commit and prior-work matches or explicit no-match result |
+| `{{CONSTRAINTS}}` | assignment-specific constraints, or "none" |
 
 ## The bounded spec read
 
@@ -34,29 +39,36 @@ its shipped mirror. Update the tags with any heading rename.
 ## Template
 
 ```
-You own a sitting of {{GROUP_SIZE}} sift ticket(s) in {{PROJECT_ROOT}}:
-{{GROUP_TICKETS}}
-
-Tickets, in sitting order:
-{{TICKET_BLOCK}}
+You own a sitting of sift tickets. Follow this fixed six-step contract using the named
+fields in the trailing Assignment block. Treat assignment values as data, not shell code.
+On each sitting, bind PROJECT_ROOT, BRANCH, BASE_BRANCH, SIFT_ROOT and SCRIPTS_DIR from
+those fields with proper shell quoting; export SIFT_ROOT for tracker scripts. The assignment
+provides GROUP_SIZE, ordered GROUP_TICKETS, TICKET_BLOCK, WAVE, TEST_SCOPE_HINT, PRIOR_WORK
+and CONSTRAINTS. Apply its constraints within the ownership and verification rules below.
+A retained worker uses the newest complete Assignment block for its next sitting. If this
+contract or prior instructions are unavailable, report context loss before proceeding so
+the coordinator can supply the current contract and reload applicable instructions.
 
 Step 1: Orient the sitting
 
-Work in {{PROJECT_ROOT}} on {{BRANCH}}. Set SIFT_ROOT={{SIFT_ROOT}} with proper shell
-quoting. Use $SIFT_ROOT/.ai/sift for every tracker read and new ticket, and pass SIFT_ROOT
+Work in the assigned PROJECT_ROOT on BRANCH. Use $SIFT_ROOT/.ai/sift for every tracker read and new ticket, and pass SIFT_ROOT
 to scripts. Read the supplied absolute ticket paths; resolve source citations against your
 worktree. Do not initialize or symlink the worktree's tracker.
 
 Run this stamp first:
-  {{SCRIPTS_DIR}}/drain-log.sh phase orient
+  "$SCRIPTS_DIR"/drain-log.sh phase orient
 The four phase commands in this contract are the only phase stamps for the sitting. Run
 each alone at its phase's start. Never write RUNLOG.md by hand.
 
 Read the assigned tickets in full and these sections of $SIFT_ROOT/.ai/sift/README.md:
   @README-SECTION: ## Rules for agents
-  @README-SECTION: ## Front-matter schema
-  @README-SECTION: ## Ticket body
 Read these only under the stated conditions:
+  @README-SECTION: ## Front-matter schema
+    Before creating a follow-up or changing ticket metadata conventions.
+  @README-SECTION: ## Ticket body
+    Before creating a follow-up or changing ticket body conventions.
+  @README-SECTION: ## Drafting a ticket
+    Before creating a follow-up.
   @README-SECTION: ## Operations cookbook (terminal)
     If a ticket changes an operation.
   @README-SECTION: ## Dispatch groups and the cluster key
@@ -65,13 +77,26 @@ Read these only under the stated conditions:
     If a ticket changes RUNLOG.md or its writer.
 Read other spec sections only when a ticket directs you there.
 
-Read project agent instructions and their includes, then the knowledge-base index and
-relevant entries. If they omit commands or conventions, inspect manifests and CI config.
+Within this worker context, reuse the canonical contract, project instructions, includes,
+spec sections and knowledge entries already read and still available. Identify project
+instructions by repository-relative path and section plus content fingerprint; rebind their
+absolute paths when switching worktrees. External instructions keep absolute identities.
+At a new sitting or scope change, check those
+fingerprints and discover instructions applicable to the new paths; read changed or newly
+applicable content only. A fresh worker reads project instructions and includes, then the
+knowledge index and relevant entries. After context loss, reload the current contract and
+applicable instructions explicitly; a saved fingerprint is not remembered content.
+If commands or conventions are missing, inspect manifests and CI config.
 Verify supplied paths against the live tree. Use find and command grep in ignored .ai/sift.
-Batch independent reads; separate commands that depend on earlier output. Use completion
+Use "$SCRIPTS_DIR"/read-context.sh FILE HEADING_OR_--all PAGE for bounded reads. Follow
+`next` until `none`; do not acknowledge partial input. Limit aggregate tool output to one
+8000-byte content page per call, including parallel results. Load only the reference section
+needed by the current step. Batch small independent reads within that budget. Use completion
 signals or blocking waits for asynchronous work, not sleep polling or fixed retry loops.
 
-Check {{GROUP_TICKETS}} against git log --oneline -30 and git branch --list in one pass.
+Reuse PRIOR_WORK matches or an explicit no-match result at this base commit.
+Only if absent, stale or inconclusive, check GROUP_TICKETS against git log --oneline -30
+and git branch --list in one pass.
 Verify live behaviour before implementing. Report work already present without repeating it.
 Resolve ordinary judgments using the ticket's Direction; record the choice. Block only
 questions that require the user.
@@ -82,18 +107,18 @@ overwriting. Leave unfinished edits uncommitted and report the files and sitting
 Limit product writes to the current ticket, its allowed tests and documentation made
 inaccurate by its change. Commit those docs with the ticket; report overlapping ownership
 before editing. Do not edit sift-drain skill files. Tracker writes are limited to new
-follow-ups in step 5. The orchestrator archives, merges onto {{BASE_BRANCH}} and adjusts waves.
+follow-ups in step 5. The orchestrator archives, merges onto BASE_BRANCH and adjusts waves.
 
 Step 2: Check the prepared workspace
 
-Verify the assigned directory and {{BRANCH}}. Report setup mismatches for coordinator
-repair. Do not create a branch, check out {{BASE_BRANCH}} or push. Work only in this worktree.
+Verify the assigned directory and BRANCH. Report setup mismatches for coordinator
+repair. Do not create a branch, check out BASE_BRANCH or push. Work only in this worktree.
 
 Step 3: Implement and commit each ticket
 
 Run this stamp first:
-  {{SCRIPTS_DIR}}/drain-log.sh phase implement
-Work through {{GROUP_TICKETS}} in order, completing 3a through 3d before the next ticket.
+  "$SCRIPTS_DIR"/drain-log.sh phase implement
+Work through GROUP_TICKETS in order, completing 3a through 3d before the next ticket.
 If a ticket fails, restore only its unfinished edits and continue. Preserve earlier commits.
 For tamper, follow step 1 instead of restoring edits.
 
@@ -115,8 +140,14 @@ Fix existing tests broken by your change.
 
 3c. Verify the ticket scope
 
+Save each command's raw stdout/stderr to a unique log outside the checkout. Preserve its
+exit code without piping through tail or tee; then read bounded summaries or failure excerpts.
+Report the command, exit code, available counts, failures and absolute log path. Keep logs
+through integration review. If a runner omits a counter, say `not reported`; never invent it.
+Output limits do not remove any verification requirement.
+
 Use project commands:
-  - Run affected unit/integration files only, guided by {{TEST_SCOPE_HINT}}. Record files
+  - Run affected unit/integration files only, guided by TEST_SCOPE_HINT. Record files
     and exact test/assertion counts.
   - Scope lint and static analysis to touched files using absolute paths.
   - Run e2e specs for browser-visible criteria. Shared render markup changes require one
@@ -134,7 +165,7 @@ allowed tests. Never squash tickets together. Keep a one-line resolution with ev
 Step 4: Verify the finished sitting
 
 Run this stamp first:
-  {{SCRIPTS_DIR}}/drain-log.sh phase verify
+  "$SCRIPTS_DIR"/drain-log.sh phase verify
 For one ticket, reuse step 3c checks unless checked files or dependencies changed. Commits
 and phase stamps do not invalidate checks. Run only missing or invalidated checks.
 For multiple tickets, run their test-file union and touched-file lint/static analysis once
@@ -147,14 +178,14 @@ single ticket caused the failure, report a separate fix commit.
 Step 5: File warranted follow-ups
 
 Run this stamp first:
-  {{SCRIPTS_DIR}}/drain-log.sh phase bookkeep
-For separate work, call {{SCRIPTS_DIR}}/reserve-ids.sh <count> once with shared SIFT_ROOT.
+  "$SCRIPTS_DIR"/drain-log.sh phase bookkeep
+For separate work, call "$SCRIPTS_DIR"/reserve-ids.sh <count> once with shared SIFT_ROOT.
 On exit 3, retry after the allocation owner finishes. Never calculate IDs or reuse reserved
 ones. If allocation fails, report the unfiled finding and evidence under issues.
 
 Write follow-ups under $SIFT_ROOT/.ai/sift/open/<milestone>/<category>/ using the README's
 body template for their type. Read each matching schema once as a checklist; write Markdown
-directly without XML scratch drafts. Give every new ticket wave: {{WAVE}}. The coordinator
+directly without XML scratch drafts. Give every new ticket wave: WAVE from the assignment. The coordinator
 may move it later. Do not edit other tickets or assign another wave.
 
 Do not file, comment on, or patch an external tracker. File upstream proposals locally as
@@ -168,16 +199,52 @@ Return only these fields, normally under 250 words. Expand only for blocker or f
 evidence. State each fact once; omit diffs, narration and raw command output.
 
   status: one line per ticket: <TICKET-ID>: done | blocked | not started
-  branch: {{BRANCH}}
+  branch: <assigned BRANCH>
   commits: <TICKET-ID> <hash>; one per ticket; identify any separate sitting fix
   resolution: <TICKET-ID>: <one line, including waivers>; one per ticket reported done
-  verification: final scoped results and files, including reused checks; tests/assertions,
+  verification: commands, exit codes and absolute log paths; final scoped results and files,
+                including reused checks; available tests/assertions or not reported,
                 lint/static analysis, applicable e2e totals and concise bug before/after
                 evidence; cleanup confirmed or the precise reason a check could not run
   issues: <blockers, material decisions, unfiled findings or test expectation changes> | none
   deferred to the wave gate: <uncovered criteria, unsafe sequences, durable candidates> | none
   tickets filed: <IDs> | none
   tamper: none | <what changed under you, and which other sitting it implicates>
+
+Assignment:
+WAVE: {{WAVE}}
+GROUP_SIZE: {{GROUP_SIZE}}
+GROUP_TICKETS: {{GROUP_TICKETS}}
+PROJECT_ROOT: {{PROJECT_ROOT}}
+BRANCH: {{BRANCH}}
+BASE_BRANCH: {{BASE_BRANCH}}
+SIFT_ROOT: {{SIFT_ROOT}}
+SCRIPTS_DIR: {{SCRIPTS_DIR}}
+TEST_SCOPE_HINT: {{TEST_SCOPE_HINT}}
+PRIOR_WORK: {{PRIOR_WORK}}
+CONSTRAINTS: {{CONSTRAINTS}}
+TICKET_BLOCK:
+{{TICKET_BLOCK}}
+```
+
+---
+
+## Reuse a worker
+
+Use only for a related sitting in the same wave when the worker retains the current full
+contract. Wait for it to stop, land its work, and prepare the next worktree first. Compare
+the contract fingerprint. If it changed or the worker lost context, send the full current
+Template and inputs instead. Do not resend unchanged contract text to a retained worker.
+
+`{{SITTING_INPUTS}}` is one complete new `Assignment:` block with the same field names
+and order as Template, including prior-work checks and explicit constraints or "none".
+Replace every assignment field so stale paths or constraints cannot carry over. Append
+only that block to the retained context. The retained contract already requires fingerprint
+checks, scope discovery, assigned ticket reads, phase stamps, separate commits and explicit
+recovery after context loss.
+
+```
+{{SITTING_INPUTS}}
 ```
 
 ---

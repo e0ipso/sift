@@ -201,7 +201,7 @@ report_error() {
 worker_report_fields() {
   awk -v report="$REPORT_HEADING" '
     $0 == report { section = 1; next }
-    section && /^```$/ { exit }
+    section && (/^```$/ || $0 == "Assignment:") { exit }
     section && /^  [[:lower:]][[:lower:] ]*:/ {
       field = $0
       sub(/^  /, "", field)
@@ -224,14 +224,13 @@ worker_table_placeholders() {
   ' "$1" | placeholders
 }
 
-# worker_wave_sites <prompt> — the step heading above every {{WAVE}} use inside
-# the template, one line per use. The declaration in the source table sits above
-# the first step and is deliberately not one of them.
+# Follow the named assignment value to the step that writes follow-up metadata.
 worker_wave_sites() {
-  awk -v want="$WAVE_PLACEHOLDER" '
+  worker_template "$1" | awk '
+    $0 == "Assignment:" { exit }
     /^Step [0-9][0-9]*: / { step = $0; sub(/:.*$/, "", step) }
-    step != "" && index($0, want) { print step }
-  ' "$1"
+    step != "" && /WAVE/ { print step }
+  '
 }
 
 worker_schema_owners() {
@@ -293,11 +292,8 @@ assert_eq "tickets filed field missing" "$(report_error "$damaged")" \
   "the report check names the missing field"
 
 test_case "the worker prompt carries the sitting's wave into the ticket it files"
-# Wave membership is a key in the ticket file, so a follow-up written without one
-# is in no load and is dispatched by nobody. The placeholder is how the
-# orchestrator's wave reaches the worker, and the filing step is the only place
-# the worker has a ticket to put it in — a use anywhere else is a number with
-# nothing to do, and no use at all is a ticket filed adrift.
+# The value is declared at the tail; its fixed-contract reference must still
+# reach the filing step so follow-ups cannot lose wave membership.
 assert_contains "$(worker_table_placeholders "$PROMPT")" "$WAVE_PLACEHOLDER" \
   "the sitting's wave is a declared input, not a number the agent invents"
 assert_eq 'Step 5' "$(worker_wave_sites "$PROMPT")" \
@@ -390,5 +386,82 @@ assert_ne "$(drafting_table_placeholders "$damaged")" \
   "the placeholder comparison rejects the undeclared value"
 assert_ne "$DRAFTING_REPORT_SCHEMA" "$(drafting_report_schema "$damaged")" \
   "the report comparison rejects the changed issue field"
+
+test_case "retained workers get new inputs without another full contract"
+reader="$REPO_ROOT/src/skills/sift-drain/scripts/read-context.sh"
+run_cmd "$REPO_ROOT" "$reader" "$PROMPT" '## Reuse a worker'
+assert_eq 0 "$R_STATUS" "reuse instructions are independently readable"
+assert_contains "$R_OUT" '{{SITTING_INPUTS}}' "the reuse handoff supplies the new assignment"
+assert_contains "$R_OUT" 'context loss' "missing context requires explicit reconstruction"
+assert_contains "$R_OUT" 'contract fingerprint' "reuse checks the canonical contract version"
+assert_not_contains "$R_OUT" 'Step 3: Implement and commit each ticket' "reuse does not repeat the full implementation contract"
+assert_not_contains "$R_OUT" 'PRIOR ATTEMPT FAILED' "reuse does not preload failure recovery"
+
+test_case "gate stages load independently and carry verification evidence requirements"
+gate="$REPO_ROOT/src/skills/sift-drain/references/wave-gate.md"
+for heading in '## 1. E2E specialist agent' '## 2. Batch coverage agent' '## 3. Root-cause fixes'; do
+  run_cmd "$REPO_ROOT" "$reader" "$gate" "$heading"
+  assert_eq 0 "$R_STATUS" "$heading is readable on demand"
+  assert_contains "$R_OUT" 'exit codes' "$heading preserves verification status"
+  assert_contains "$R_OUT" 'absolute log paths' "$heading leaves full evidence accessible"
+  assert_contains "$R_OUT" '8000 content bytes' "$heading bounds returned output"
+  assert_not_contains "$R_OUT" '## 4. Wave knowledge capture' "$heading excludes later capture instructions"
+done
+run_cmd "$REPO_ROOT" "$reader" "$gate" '## 4. Wave knowledge capture'
+assert_contains "$R_OUT" 'selected report excerpts' "capture receives selected evidence"
+assert_not_contains "$R_OUT" '## 5. Closing the wave' "capture does not preload close"
+
+# Substitute every field with assignment-specific values, including multiline ticket data.
+# Literal slicing avoids awk replacement-string interpretation of assignment data.
+render_worker() {
+  worker_template "$1" | awk -v assignment="$2" '
+    {
+      line = $0
+      while (match(line, /\{\{[^{}]+\}\}/)) {
+        key = substr(line, RSTART + 2, RLENGTH - 4)
+        value = assignment ":" key
+        if (key == "TICKET_BLOCK") value = value "\n" assignment ":second ticket"
+        line = substr(line, 1, RSTART - 1) value substr(line, RSTART + RLENGTH)
+      }
+      print line
+    }
+  '
+}
+fixed_prefix() { awk '$0 == "Assignment:" { exit } { print }' "$1"; }
+assignment_tail() { awk '$0 == "Assignment:" { inside = 1 } inside' "$1"; }
+
+test_case "different assignments share the complete fixed contract prefix"
+work="$(newdir)"
+worker_template "$PROMPT" > "$work/template"
+assert_ne '' "$(cat "$work/template")" "extract the shipped worker template"
+render_worker "$PROMPT" '/tmp/first sitting & branch:one' > "$work/one"
+render_worker "$PROMPT" '/different/path & branch:two' > "$work/two"
+fixed_prefix "$work/one" > "$work/prefix-one"
+fixed_prefix "$work/two" > "$work/prefix-two"
+assert_same "$work/prefix-one" "$work/prefix-two" "all assignment substitutions leave identical prefix bytes"
+assert_contains "$(cat "$work/prefix-one")" "$REPORT_HEADING" "the shared prefix includes every workflow step"
+assert_contains "$(cat "$work/prefix-one")" "$FIELD" "the report schema is part of the shared prefix"
+assert_eq 1 "$(count_exact "$work/template" 'Assignment:')" "exactly one assignment boundary exists"
+assert_ne "$(assignment_tail "$work/one")" "$(assignment_tail "$work/two")" "distinct assignments actually reach the rendered prompts"
+assert_eq "$(worker_table_placeholders "$PROMPT")" "$(placeholders < "$work/template")" "the named input table and rendered fields agree"
+assert_not_contains "$(fixed_prefix "$work/template")" '{{' "no dynamic placeholders occur in the contract"
+assert_eq "$(worker_table_placeholders "$PROMPT")" "$(assignment_tail "$work/template" | placeholders)" "every declared input is at the end"
+
+assert_eq '{{SITTING_INPUTS}}' "$(worker_template "$PROMPT" '## Reuse a worker')" \
+  "the retained-worker message appends only the new assignment information"
+for placeholder in $(worker_table_placeholders "$PROMPT"); do
+  count=$(assignment_tail "$work/template" | grep -F -c "$placeholder")
+  assert_eq 1 "$count" "$placeholder has a single assignment source"
+done
+
+test_case "an early assignment substitution breaks the shared prefix proof"
+damaged="$work/early.md"
+awk '/^Step 1: Orient the sitting$/ { print "Assigned to {{PROJECT_ROOT}}" } { print }' "$PROMPT" > "$damaged"
+render_worker "$damaged" one > "$work/bad-one"
+render_worker "$damaged" two > "$work/bad-two"
+fixed_prefix "$work/bad-one" > "$work/bad-prefix-one"
+fixed_prefix "$work/bad-two" > "$work/bad-prefix-two"
+assert_ne "$(cat "$work/bad-prefix-one")" "$(cat "$work/bad-prefix-two")" "the proof rejects a substitution anywhere before Assignment"
+
 
 summary

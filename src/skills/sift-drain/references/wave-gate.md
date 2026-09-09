@@ -5,6 +5,7 @@ capture, close. The e2e specialist runs alone first; the batch agent may also ru
 
 Prepare each agent's branch/worktree with prepare-worktree.sh. Substitute placeholders and
 dispatch the selected fence verbatim. Each fence contains its agent's full ownership rules.
+Read only the numbered section for the stage now beginning. Do not preload later prompts.
 
 ## 1. E2E specialist agent
 
@@ -16,6 +17,10 @@ You are the e2e specialist closing Wave {{WAVE}} of the sift roadmap in {{PROJEC
 
 Read project agent instructions, relevant knowledge entries and e2e conventions. Consult
 manifests and CI config for missing commands. Verify every named path against the live tree.
+Reuse unchanged instructions already available in this context; read new applicable scope
+instructions and reload after context loss. Bound aggregate tool output to 8000 content bytes.
+Keep raw verification logs outside the checkout; preserve exit codes and return commands,
+available counts, failures and absolute log paths. Read logs in bounded pages or excerpts.
 
 WAVE {{WAVE}} SHIPPED:
 {{PER_TICKET_ONE_LINE_SUMMARIES}}
@@ -43,7 +48,8 @@ REPORT (only this):
   status: done | blocked
   commit: <hash>
   summary: <one paragraph>
-  verification: e2e <N passed / M failed / K skipped> across <e2e test files>
+  verification: commands, exit codes, log paths; e2e <N passed / M failed / K skipped>
+                across <e2e test files>; unavailable counters: not reported
   behaviours covered: <one line each>
   behaviours skipped (no e2e surface): <one line each, with the reason>
   ticket-worthy defects: <one line each with evidence and proposed scope> | none
@@ -61,6 +67,10 @@ You are the batch coverage agent closing Wave {{WAVE}} of the sift roadmap in
 Read project agent instructions and relevant knowledge entries for test conventions and
 verification commands. Consult manifests and CI config for missing details. Verify every
 named path against the live tree.
+Reuse unchanged instructions already available in this context; read new applicable scope
+instructions and reload after context loss. Bound aggregate tool output to 8000 content bytes.
+Keep raw verification logs outside the checkout; preserve exit codes and return commands,
+available counts, failures and absolute log paths. Read logs in bounded pages or excerpts.
 
 WAVE {{WAVE}} SHIPPED:
 {{PER_TICKET_ONE_LINE_SUMMARIES}}
@@ -91,7 +101,8 @@ REPORT (only this):
   status: done | blocked
   commit: <hash>
   summary: <one paragraph: what is now covered>
-  verification: tests <N tests, M assertions> full suite; lint <result>; static analysis
+  verification: commands, exit codes, log paths; tests <N tests, M assertions> full suite;
+                unavailable counters: not reported; lint <result>; static analysis
                 <result>; e2e <N passed / M failed / K skipped> | no e2e layer; tests
                 added: <count and class names>
   deferred criteria: covered <list> | not covered <list and why>
@@ -111,6 +122,10 @@ FAILING: {{FAILING_TESTS_OR_SPECS}}
 
 Read project agent instructions and relevant knowledge entries. Consult manifests and CI
 config for missing verification commands. Verify every named path against the live tree.
+Reuse unchanged instructions already available in this context; read new applicable scope
+instructions and reload after context loss. Bound aggregate tool output to 8000 content bytes.
+Keep raw verification logs outside the checkout; preserve exit codes and return commands,
+available counts, failures and absolute log paths. Read logs in bounded pages or excerpts.
 
 Fix the root cause. Never weaken or delete assertions to pass tests. Explain and justify
 corrections to wrong expectations. Extend existing tests without duplicating coverage.
@@ -131,25 +146,31 @@ REPORT (only this):
   status: done | blocked
   commit: <hash>
   summary: <one paragraph: the root cause and the fix>
-  verification: <exact suite results>
+  verification: commands, exit codes, log paths; <exact suite results>; unavailable counters: not reported
   ticket-worthy defects: <one line each with evidence and proposed scope> | none
 ```
 
 ## 4. Wave knowledge capture
 
-Run once after fixes land and the gate is green. Supply all worker reports, including
-deferred knowledge. Skip if no durable candidates or capture skill exists; record why.
+Run once after fixes land and the gate is green. Supply only durable candidates from the
+reports, with their ticket IDs, supporting citations and relevant decisions. Exclude test
+totals, commit lists and resolved status chatter. Skip if no durable candidates or capture
+skill exists; record why.
 
 ```
 You are the knowledge-capture pass closing Wave {{WAVE}} of the sift roadmap in
 {{PROJECT_ROOT}}. Every ticket of this wave has merged and the gate is green.
 
-WAVE {{WAVE}} REPORTS (their `deferred to the wave gate:` lines name the candidates):
+WAVE {{WAVE}} KNOWLEDGE CANDIDATES (selected report excerpts with supporting evidence):
 {{COLLECTED_SUB_AGENT_REPORTS}}
 
 TASK
 Read project agent instructions, the knowledge-base index and the capture skill in full.
 Verify every named path, command and interface against the live tree before writing.
+Reuse unchanged instructions already available in this context; read new applicable scope
+instructions and reload after context loss. Bound aggregate tool output to 8000 content bytes.
+Keep any raw verification logs outside the checkout and report commands, exit codes,
+available counts, failures and absolute log paths with the summary.
 
 Capture durable conventions, gotchas and named things from the whole wave in one pass.
 Omit ticket narration and facts superseded later in the wave. Resolve curation conflicts

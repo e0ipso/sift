@@ -33,9 +33,16 @@ Run `sift-init`'s `scripts/sift-gate.sh` first. Use its resolved root and exit c
 Workers implement product code and tests. You prepare their workspaces, land commits,
 archive tickets and assign follow-up waves. Delegate merge conflicts too.
 
-Read wave-status output, every remaining ticket in the current wave, worker reports and
-archived resolution lines needed for gate coverage. Derive write scope from ticket
-citations. Send source, diff and raw test-output questions to workers.
+Read the current wave's tickets once, then refresh only changed tickets as described in
+run-management.md. Read worker reports and archived resolution lines needed for gate
+coverage. Derive write scope from ticket citations. Send source, diff and raw test-output
+questions to workers.
+
+Load reference sections only when their stage begins; retain already-read sections while
+their content remains available and unchanged. Use `read-context.sh FILE '## Heading' PAGE`
+for bounded reads (`--all` for a ticket). Follow its `next` page until `none`; an incomplete
+read is not intake. Keep aggregate tool output below the harness limit, normally one 8000-byte
+content page per call. Save large inventories and raw verification output to temporary files.
 
 Never push or write to an external tracker. Reserve an ID and file upstream proposals
 locally as `type: dx` for the user.
@@ -48,6 +55,9 @@ them. Tracker helpers use the nearest ancestor `.ai/sift` and its configured pre
 
 ```sh
 scripts/wave-status.sh
+scripts/ticket-snapshot.sh      # redirect to a temporary file
+scripts/ticket-snapshot.sh changes BEFORE AFTER  # delta TSV; redirect, then page if large
+scripts/read-context.sh FILE HEADING_OR_--all [PAGE]
 scripts/next-ticket.sh --group   # optional cluster hint for planning a sitting
 scripts/ticket-check.sh
 scripts/reserve-ids.sh <count>
@@ -64,21 +74,30 @@ Use `find` and `command grep`, or no-ignore search, inside the usually ignored t
 ## Wave graph
 
 A sitting contains related tickets from one wave. Use several sittings when orientation
-or write scope differs. Read [run-management.md](references/run-management.md) for intake,
-overlap, worker reuse and check-back rules.
+or write scope differs. At intake, read the Ticket intake and The tree moves underneath you
+sections of [run-management.md](references/run-management.md). Load Worker check-back only
+on a check-back and Reporting to the user when reporting.
 
 Repeat until no dispatchable work remains in this wave:
 
-1. Before every dispatch, run `wave-status.sh` and read every remaining ticket it names.
-   Rebuild the graph from the live tree. Dependencies and overlapping write scopes create
-   sequential edges. Fill available agent slots with ready, non-overlapping sittings.
+1. Before every dispatch, run `wave-status.sh` and compare ticket snapshots. Read added or
+   changed current-wave tickets; reconcile moves, removals and changed dependencies. Reuse
+   unchanged ticket context. Rebuild dependencies and write ownership from the reconciled
+   snapshot, retaining in-flight owners. On first load, a new wave or
+   lost context, read that wave's remaining tickets in full. Dependencies and overlapping
+   write scopes create sequential edges. Fill available slots with ready, non-overlapping
+   sittings.
 2. Prepare each branch and worktree using `prepare-worktree.sh` from the original
    repository. Pass the prepared worktree as `PROJECT_ROOT`, its branch, and the original
    project root as `SIFT_ROOT`. Keep the integration checkout for landings. Workers use
    absolute shared tracker paths; do not replace their `.ai/sift` with a symlink.
-3. Stamp `drain-log.sh dispatch` immediately before dispatch. Use
-   [ticket-agent-prompt.md](references/ticket-agent-prompt.md) verbatim with its placeholders
-   resolved. Prefer a fresh task context containing the assignment over inherited history.
+3. Stamp `drain-log.sh dispatch` immediately before dispatch. For a fresh worker, load the
+   placeholder preamble and Template section of [ticket-agent-prompt.md](references/ticket-agent-prompt.md)
+   and send the fixed contract first, verbatim, followed by its resolved Assignment block.
+   Keep assignment values at the end; prepend no ticket summary or coordinator history. For a related sitting
+   in a retained worker context, load Reuse a worker and send only the new inputs. Load
+   recovery sections only for the corresponding failure or check-back. If the contract
+   changed or prior context is unavailable, supply the full current contract again.
 4. Choose the worker's model tier and reasoning effort from the work, not from the ticket's
    `effort` field, which measures size. Use the session's tier by default. Use a stronger
    tier and higher reasoning effort for difficult architecture, concurrency or verification.
@@ -108,7 +127,10 @@ unfiled findings from issues before dispatching work that needs them.
 
 ## Wave gate
 
-Use [wave-gate.md](references/wave-gate.md) for gate prompts and the closing report.
+Do not load [wave-gate.md](references/wave-gate.md) during intake or implementation.
+At each gate stage, read only its numbered section and send that stage's resolved fence.
+Load section 3 only for failures and section 4 only when capture is warranted. Load section 5
+at close. The order and skip conditions are below; other stage prompts can stay unread.
 Prepare gate worktrees and branches as for implementation workers. Workers from the
 wave do not continue into the gate or the next wave.
 
@@ -118,7 +140,8 @@ wave do not continue into the gate or the next wave.
 2. Build batch coverage input from waived archived resolutions and deferred unsafe
    sequences. Dispatch the coverage agent next; it may also carry the full-suite close.
 3. Land returned commits, then verify the integrated state with the full test, lint,
-   static-analysis and applicable e2e suites. Record exact totals or no-e2e-layer status.
+   static-analysis and applicable e2e suites. Keep raw logs on disk. Report commands,
+   exit codes, available counts, failures and absolute log paths, or no-e2e-layer status.
 4. Group failures by root cause. Reserve IDs and file reported defects before dispatching
    their fixes. Land fix commits and repeat every full run after the last fix.
 5. Work any remaining p1/p2 tickets filed into this wave before closing. Tickets inserted

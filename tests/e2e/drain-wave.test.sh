@@ -168,4 +168,52 @@ assert_contains "$R_OUT" 'ACME-0001 done, ACME-0002 done' "the sitting is still 
 assert_contains "$R_OUT" '4 resolved ticket(s) in 3 completed group(s)' \
   "and the run's arithmetic accounts for every dispatch"
 
+test_case "live deltas carry changed priority, dependencies and cited write scope"
+root="$(newdir)"; make_tree "$root" ACME
+a="$(ticket "$root" open backlog/bug ACME-0001 first 'First' body=bug)"
+b="$(ticket "$root" open backlog/bug ACME-0002 second 'Second' \
+  'priority: p1' 'depends_on: [ACME-0001]' body=bug)"
+old="$TMPROOT/intake.snapshot"; current="$TMPROOT/live.snapshot"
+SIFT_ROOT="$root" "$DRAIN/ticket-snapshot.sh" > "$old"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/next-ticket.sh"
+assert_contains "$R_OUT" 'ticket: ACME-0001' "initial dependency takes precedence over p1 priority"
+
+sed 's/^depends_on:.*/depends_on: []/; s#tests/lib/fixtures.sh:1#src/shared.sh:7#' \
+  "$b" > "$b.tmp" && mv "$b.tmp" "$b"
+SIFT_ROOT="$root" "$DRAIN/ticket-snapshot.sh" > "$current"
+run_cmd "$root" "$DRAIN/ticket-snapshot.sh" changes "$old" "$current"
+assert_contains "$R_OUT" "changed$(printf '\t')ACME-0002" "changed dependency and ownership evidence invalidate the ticket record"
+assert_not_contains "$R_OUT" 'ACME-0001' "unchanged predecessor is retained without output"
+run_cmd "$root" "$DRAIN/read-context.sh" "$b" --all
+assert_contains "$R_OUT" 'depends_on: []' "the replacement record has current dependencies"
+assert_contains "$R_OUT" 'src/shared.sh:7' "the replacement record carries current ownership evidence"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/next-ticket.sh"
+assert_contains "$R_OUT" 'ticket: ACME-0002' "live selection now honors the ready p1 ticket"
+
+cp "$current" "$old"
+sed 's/^depends_on:.*/depends_on: [ACME-0001]/' "$b" > "$b.tmp" && mv "$b.tmp" "$b"
+rm "$a"
+SIFT_ROOT="$root" "$DRAIN/ticket-snapshot.sh" > "$current"
+run_cmd "$root" "$DRAIN/ticket-snapshot.sh" changes "$old" "$current"
+assert_contains "$R_OUT" "deleted$(printf '\t')ACME-0001" "removed dependency is explicit in the delta"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAIN/next-ticket.sh"
+assert_contains "$R_OUT" 'result: none' "missing dependency never becomes permission to dispatch"
+
+test_case "32 dispatches retain ticket bodies and per-worker instructions"
+run_cmd "$root" "$REPO_ROOT/tests/benchmarks/drain-context.sh"
+assert_eq 0 "$R_STATUS" "representative read trace finishes"
+assert_contains "$R_OUT" 'before_ticket_bodies=528' "baseline rereads every remaining ticket"
+assert_contains "$R_OUT" 'after_ticket_bodies=32' "each unchanged ticket body is read once"
+assert_contains "$R_OUT" 'before_instruction_reads=96' "baseline pays three instruction reads each sitting"
+assert_contains "$R_OUT" 'after_instruction_reads=12' "four retained contexts each load their instructions once"
+assert_contains "$R_OUT" 'after_repeated_instruction_reads=0' "unchanged instructions are not repeated"
+assert_contains "$R_OUT" 'after_input_tokens=unavailable' "shell measurements do not invent token usage"
+before_bytes=$(printf '%s\n' "$R_OUT" | sed -n 's/^before_returned_bytes=//p')
+after_bytes=$(printf '%s\n' "$R_OUT" | sed -n 's/^after_returned_bytes=//p')
+if [ "$after_bytes" -gt 0 ] && [ "$after_bytes" -lt "$before_bytes" ]; then
+  t_ok 'paged deltas return fewer bytes than repeated full reads'
+else
+  t_fail 'paged deltas return fewer bytes than repeated full reads' "$before_bytes -> $after_bytes"
+fi
+
 summary

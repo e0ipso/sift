@@ -922,4 +922,123 @@ assert_eq "$remaining" \
   "$(printf '%s\n' "$R_OUT" | sed -n 's/^overall: .*done, \([0-9]*\) remaining$/\1/p')" \
   "and both count the same amount of work left"
 
+# --- Incremental ticket reads -----------------------------------------------
+
+test_case "ticket snapshots detect content and path changes without tracker writes"
+d="$(newdir)/project with spaces"; mkdir -p "$d"; make_tree "$d" ACME
+snapshot="$DRAIN/ticket-snapshot.sh"
+a="$(ticket "$d" open backlog/bug ACME-0001 one 'One')"
+b="$(ticket "$d" archive backlog/bug ACME-0002 two 'Two' \
+  'status: done' 'resolution: Shipped')"
+before="$(tree_digest "$d")"
+run_cmd "$d" env SIFT_ROOT="$d" "$snapshot"
+assert_eq 0 "$R_STATUS" "snapshot succeeds"
+initial="$R_OUT"
+assert_contains "$initial" "$a" "open ticket has its absolute path"
+assert_contains "$initial" "$b" "archived dependency is included"
+assert_eq "$before" "$(tree_digest "$d")" "snapshot leaves the tracker untouched"
+run_cmd "$d" env SIFT_ROOT="$d" "$snapshot" --
+assert_eq "$initial" "$R_OUT" "unchanged snapshot is stable and -- is inert"
+
+# Preserve byte length, updated date and mtime: metadata cannot detect this edit.
+touch -r "$a" "$TMPROOT/ticket-time"
+sed 's/title: One/title: Uno/' "$a" > "$a.tmp" && mv "$a.tmp" "$a"
+touch -r "$TMPROOT/ticket-time" "$a"
+run_cmd "$d" env SIFT_ROOT="$d" "$snapshot"
+assert_ne "$initial" "$R_OUT" "same-size same-date content edit changes the snapshot"
+changed="$R_OUT"
+mv "$a" "${a%one.md}renamed.md"
+run_cmd "$d" env SIFT_ROOT="$d" "$snapshot"
+assert_ne "$changed" "$R_OUT" "a path-only move changes the snapshot"
+assert_not_contains "$R_OUT" "$a" "old path disappears"
+a="${a%one.md}renamed.md"
+changed="$R_OUT"
+mv "$a" "$d/.ai/sift/archive/backlog/bug/ACME-0001--renamed.md"
+run_cmd "$d" env SIFT_ROOT="$d" "$snapshot"
+assert_ne "$changed" "$R_OUT" "archiving changes the path record"
+changed="$R_OUT"
+ticket "$d" open backlog/bug ACME-0003 three 'Three' > /dev/null
+run_cmd "$d" env SIFT_ROOT="$d" "$snapshot"
+assert_ne "$changed" "$R_OUT" "new tickets appear"
+changed="$R_OUT"
+printf '\nDependency resolution detail\n' >> "$b"
+run_cmd "$d" env SIFT_ROOT="$d" "$snapshot"
+assert_ne "$changed" "$R_OUT" "an archived dependency edit is visible"
+rm "$b"
+run_cmd "$d" env SIFT_ROOT="$d" "$snapshot"
+assert_not_contains "$R_OUT" "$b" "a removed dependency disappears"
+
+test_case "ticket snapshot refuses invalid arguments and incomplete scans"
+run_cmd "$d" env SIFT_ROOT="$d" "$snapshot" -- unexpected
+assert_eq 2 "$R_STATUS" "positionals after -- are refused"
+run_cmd "$d" env SIFT_ROOT="$d" "$snapshot" --unknown
+assert_eq 2 "$R_STATUS" "unknown options are refused"
+empty="$(newdir)"; make_tree "$empty" ACME
+run_cmd "$empty" env SIFT_ROOT="$empty" "$snapshot"
+assert_eq 0 "$R_STATUS" "empty initialized tracker succeeds"
+assert_eq '' "$R_OUT" "empty tracker has an empty snapshot"
+# A populated tree is the positive control: cksum must run, and its failure
+# must survive both find's batched -exec and the final sort pipeline.
+bin="$(newdir)"
+printf '#!/bin/sh\nexit 1\n' > "$bin/cksum"
+chmod +x "$bin/cksum"
+run_cmd "$d" env SIFT_ROOT="$d" PATH="$bin:$PATH" "$snapshot"
+assert_ne 0 "$R_STATUS" "checksum read failure is not a successful empty snapshot"
+rmdir "$empty/.ai/sift/archive"
+run_cmd "$empty" env SIFT_ROOT="$empty" "$snapshot"
+assert_ne 0 "$R_STATUS" "a missing bucket is a failed scan"
+
+test_case "delta records retain unchanged knowledge and reconcile live tracker edits"
+d="$(newdir)"; make_tree "$d" ACME
+a="$(ticket "$d" open backlog/bug ACME-0001 one 'One')"
+b="$(ticket "$d" open backlog/bug ACME-0002 two 'Two')"
+c="$(ticket "$d" open backlog/bug ACME-0003 three 'Three')"
+old="$TMPROOT/before.snapshot"; current="$TMPROOT/after.snapshot"
+SIFT_ROOT="$d" "$snapshot" > "$old"
+SIFT_ROOT="$d" "$snapshot" > "$current"
+run_cmd "$d" "$snapshot" changes "$old" "$current"
+assert_eq 0 "$R_STATUS" "unchanged snapshot comparison succeeds"
+assert_eq '' "$R_OUT" "unchanged tickets emit no delta records or content"
+run_cmd "$d" "$snapshot" changes "$old" "$old"
+assert_eq '' "$R_OUT" "comparing a snapshot with itself is also empty"
+assert_eq 0 "$R_STATUS" "same-path comparison succeeds"
+
+printf '\n## Direction update\nTouch src/shared.sh; depends on ACME-0004.\n' >> "$a"
+mv "$b" "${b%two.md}renamed.md"
+rm "$c"
+new_ticket="$(ticket "$d" open backlog/bug ACME-0004 four 'Four')"
+SIFT_ROOT="$d" "$snapshot" > "$current"
+run_cmd "$d" "$snapshot" changes "$old" "$current"
+assert_eq 0 "$R_STATUS" "live changes compare successfully"
+tab=$(printf '\t')
+assert_contains "$R_OUT" "changed${tab}ACME-0001${tab}$a${tab}$a" "content edit invalidates cached scope"
+assert_contains "$R_OUT" "moved${tab}ACME-0002${tab}$b${tab}${b%two.md}renamed.md" "pure rename retains content knowledge"
+assert_contains "$R_OUT" "deleted${tab}ACME-0003${tab}$c${tab}-" "deleted ticket leaves the dispatch snapshot"
+assert_contains "$R_OUT" "added${tab}ACME-0004${tab}-${tab}$new_ticket" "new dependency enters the snapshot"
+assert_eq 4 "$(printf '%s\n' "$R_OUT" | wc -l | tr -d ' ')" "exactly the four changed IDs are emitted"
+
+cp "$current" "$old"
+mkdir -p "$d/.ai/sift/archive/backlog/bug"
+archived="$d/.ai/sift/archive/backlog/bug/ACME-0001--one.md"
+mv "$a" "$archived"
+printf '\nArchived resolution detail\n' >> "$archived"
+SIFT_ROOT="$d" "$snapshot" > "$current"
+run_cmd "$d" "$snapshot" changes "$old" "$current"
+assert_contains "$R_OUT" "moved+changed${tab}ACME-0001${tab}$a${tab}$archived" "archive and content change are both visible"
+assert_eq 1 "$(printf '%s\n' "$R_OUT" | wc -l | tr -d ' ')" "retained tickets are not repeated"
+run_cmd "$d" "$snapshot" changes /dev/null "$current"
+assert_eq 3 "$(printf '%s\n' "$R_OUT" | wc -l | tr -d ' ')" "context reconstruction emits every surviving ID"
+
+test_case "ambiguous or malformed snapshots never produce usable deltas"
+cat "$current" "$current" > "$TMPROOT/duplicate.snapshot"
+run_cmd "$d" "$snapshot" changes "$old" "$TMPROOT/duplicate.snapshot"
+assert_eq 2 "$R_STATUS" "duplicate IDs fail comparison"
+assert_eq '' "$R_OUT" "ambiguous input emits no deltas"
+printf 'broken record\n' > "$TMPROOT/broken.snapshot"
+run_cmd "$d" "$snapshot" changes "$old" "$TMPROOT/broken.snapshot"
+assert_eq 2 "$R_STATUS" "malformed snapshot fails comparison"
+assert_eq '' "$R_OUT" "malformed input emits no deltas"
+run_cmd "$d" "$snapshot" changes "$old" "$TMPROOT/absent.snapshot"
+assert_ne 0 "$R_STATUS" "missing snapshot cannot look unchanged"
+
 summary

@@ -18,6 +18,17 @@ write inside the repository.
 The suite covers Sift's shipped files and repository contracts. Test the internal prompts
 and workflows of installed tools, such as Strikethroo, in their own repositories.
 
+`tests/benchmarks/drain-context.sh` measures a 32-dispatch read trace using real ticket
+snapshots, paged reads and archive operations. It compares repeated full reads with delta
+reads and four retained worker contexts. The drain-wave e2e case checks its read counts and
+byte reduction. Set `SIFT_TEST_KEEP=1` to retain its raw transcripts outside the repository.
+This is a deterministic shell benchmark, not a model run; it does not collect token usage.
+Codex session logs do expose per-response counters. The optional live experiment and its
+offline collector are described in [the prompt-caching measurement](../docs/drain-prompt-caching.md).
+Python and Codex are optional experiment tools, not installed Sift dependencies.
+The normal suite checks prefix equality and usage-accounting fixtures without contacting a provider.
+See [the measurement notes](../docs/drain-context-measurement.md) for scope and results.
+
 ## Groups
 
 | Group | Contract |

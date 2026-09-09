@@ -640,3 +640,13 @@ for_shell_locale() {
   R_LOCALE="$RECIPE_DEFAULT_LOCALE"; R_LABEL=default
   [ "$legs" -gt 0 ] || matrix_empty "$cb"
 }
+
+# worker_template <prompt> [heading] extracts the exact fence without metadata.
+worker_template() {
+  awk -v heading="${2:-## Template}" '
+    $0 == heading { seek = 1; next }
+    seek && $0 == "```" { inside = 1; seek = 0; next }
+    inside && $0 == "```" { exit }
+    inside { print }
+  ' "$1"
+}

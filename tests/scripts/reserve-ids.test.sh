@@ -154,7 +154,6 @@ done
 assert_eq "" "$collisions" "none of the reserved IDs collides with an existing ticket"
 
 test_case "reservations survive without ticket files"
-first="$R_OUT"
 reserve "$d" 4
 assert_eq 0 "$R_STATUS" "second reservation succeeds"
 assert_eq "SFT-0018

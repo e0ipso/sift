@@ -60,7 +60,8 @@ esac
 cd "${SIFT_ROOT:-.}" || die 'cannot enter project root'
 [ -d .ai/sift/open ] && [ -d .ai/sift/archive ] || die 'missing .ai/sift buckets; run sift-init'
 # BEGIN prefix-setup
-export PREFIX=$(grep -m1 '^prefix:' .ai/sift/config/config.yaml | awk '{print $2}' | tr -d "\"'")
+PREFIX=$(grep -m1 '^prefix:' .ai/sift/config/config.yaml | awk '{print $2}' | tr -d "\"'")
+export PREFIX="$PREFIX"
 [ -d .ai/sift ] || { echo "missing .ai/sift — run from the repository root" >&2; false; }
 # END prefix-setup
 PREFIX=${SIFT_PREFIX:-$PREFIX}
@@ -140,7 +141,8 @@ reserve)
 triage)
 if [ -z "$MILESTONE" ]; then
 # BEGIN milestone-setup
-export MILESTONE=$(basename "$(find .ai/sift/open -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)")
+MILESTONE=$(basename "$(find .ai/sift/open -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)")
+export MILESTONE="$MILESTONE"
 # END milestone-setup
 fi
 # BEGIN triage

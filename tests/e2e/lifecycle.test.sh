@@ -154,7 +154,7 @@ assert_eq "$before" "$(tree_digest "$root")" "invalid arguments leave the tree u
 run_cmd "$root" bash "$OPS" move ACME-0001 next-release
 assert_eq 0 "$R_STATUS" "move uses supplied ID and milestone"
 assert_file "$root/.ai/sift/open/next-release/bug/ACME-0001--first.md" "move keeps the category"
-run_cmd "$root" bash "$OPS" archive ACME-0001 done 'Fixed and checked'
+run_cmd "$root" bash "$OPS" archive ACME-0001 'done' 'Fixed and checked'
 assert_eq 0 "$R_STATUS" "archive uses supplied resolution"
 assert_contains "$(cat "$root/.ai/sift/archive/next-release/bug/ACME-0001--first.md")" \
   'resolution: "Fixed and checked"' "the archived ticket stores the supplied resolution"

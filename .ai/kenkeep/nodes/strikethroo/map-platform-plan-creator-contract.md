@@ -2,8 +2,8 @@
 type: map
 title: Platform plan-creator contract
 description: >-
-  Claude and Cursor use byte-identical ordered plan-creator contracts with the
-  same seven execution phases.
+  Claude and Cursor use byte-identical plan-creator persona prompts whose seven
+  numbered Execution Steps carry hooks, ID allocation, placement and reporting.
 tags:
   - strikethroo
   - agents
@@ -17,7 +17,7 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: medium
 ---
-`.claude/agents/plan-creator.md` and `.cursor/agents/plan-creator.md` are intentionally byte-identical operative contracts. Each presents the same seven execution phases in order and preserves plan allocation, canonical sections, hooks, output placement, and final reporting requirements.
+`.claude/agents/plan-creator.md` and `.cursor/agents/plan-creator.md` are intentionally byte-identical. Each is a persona prompt with six sections (Core Mission, Critical Workflow, Absolute Prohibitions, Template Compliance Checklist, Execution Steps, Excellence Markers); the seven numbered Execution Steps carry the hook execution, plan-ID allocation, output placement, and the closing Plan Summary block.
 
 <!-- kk:related:start -->
 # Related

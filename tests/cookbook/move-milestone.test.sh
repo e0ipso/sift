@@ -62,6 +62,35 @@ move "$d" SFT-0042 brand-new
 assert_eq 0 "$R_STATUS" "exits 0"
 assert_file "$d/.ai/sift/open/brand-new/bug/SFT-0042--first.md" "mkdir -p made the path"
 
+# --- Prune: the folders the move emptied go with the ticket (rule 4) ----------
+
+test_case "the last ticket takes its old category and milestone folders with it"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0042 alone 'Alone in its milestone' > /dev/null
+move "$d" SFT-0042 platform
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_file "$d/.ai/sift/open/platform/bug/SFT-0042--alone.md" "the ticket lands under the new milestone"
+assert_no_dir "$d/.ai/sift/open/caching/bug" "the emptied category folder is gone"
+assert_no_dir "$d/.ai/sift/open/caching" "and so is the emptied milestone folder"
+assert_eq 0 "$(test -d "$d/.ai/sift/open"; echo $?)" "open/ itself survives"
+
+test_case "a sibling in another category keeps the old milestone folder"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0042 last-bug 'Last bug' > /dev/null
+ticket "$d" open caching/docs SFT-0043 a-doc 'A doc' > /dev/null
+move "$d" SFT-0042 platform
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_no_dir "$d/.ai/sift/open/caching/bug" "the emptied category folder is gone"
+assert_file "$d/.ai/sift/open/caching/docs/SFT-0043--a-doc.md" "the sibling and its folders stay"
+
+test_case "a folder that still holds a dotfile is not empty and stays"
+d="$(newdir)"; make_tree "$d"
+ticket "$d" open caching/bug SFT-0042 kept 'Kept' > /dev/null
+: > "$d/.ai/sift/open/caching/bug/.gitkeep"
+move "$d" SFT-0042 platform
+assert_eq 0 "$R_STATUS" "exits 0"
+assert_file "$d/.ai/sift/open/caching/bug/.gitkeep" "the dotfile and its folder are untouched"
+
 test_case "no .tmp file is left in the tree"
 d="$(newdir)"; make_tree "$d"
 ticket "$d" open caching/bug SFT-0042 tenant 'Tenant' > /dev/null
@@ -220,7 +249,8 @@ matrix_case() {
   local dest="$d/.ai/sift/open/platform/bug/SFT-0042--tenant.md"
   if [ "$R_STATUS" -eq 0 ] && [ -f "$dest" ] &&
      [ "$(fm "$dest" milestone)" = platform ] &&
-     [ -z "$(find "$d/.ai/sift" -name '*.tmp')" ]
+     [ -z "$(find "$d/.ai/sift" -name '*.tmp')" ] &&
+     [ ! -d "$d/.ai/sift/open/caching" ] && [ -d "$d/.ai/sift/open" ]
   then t_ok "$R_LABEL"; else t_fail "$R_LABEL" "status=$R_STATUS" "stderr=$R_ERR"; fi
 }
 test_case "the move round trip works on every shell × awk × locale"

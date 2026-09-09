@@ -26,10 +26,12 @@ plain gap does not — the next agent reads it as coverage and stops looking.
 
 There are two honest repairs and one of them is a trap. Widen the list until the prose is
 true; or narrow the prose to what the fixture really sweeps **and** re-home the coverage the
-narrowing drops. `drain-log.sh` and `roadmap-append.sh` each hold the root-and-prefix
-contract in their own file now, driven by a real write command line, and `tests/README.md`
-records why they cannot join the sweep — the sweep runs one command line against every
-entry, so a successful resolution would append to the fixture tree. Narrowing alone
+narrowing drops. `drain-log.sh`, the one writer left since the roadmap writer went in 334d8a6,
+holds the root-and-prefix contract in its own file, `tests/scripts/drain-log.test.sh`,
+driven by a real write command line; that file's header records why it cannot join the
+sweep — the sweep runs one one-argument command line against every entry, and no
+one-argument `drain-log.sh` call succeeds on a fresh tree, so a successful resolution
+would append to the fixture tree. Narrowing alone
 documents the hole and calls it closed.
 
 The general form is the one this suite already applies to documents about other files: a

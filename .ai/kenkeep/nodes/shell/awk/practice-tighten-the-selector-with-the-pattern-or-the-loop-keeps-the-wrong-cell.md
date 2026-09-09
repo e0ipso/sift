@@ -15,7 +15,6 @@ kk_id: >-
   practice-tighten-the-selector-with-the-pattern-or-the-loop-keeps-the-wrong-cell
 kk_derived_from: []
 kk_relates_to:
-  - practice-a-roadmap-row-is-its-first-ticket-cell
   - practice-match-a-sift-ticket-id-as-a-whole-token
 kk_depends_on: []
 kk_confidence: high
@@ -48,6 +47,5 @@ something.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-a-roadmap-row-is-its-first-ticket-cell](/cross-skill/practice-a-roadmap-row-is-its-first-ticket-cell.md)
 - Related: [practice-match-a-sift-ticket-id-as-a-whole-token](/cross-skill/practice-match-a-sift-ticket-id-as-a-whole-token.md)
 <!-- kk:related:end -->

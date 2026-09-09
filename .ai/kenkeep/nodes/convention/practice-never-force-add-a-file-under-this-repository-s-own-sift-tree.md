@@ -16,7 +16,7 @@ kk_derived_from:
 kk_relates_to:
   - practice-account-for-ai-sift-being-gitignored
   - practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge
-  - practice-keep-roadmap-in-sync-same-change
+  - practice-move-tickets-and-edit-front-matter-together
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -26,14 +26,14 @@ This repository's own `.ai/sift` is untracked. The tree-local `.gitignore` is `*
 
 The claim is resolved rather than asserted: `tests/static/sift-tree-untracked.test.sh` extracts the allowed path out of AGENTS.md's own sentence and compares it against `git ls-files` as an **equality**, so a force-added second file fails the suite and rewording that sentence fails it too.
 
-The price is named rather than hidden: the rule that a ticket's archive move and its roadmap strike are one change can never be checked by code review, since neither half appears in a diff. It holds by convention and by `roadmap-check.sh`, which is why that check runs before a ticket commit rather than after it.
+The price is named rather than hidden: the rule that a ticket's archive move and its front-matter edit are one change can never be checked by code review, since neither half appears in a diff. It holds by convention and by `src/skills/sift-drain/scripts/ticket-check.sh`, which is why that check runs before a ticket commit rather than after it.
 
 <!-- kk:related:start -->
 # Related
 
 - Related: [practice-account-for-ai-sift-being-gitignored](/sift-drain/tracker-runtime/practice-account-for-ai-sift-being-gitignored.md)
 - Related: [practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge](/convention/practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge.md)
-- Related: [practice-keep-roadmap-in-sync-same-change](/tickets/practice-keep-roadmap-in-sync-same-change.md)
+- Related: [practice-give-every-open-ticket-a-wave-set-once-at-drafting](/tickets/practice-give-every-open-ticket-a-wave-set-once-at-drafting.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

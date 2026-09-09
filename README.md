@@ -210,6 +210,7 @@ not UTC text. Writers use `date -u +%Y-%m-%dT%H:%M:%SZ` and `date +%s`.
    `status: wontfix` and a `resolution`. Files are deleted only by the human owner.
 3. **Front-matter is the source of truth**; folders are an index. When you `mv` a
    ticket, update `milestone`/`status` front-matter in the same change, and vice versa.
+   Delete the folders the move left empty, as rule 4 says for archiving.
 4. **Archiving = edit + mv + prune.** Set `status`, `resolution`, `updated`, then `mv` the
    file to the mirrored path under `archive/` (`mkdir -p` the target first). Delete the
    category and milestone folders the move left empty. No empty folder stays under `open/`
@@ -252,7 +253,7 @@ bash .ai/sift/scripts/sift.sh --help
 | `labels` / `label-counts` / `label LABEL` | Label inventory, counts or matching tickets |
 | `dependents ID` | References to an ID, excluding its own file |
 | `next` | Unblocked critical tickets; drain uses its wave graph instead |
-| `move ID MILESTONE` | Move an open ticket and update its milestone |
+| `move ID MILESTONE` | Move an open ticket and update its milestone; delete emptied folders |
 | `archive ID STATUS RESOLUTION` | Set terminal status, resolution and updated; move to archive; delete emptied folders |
 | `consistency` | Missing waves and unresolved dependencies |
 | `required` | Missing required keys |

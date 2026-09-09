@@ -23,6 +23,7 @@ kk_confidence: high
 Two static tests share one shape, and it is the established idiom for any claim a
 document makes about the tree. `tests/static/prompt-readme-sections.test.sh` reads the
 `@README-SECTION:` lines out of `src/skills/sift-drain/references/ticket-agent-prompt.md`
+and `src/skills/sift-prime/references/drafting-agent-prompt.md` (unioned with `sort -u`)
 and asserts each named heading exists in README.md *and* in the shipped `sift-init`
 mirror. `tests/static/agents-skill-copies.test.sh` reads the `@SKILL-COPY:` lines out of
 AGENTS.md's "Duplication between skills" and asserts the named file exists and that some
@@ -48,9 +49,9 @@ SFT-0041 and SFT-0042 had each added comment lines directly above one of those c
 so pinned numbers would have failed the suite three times without a single copy moving.
 That churn trains a maintainer to bump a number without reading what it points at, which
 is the believed-but-wrong reference the record exists to prevent, one level down. The cost
-of the choice is recorded in the section too: a construct that merely moves *within* its
-own file is not drift this shape detects, and `grep -n` recovers a line number whenever a
-reader wants one.
+of the choice is recorded in the test headers (`agents-skill-copies.test.sh`,
+`skill-prose-pins.test.sh`): a construct that merely moves *within* its own file is not
+drift this shape detects, and `grep -n` recovers a line number whenever a reader wants one.
 
 Both tests also assert that the document names the test file that reads it, so deleting
 the documentation of the coupling breaks the build rather than quietly orphaning it.

@@ -26,8 +26,8 @@ and `updated`, then `mkdir -p` the mirrored path under
 category and milestone folders the move emptied, stopping at the bucket:
 `open/` and `archive/` always exist. `rmdir` doubles as the emptiness test, so a
 folder another agent just wrote into is left alone. Re-milestoning is the same
-shape — `mkdir -p` the destination keeping the category, `mv`, then rewrite the
-`milestone:` key.
+shape — `mkdir -p` the destination keeping the category, `mv`, prune the source
+folders the same way, then rewrite the `milestone:` key.
 
 **Why:** both values are duplicated into front-matter precisely so `grep` still
 works after a file moves. Splitting the move from the edit leaves the tree

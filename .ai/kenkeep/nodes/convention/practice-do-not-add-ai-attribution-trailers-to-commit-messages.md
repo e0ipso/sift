@@ -13,7 +13,9 @@ kk_id: practice-do-not-add-ai-attribution-trailers-to-commit-messages
 kk_derived_from:
   - '0784ce94-7d65-4e60-92d2-a0044e4045b0:practice:2'
   - '81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:15'
-kk_relates_to: []
+kk_relates_to:
+  - practice-a-branch-scoped-ref-audit-misses-the-refs-that-arm-an-ignored-path
+  - practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge
 kk_depends_on: []
 kk_confidence: high
 ---

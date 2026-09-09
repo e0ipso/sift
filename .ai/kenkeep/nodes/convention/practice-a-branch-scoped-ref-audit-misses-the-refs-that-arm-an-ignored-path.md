@@ -15,6 +15,7 @@ kk_derived_from:
   - '81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:1'
 kk_relates_to:
   - practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge
+  - practice-do-not-add-ai-attribution-trailers-to-commit-messages
 kk_depends_on: []
 kk_confidence: high
 ---

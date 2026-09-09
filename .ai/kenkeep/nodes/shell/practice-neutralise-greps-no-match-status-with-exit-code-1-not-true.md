@@ -18,7 +18,8 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-An audit recipe in `README.md` whose loop ends in a bare `grep` inherits that
+The `required` operation in `src/operations/sift.sh` (once an inline README.md
+recipe) ends its loop in a `grep -rL`. A loop ending in a bare `grep` inherits that
 grep's exit status, and `grep` uses 1 for "nothing was selected" — which is the
 answer a `.ai/sift` tree holding no tickets gives on both GNU and BSD, since the
 recursive search opens no file at all. The front-matter validation loop therefore
@@ -32,7 +33,7 @@ empty-input case and nothing else; it is POSIX and behaves identically under bas
 and dash. `|| true` also absorbs status 2, grep's *error* status — a missing or
 unreadable `.ai/sift/archive` — and an audit that exits 0 after reading half the
 tree is precisely the "clean report for a tree it never read" that the
-`[ -d .ai/sift ]` guard on these recipes exists to prevent.
+`[ -d .ai/sift ]` guard on these operations exists to prevent.
 
 The rule applies to recipes that audit, not to recipes that query. A query's exit
 1 carries real information: the triage view, the full-text search and the

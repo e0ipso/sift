@@ -13,7 +13,7 @@ kk_schema_version: 3
 kk_id: practice-the-drain-orchestrator-owns-tracker-writes
 kk_derived_from: []
 kk_relates_to:
-  - practice-keep-roadmap-in-sync-same-change
+  - practice-give-every-open-ticket-a-wave-set-once-at-drafting
   - practice-orchestrate-sift-drain-never-implement
   - practice-the-drain-orchestrator-builds-a-wave-graph
 kk_depends_on: []
@@ -28,7 +28,7 @@ When a worker reports a ticket done, the orchestrator lands that ticket as one c
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-keep-roadmap-in-sync-same-change](/tickets/practice-keep-roadmap-in-sync-same-change.md)
+- Related: [practice-give-every-open-ticket-a-wave-set-once-at-drafting](/tickets/practice-give-every-open-ticket-a-wave-set-once-at-drafting.md)
 - Related: [practice-orchestrate-sift-drain-never-implement](/sift-drain/orchestration/practice-orchestrate-sift-drain-never-implement.md)
 - Related: [practice-the-drain-orchestrator-builds-a-wave-graph](/sift-drain/orchestration/practice-the-drain-orchestrator-builds-a-wave-graph.md)
 <!-- kk:related:end -->

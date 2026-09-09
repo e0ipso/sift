@@ -15,7 +15,7 @@ kk_derived_from:
   - '81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:11'
 kk_relates_to:
   - practice-write-atomic-evidence-based-tickets
-  - practice-keep-roadmap-in-sync-same-change
+  - practice-give-every-open-ticket-a-wave-set-once-at-drafting
 kk_depends_on: []
 kk_confidence: medium
 ---
@@ -27,7 +27,7 @@ Do not file a follow-up ticket to hold the reasoning. A follow-up implies the wo
 # Related
 
 - Related: [practice-write-atomic-evidence-based-tickets](/tickets/practice-write-atomic-evidence-based-tickets.md)
-- Related: [practice-keep-roadmap-in-sync-same-change](/tickets/practice-keep-roadmap-in-sync-same-change.md)
+- Related: [practice-give-every-open-ticket-a-wave-set-once-at-drafting](/tickets/practice-give-every-open-ticket-a-wave-set-once-at-drafting.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

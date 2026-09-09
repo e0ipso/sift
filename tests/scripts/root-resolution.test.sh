@@ -25,9 +25,9 @@ PRIME="$REPO_ROOT/src/skills/sift-prime/scripts"
 
 # Every script that sources a lib.sh and can be run without writing, with the
 # minimum arguments that get it past its own usage check — so the failure under
-# test is always the shared block. Both skills' scripts are here; the two that
-# write are named in tests/README.md with the reason they cannot join, because a
-# sweep asserting a SUCCESSFUL resolution would have to run them for real.
+# test is always the shared block. Both skills' scripts are here except the one
+# that writes, drain-log.sh; its own test file's header gives the reason it cannot
+# join, because a sweep asserting a SUCCESSFUL resolution would have to run it for real.
 SCRIPTS="$DRAIN/next-ticket.sh:
 $DRAIN/wave-status.sh:
 $DRAIN/ticket-check.sh:

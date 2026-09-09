@@ -14,14 +14,14 @@ _None yet._
 
 ## Components (what exists)
 - Open [**Strikethroo identifier scopes**](map-strikethroo-identifier-scopes.md) to learn about: Plan front-matter IDs are numeric, plan paths are padded, and task IDs restart inside each plan. #strikethroo #ids #layout
-- Open [**Platform plan-creator contract**](map-platform-plan-creator-contract.md) to learn about: Claude and Cursor use byte-identical ordered plan-creator contracts with the same seven execution phases. #strikethroo #agents #prompts
+- Open [**Platform plan-creator contract**](map-platform-plan-creator-contract.md) to learn about: Claude and Cursor use byte-identical plan-creator persona prompts whose seven numbered Execution Steps carry hooks, ID allocation, placement and reporting. #strikethroo #agents #prompts
 - Open [**Strikethroo full-workflow stage orchestration**](map-strikethroo-full-workflow-stage-orchestration.md) to learn about: st-full-workflow delegates three ordered stages while the dedicated stage skills own their procedures. #strikethroo #orchestration #skills
 
 ## By topic
 
 ### #strikethroo
 - Open [**Strikethroo identifier scopes**](map-strikethroo-identifier-scopes.md) — Plan front-matter IDs are numeric, plan paths are padded, and task IDs restart inside each plan.
-- Open [**Platform plan-creator contract**](map-platform-plan-creator-contract.md) — Claude and Cursor use byte-identical ordered plan-creator contracts with the same seven execution phases.
+- Open [**Platform plan-creator contract**](map-platform-plan-creator-contract.md) — Claude and Cursor use byte-identical plan-creator persona prompts whose seven numbered Execution Steps carry hooks, ID allocation, placement and reporting.
 - Open [**Strikethroo full-workflow stage orchestration**](map-strikethroo-full-workflow-stage-orchestration.md) — st-full-workflow delegates three ordered stages while the dedicated stage skills own their procedures.
 ### #agents
 - Open [**When draining sift, orchestrate and never implement**](../sift-drain/orchestration/practice-orchestrate-sift-drain-never-implement.md) — The orchestrator never writes product code or tests. It reads the wave, the worker reports, and never source, diffs, or raw test output.
@@ -39,7 +39,7 @@ _None yet._
 - Open [**The drain orchestrator builds a wave graph of workers**](../sift-drain/orchestration/practice-the-drain-orchestrator-builds-a-wave-graph.md) — Load the wave, graph workers parallel where files do not clash and sequential where they do, rewire as they return.
 ### #prompts
 - Open [**Kenkeep knowledge-admission authority**](../map-kenkeep-knowledge-admission-authority.md) — knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills.
-- Open [**Platform plan-creator contract**](map-platform-plan-creator-contract.md) — Claude and Cursor use byte-identical ordered plan-creator contracts with the same seven execution phases.
+- Open [**Platform plan-creator contract**](map-platform-plan-creator-contract.md) — Claude and Cursor use byte-identical plan-creator persona prompts whose seven numbered Execution Steps carry hooks, ID allocation, placement and reporting.
 ### #skills
 - Open [**sift-prime: the skill that fills a sift backlog**](../sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md) — Goal-gap analysis and chat negotiation, followed by persistent ID reservation and batch drafting of wave-assigned tickets.
 - Open [**sift-init: deterministic project-root gate and tree materialization**](../sift-init/map-sift-init-deterministic-project-root-gate-and-tree-materialization.md) — Skill at src/skills/sift-init/ that resolves the project root and idempotently creates .ai/sift from shipped assets.

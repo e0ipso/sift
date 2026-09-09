@@ -24,10 +24,11 @@ have deleted anyway. The assertion is then permanently green and permanently wor
 The fix is a positive control in the case immediately before: run the sequence unguarded
 inside the sandbox and assert the damage happens. `tests/scripts/sift-init-milestone.test.sh`
 runs `mkdir -p "$sift/open/$milestone"` — the initializer's own line — with the traversing
-value and asserts the directory lands inside the populated tree next door;
-`tests/scripts/sift-init-prefix.test.sh` `eval`s the metacharacter prefix and asserts the
-canary is gone. Only then does the guarded run assert that the same sandbox is byte- and
-path-identical afterwards.
+value and asserts the directory lands inside the populated tree next door. Only then does the
+guarded run assert that the same sandbox is byte- and path-identical afterwards.
+(`tests/scripts/sift-init-prefix.test.sh` once `eval`ed the metacharacter prefix as its
+control; SFT-0064 removed it as a shell-only assertion, so that case now asserts only
+that the canary survives the guarded run.)
 
 Pair the digest with a `find` inventory when the damage could be an empty directory:
 `tree_digest` reads files only.

@@ -19,9 +19,11 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-Every writing recipe in `README.md` fails closed with `<test> || { echo "…" >&2;
-false; }`. `false` is chosen over `exit` because these blocks get pasted into an
-interactive shell and `exit` would close it — but `false` only reports, so
+Every writing operation body in `src/operations/sift.sh` fails closed with
+`<test> || { echo "…" >&2; false; }`. The shipped script runs them under
+`set -eu`; the cookbook tests extract the bare bodies, and that is where the
+wrapper matters. `false` is chosen over `exit` because a body pasted into an
+interactive shell would be closed by `exit` — but `false` only reports, so
 without `set -e` the guard prints its line and the rest of the block runs on. A
 move for an ID that does not exist still runs `mkdir -p`, still hands the `awk`
 pass a directory, and still leaves an empty milestone folder as a phantom index
@@ -52,8 +54,9 @@ the block and running it as a script; `run_recipe_plain` is the deliberate
 opposite, and exists to pin what an operator's un-`-e` shell survives.
 
 The `[ -d .ai/sift ]` tree guard used to be the one exception, ending in `exit 1`
-and so closing an interactive shell it was pasted into. SFT-0034 gave all three
-copies the `false` spelling and deleted the preamble's carve-out, so the rule is
+and so closing an interactive shell it was pasted into. SFT-0034 gave every
+copy (now four, all in `src/operations/sift.sh`) the `false` spelling and
+deleted the preamble's carve-out, so the rule is
 now absolute: no guard in this cookbook ends the shell it was pasted into, which
 is exactly why the wrapper is not optional.
 

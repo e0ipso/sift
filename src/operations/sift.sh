@@ -253,6 +253,12 @@ f=$(find .ai/sift/open -name "$ID--*.md")
 [ -f "$f" ] || { echo "move: $ID does not match exactly one ticket" >&2; false; }
 d=".ai/sift/open/$DEST/$(basename "$(dirname "$f")")"   # keep the same category
 mkdir -p "$d" && mv "$f" "$d/"
+# Delete the category and milestone folders the move emptied, never the bucket.
+# rmdir is the emptiness test: it refuses a folder another writer just filled.
+dir=$(dirname "$f")
+while [ "$dir" != .ai/sift/open ] && rmdir "$dir" 2>/dev/null; do
+  dir=$(dirname "$dir")
+done
 t="$d/$(basename "$f")"
 DEST="$DEST" awk '
   BEGIN { in_fm = 0; wrote = 0 }

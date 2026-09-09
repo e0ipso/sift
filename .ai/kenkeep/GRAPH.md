@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:156ef40098e2de8a7392af8d973276ba580a0287a63680a0fa157b382782f197'
-node_count: 98
+nodes_hash: 'sha256:3de9c4b19578f5f91103294336ffd50604514461572407b2392ac74882ffc79b'
+node_count: 97
 ---
 # kenkeep Graph
 
-Total nodes: 98
+Total nodes: 97
 
 ## map-kenkeep-knowledge-admission-authority
 
@@ -87,7 +87,7 @@ Total nodes: 98
 ## map-sift-test-suite-runs-the-readme-recipes-themselves
 
 - **kind:** map
-- **title:** The test suite runs README's recipes, not copies of them
+- **title:** The test suite runs the shipped operation bodies, not copies of them
 - **path:** convention/map-sift-test-suite-runs-the-readme-recipes-themselves.md
 - **tags:** testing, portability, shell, convention, sift
 - **relates_to:** practice-batch-test-authoring-at-the-wave-gate, practice-keep-recipes-portable-gnu-and-bsd, practice-never-require-an-installable-binary
@@ -166,7 +166,7 @@ Total nodes: 98
 - **title:** A branch scoped ref audit misses the refs that arm an ignored path
 - **path:** convention/practice-a-branch-scoped-ref-audit-misses-the-refs-that-arm-an-ignored-path.md
 - **tags:** git, sift, gotcha, testing
-- **relates_to:** practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge
+- **relates_to:** practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge, practice-do-not-add-ai-attribution-trailers-to-commit-messages
 - **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:1
 
 ## practice-a-comment-opening-with-shellcheck-is-a-directive-not-prose
@@ -175,6 +175,7 @@ Total nodes: 98
 - **title:** A comment opening with the word shellcheck is a directive, not prose
 - **path:** drift-detection/practice-a-comment-opening-with-shellcheck-is-a-directive-not-prose.md
 - **tags:** shell, lint, testing, gotcha, portability
+- **relates_to:** map-sift-test-suite-runs-the-readme-recipes-themselves, practice-the-collated-range-scan-targets-globs-not-usage-strings
 
 ## practice-a-cross-product-of-factors-that-cannot-interact-is-not-coverage
 
@@ -191,7 +192,7 @@ Total nodes: 98
 - **title:** A cross-skill rule is inventoried in AGENTS.md with its own guard test
 - **path:** cross-skill/practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test.md
 - **tags:** sift, convention, sift-drain, sift-prime, testing
-- **relates_to:** practice-a-roadmap-row-is-its-first-ticket-cell, practice-match-a-sift-ticket-id-as-a-whole-token
+- **relates_to:** practice-match-a-sift-ticket-id-as-a-whole-token
 
 ## practice-a-helper-is-unasserted-on-the-arm-its-callers-never-see
 
@@ -227,14 +228,6 @@ Total nodes: 98
 - **tags:** sift-init, convention, tickets
 - **relates_to:** practice-check-then-act-cp-is-not-a-create-if-absent, practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version, practice-a-narrowing-list-is-a-claim-that-needs-its-own-case
 
-## practice-a-roadmap-row-is-its-first-ticket-cell
-
-- **kind:** practice
-- **title:** A roadmap row is its first ticket cell, not any mention of the ID
-- **path:** cross-skill/practice-a-roadmap-row-is-its-first-ticket-cell.md
-- **tags:** sift, roadmap, tickets, convention
-- **relates_to:** practice-match-a-sift-ticket-id-as-a-whole-token, practice-keep-roadmap-in-sync-same-change, practice-a-cross-skill-rule-is-inventoried-in-agents-md-with-its-guard-test
-
 ## practice-a-stale-documents-remedy-cannot-live-only-inside-the-new-version
 
 - **kind:** practice
@@ -265,7 +258,7 @@ Total nodes: 98
 - **title:** A ticket that asks whether to guard something may resolve as no guard
 - **path:** tickets/practice-a-ticket-that-asks-whether-to-guard-something-may-resolve-as-no-guard.md
 - **tags:** sift, tickets, convention
-- **relates_to:** practice-write-atomic-evidence-based-tickets, practice-keep-roadmap-in-sync-same-change
+- **relates_to:** practice-write-atomic-evidence-based-tickets, practice-give-every-open-ticket-a-wave-set-once-at-drafting
 - **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:11
 
 ## practice-a-worker-checks-back-when-another-has-changed-its-work
@@ -357,6 +350,7 @@ Total nodes: 98
 - **title:** Do not add AI attribution trailers to commit messages
 - **path:** convention/practice-do-not-add-ai-attribution-trailers-to-commit-messages.md
 - **tags:** git, commits, convention
+- **relates_to:** practice-a-branch-scoped-ref-audit-misses-the-refs-that-arm-an-ignored-path, practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge
 - **derived_from:** 0784ce94-7d65-4e60-92d2-a0044e4045b0:practice:2, 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:15
 
 ## practice-fresh-sift-trees-ignore-themselves-via-ai-sift-gitignore
@@ -384,6 +378,14 @@ Total nodes: 98
 - **path:** cli/practice-give-a-reports-own-state-a-key-the-echoed-data-cannot-collide-with.md
 - **tags:** sift-drain, cli, convention
 - **relates_to:** map-sift-drain-skill
+
+## practice-give-every-open-ticket-a-wave-set-once-at-drafting
+
+- **kind:** practice
+- **title:** Give every open ticket a wave, set once at drafting time (rule 9)
+- **path:** tickets/practice-give-every-open-ticket-a-wave-set-once-at-drafting.md
+- **tags:** sift, tickets, wave, convention
+- **relates_to:** practice-move-tickets-and-edit-front-matter-together, map-sift-ticket-front-matter, practice-the-drain-orchestrator-builds-a-wave-graph
 
 ## practice-ground-sift-prime-proposals-in-goal-gap-evidence-with-citations
 
@@ -458,14 +460,6 @@ Total nodes: 98
 - **tags:** portability, shell, sift, convention
 - **relates_to:** practice-never-require-an-installable-binary
 
-## practice-keep-roadmap-in-sync-same-change
-
-- **kind:** practice
-- **title:** Keep ROADMAP.md in sync in the same change (rule 9)
-- **path:** tickets/practice-keep-roadmap-in-sync-same-change.md
-- **tags:** sift, tickets, roadmap
-- **relates_to:** practice-move-tickets-and-edit-front-matter-together
-
 ## practice-match-a-sift-ticket-id-as-a-whole-token
 
 - **kind:** practice
@@ -497,7 +491,7 @@ Total nodes: 98
 - **title:** Negotiate the sift-prime slate in chat only; reserve IDs in one pass
 - **path:** sift-prime/practice-negotiate-the-sift-prime-slate-in-chat-only-reserve-ids-in-one-pass.md
 - **tags:** sift-prime, orchestration, agents
-- **relates_to:** map-sift-prime-the-skill-that-fills-a-sift-backlog, practice-orchestrate-sift-drain-never-implement, practice-keep-roadmap-in-sync-same-change, practice-never-renumber-or-reuse-a-ticket-id
+- **relates_to:** map-sift-prime-the-skill-that-fills-a-sift-backlog, practice-orchestrate-sift-drain-never-implement, practice-give-every-open-ticket-a-wave-set-once-at-drafting, practice-never-renumber-or-reuse-a-ticket-id
 - **derived_from:** 5448174b-fef4-4061-9f43-64dad9c0fad7:practice:3
 
 ## practice-neutralise-greps-no-match-status-with-exit-code-1-not-true
@@ -522,7 +516,7 @@ Total nodes: 98
 - **title:** Never force add a file under this repository's own sift tree
 - **path:** convention/practice-never-force-add-a-file-under-this-repository-s-own-sift-tree.md
 - **tags:** sift, git, convention, testing
-- **relates_to:** practice-account-for-ai-sift-being-gitignored, practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge, practice-keep-roadmap-in-sync-same-change
+- **relates_to:** practice-account-for-ai-sift-being-gitignored, practice-git-does-not-protect-an-ignored-file-from-a-checkout-or-a-merge, practice-move-tickets-and-edit-front-matter-together
 - **derived_from:** 81a4daa5-de3d-4b4a-befe-e197987bf3ab:practice:14
 
 ## practice-never-push-or-file-upstream-during-a-drain
@@ -737,7 +731,7 @@ Total nodes: 98
 - **title:** The drain orchestrator owns tracker writes and merges
 - **path:** sift-drain/orchestration/practice-the-drain-orchestrator-owns-tracker-writes.md
 - **tags:** sift-drain, orchestration, git, tickets
-- **relates_to:** practice-keep-roadmap-in-sync-same-change, practice-orchestrate-sift-drain-never-implement, practice-the-drain-orchestrator-builds-a-wave-graph
+- **relates_to:** practice-give-every-open-ticket-a-wave-set-once-at-drafting, practice-orchestrate-sift-drain-never-implement, practice-the-drain-orchestrator-builds-a-wave-graph
 
 ## practice-the-drain-orchestrator-stays-the-same-agent-across-waves
 
@@ -753,7 +747,7 @@ Total nodes: 98
 - **title:** Tighten the selector with the pattern, or the loop keeps the wrong cell
 - **path:** shell/awk/practice-tighten-the-selector-with-the-pattern-or-the-loop-keeps-the-wrong-cell.md
 - **tags:** awk, shell, sift, roadmap, gotcha
-- **relates_to:** practice-a-roadmap-row-is-its-first-ticket-cell, practice-match-a-sift-ticket-id-as-a-whole-token
+- **relates_to:** practice-match-a-sift-ticket-id-as-a-whole-token
 
 ## practice-treat-sift-spec-edits-as-api-changes
 

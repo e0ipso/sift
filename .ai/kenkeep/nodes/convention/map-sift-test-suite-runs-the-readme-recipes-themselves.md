@@ -1,9 +1,9 @@
 ---
 type: map
-title: 'The test suite runs README''s recipes, not copies of them'
+title: The test suite runs the shipped operation bodies, not copies of them
 description: >-
   tests/run.sh is the whole verification story: no framework, cookbook cases
-  extract the fenced blocks from README.md and run that text.
+  extract the # BEGIN/# END bodies from src/operations/sift.sh and run that text.
 tags:
   - testing
   - portability
@@ -26,20 +26,24 @@ because a suite for a convention that forbids installable dependencies has to
 obey that convention itself. Each test is a shell script that prints TAP-ish
 lines plus one `# SUMMARY tests=… assertions=… failures=… skipped=…` line the
 runner adds up; `tests/lib/harness.sh` supplies the assertions and a `mktemp -d`
-that is cleaned on exit. Four groups: `cookbook/` (README recipes), `scripts/`
+that is cleaned on exit. Four groups: `cookbook/` (operation bodies from `src/operations/sift.sh`), `scripts/`
 (shipped skill scripts through their real command lines), `static/` (the
 portability bans, shell lint, XSD schemas, and the suite's own contract),
-`e2e/` (one gate → init → allocate → archive → roadmap-check lifecycle).
+`e2e/` (the gate → init → allocate → archive → ticket-check lifecycle, and the
+drain loop).
 `tests/run.sh <group>` runs one of them. Both recipe-owning groups are organised
 per subject, not per file — fold a new case into the file that already owns the
 behaviour, and add a file only for a subject none of them covers.
 
 The load-bearing design choice is in `tests/lib/recipes.sh`: a cookbook test
-never contains a copy of a recipe. `readme_block <anchor>` extracts the fenced
-block that follows an anchor line in README.md and the test runs that text, so a
-recipe drifting from its documentation is a build failure rather than a
-discovery in a consuming repository. A reworded anchor breaks extraction on
-purpose. Recipes are run under `set -e`, because the cookbook's guards are
+never contains a copy of a recipe. `operation_block <name>` extracts the
+`# BEGIN <name>` … `# END <name>` body from `src/operations/sift.sh` and the test
+runs that text, so an operation drifting from the shipped script is a build
+failure rather than a discovery in a consuming repository. `readme_block
+<anchor>` does the same for README.md's non-recipe normative blocks (layout,
+front-matter example, body templates, run-log schema, refresh commands); a
+renamed marker or reworded anchor breaks extraction on purpose. Bodies are run
+under `set -e`, because the cookbook's guards are
 `… || { echo …; false; }` one-liners whose "stops with the tree untouched"
 contract only holds when a failing command ends the run.
 

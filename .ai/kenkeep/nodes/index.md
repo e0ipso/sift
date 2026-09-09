@@ -36,4 +36,4 @@ _None yet._
 - Open [**Kenkeep knowledge-admission authority**](map-kenkeep-knowledge-admission-authority.md) — knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills.
 ### #prompts
 - Open [**Kenkeep knowledge-admission authority**](map-kenkeep-knowledge-admission-authority.md) — knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills.
-- Open [**Platform plan-creator contract**](strikethroo/map-platform-plan-creator-contract.md) — Claude and Cursor use byte-identical ordered plan-creator contracts with the same seven execution phases.
+- Open [**Platform plan-creator contract**](strikethroo/map-platform-plan-creator-contract.md) — Claude and Cursor use byte-identical plan-creator persona prompts whose seven numbered Execution Steps carry hooks, ID allocation, placement and reporting.

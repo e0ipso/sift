@@ -35,11 +35,10 @@ it with the `>` count when the number of added lines is part of the contract,
 and with `grep -vxF "<the new row>" | cmp` against the snapshot when exactly one
 line was added — that one is byte-for-byte equality of the whole remainder.
 
-`tests/scripts/prime-backlog.test.sh` holds `roadmap-append.sh` to this, and it
-is the standard for ROADMAP.md in particular: rule 9 makes the roadmap the index
-a drain reads between tickets, its rows carry `#` numbers other rows reference,
-and a struck row is history that must never be re-rendered. The same shape
-applies to the archive and move recipes, which rewrite ticket front matter.
+`tests/scripts/prime-backlog.test.sh` held sift-prime's roadmap writer to this
+until the roadmap was retired (334d8a6); no current test uses the shape. Apply it
+to the next script that rewrites a shared file. The archive and move operations,
+which rewrite ticket front matter, are the standing candidates.
 For a script that is supposed to write nothing at all, the harness already
 supplies `tree_digest`; `diff` is its counterpart for the scripts that do write.
 

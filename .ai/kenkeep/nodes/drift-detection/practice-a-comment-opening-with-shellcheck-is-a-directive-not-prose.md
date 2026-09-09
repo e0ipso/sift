@@ -13,7 +13,9 @@ tags:
 kk_schema_version: 3
 kk_id: practice-a-comment-opening-with-shellcheck-is-a-directive-not-prose
 kk_derived_from: []
-kk_relates_to: []
+kk_relates_to:
+  - map-sift-test-suite-runs-the-readme-recipes-themselves
+  - practice-the-collated-range-scan-targets-globs-not-usage-strings
 kk_depends_on: []
 kk_confidence: high
 ---

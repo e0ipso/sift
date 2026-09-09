@@ -15,7 +15,7 @@ kk_derived_from:
 kk_relates_to:
   - map-sift-prime-the-skill-that-fills-a-sift-backlog
   - practice-orchestrate-sift-drain-never-implement
-  - practice-keep-roadmap-in-sync-same-change
+  - practice-give-every-open-ticket-a-wave-set-once-at-drafting
   - practice-never-renumber-or-reuse-a-ticket-id
 kk_depends_on: []
 kk_confidence: high
@@ -36,7 +36,7 @@ row is blocked. The coordinator validates cross-ticket consistency after draftin
 
 - Related: [map-sift-prime-the-skill-that-fills-a-sift-backlog](/sift-prime/map-sift-prime-the-skill-that-fills-a-sift-backlog.md)
 - Related: [practice-orchestrate-sift-drain-never-implement](/sift-drain/orchestration/practice-orchestrate-sift-drain-never-implement.md)
-- Related: [practice-keep-roadmap-in-sync-same-change](/tickets/practice-keep-roadmap-in-sync-same-change.md)
+- Related: [practice-give-every-open-ticket-a-wave-set-once-at-drafting](/tickets/practice-give-every-open-ticket-a-wave-set-once-at-drafting.md)
 - Related: [practice-never-renumber-or-reuse-a-ticket-id](/tickets/practice-never-renumber-or-reuse-a-ticket-id.md)
 <!-- kk:related:end -->
 

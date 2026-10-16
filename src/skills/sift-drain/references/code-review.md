@@ -14,7 +14,10 @@ The reviewer is one of:
 ## Running the reviewer
 
 1. Prepare a review worktree at the integration tip with `prepare-worktree.sh`, using a
-   branch such as `sift-review-wave-<N>`. It never holds ticket files or commits.
+   branch such as `sift-review-wave-<N>`. It never holds ticket files or commits. On exit 3,
+   do not run the reviewer and keep the worktree. Skip the stage as for a failed reviewer
+   below: record the exit code, the hook status, the worktree path and branch, then continue
+   with stage 1.
 2. Set `{{REVIEW_BASE}}` to the wave's recorded review base. Without one, after a resume or
    context loss, search `git log` on the integration branch for each archived current-wave
    ticket ID and use the parent of the earliest match. Name any ticket with no match in the

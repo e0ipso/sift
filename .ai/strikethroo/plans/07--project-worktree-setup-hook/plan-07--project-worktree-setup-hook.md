@@ -262,9 +262,9 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 2: Add worktree-setup detection and hook publication to sift-init.sh (depends on: 1)
 
-### Phase 3: Specification
+### ✅ Phase 3: Specification
 **Parallel Tasks:**
-- Task 4: Document the worktree setup hook in README.md and the sift-init skill (depends on: 2)
+- ✔️ Task 4: Document the worktree setup hook in README.md and the sift-init skill (depends on: 2)
 
 ### Post-phase Actions
 

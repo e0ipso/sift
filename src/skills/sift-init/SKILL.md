@@ -116,8 +116,8 @@ directories; an install command such as `npm ci` recreates those. The user may d
 edit links, add commands, or choose none.
 
 A link must be relative, with no empty, `.` or `..` component, and must not be `.ai`,
-`.ai/sift` or under it. A command must be one non-blank line that `bash -n` accepts.
-Either violation exits 2 before any write.
+`.ai/sift` or under it. A command must be one non-blank line that `bash -n` parses
+with no error or warning. Either violation exits 2 before any write.
 
 ## 3. Materialize or repair the tree
 

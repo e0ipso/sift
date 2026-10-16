@@ -317,3 +317,9 @@ Failed; No reviewer performed a certified review. No reviewer candidate; review 
 ### Necessary follow-ups
 - Get an independent review of `75101cc..HEAD`. One way is to make a second harness pass the readiness probe: give codex a writable workspace, or give cursor `--trust`. Then review this diff by hand or in the next plan's gate.
 - Run shellcheck on `prepare-worktree.sh`, `sift-init.sh` and the two test files on a host that has it installed.
+
+### Follow-up review (Codex, GPT-6.1-Sol, high reasoning)
+The user asked for this after the gate skipped. The review ran once against `75101cc..895dc6a` under the `st-code-review` skill. Its `review/review.xml` validates with xmllint and contains 2 findings: 2 minor and none of any other severity.
+- **minor/high, requirement-conformance, `sift-init.sh` `install_hook`:** an existing dangling symlink at the hook path was replaced and reported `created`. The orchestrator reproduced it. **Acted on:** the hook fast path now also tests `-L`. A first fix also changed the shared `publish()` and stopped init from repairing a dangling `README.md`. That regressed existing tested behaviour, so it was reverted and the fix kept to the hook.
+- **minor/high, defect, `sift-init.sh` `add_command`:** `--worktree-command 'cat <<EOF'` passed `bash -n`, which only warns, and the hook then swallowed later steps. The orchestrator reproduced it. **Acted on:** any `bash -n` stderr output now rejects the command with exit 2. Here-strings are still accepted.
+- New cases in `tests/scripts/sift-init-worktree-setup.test.sh` cover both findings. After the fix, the full `tests/run.sh` exits 0 (632 tests, 0 failures, 6 skipped) and all Self Validation steps passed again. The review was not re-run.

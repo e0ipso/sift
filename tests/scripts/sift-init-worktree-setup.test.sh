@@ -140,6 +140,18 @@ assert_same "$TMPROOT/hook.orig" "$hook" "the hook is unchanged"
 assert_contains "$R_OUT" "kept     $HOOK_REL" "the report names the hook as kept"
 assert_not_contains "$R_OUT" "created  $HOOK_REL" "and never as created"
 
+test_case "a dangling symlink at the hook path is kept"
+d="$(newdir)"
+mkdir -p "$d/.ai/sift/config"
+ln -s "$TMPROOT/absent-hook-target" "$d/$HOOK_REL"
+run_cmd "$d" "$INIT" --root "$d" --prefix ACME --worktree-command true
+assert_eq 0 "$R_STATUS" "exits 0"
+if [ -L "$d/$HOOK_REL" ] && [ "$(readlink "$d/$HOOK_REL")" = "$TMPROOT/absent-hook-target" ]
+then t_ok "the hook path is still the same symlink"
+else t_fail "the hook path is still the same symlink" "$(ls -l "$d/$HOOK_REL" 2>&1)"; fi
+assert_contains "$R_OUT" "kept     $HOOK_REL" "the report names the hook as kept"
+assert_not_contains "$R_OUT" "created  $HOOK_REL" "and never as created"
+
 test_case "the hook mode honours the operator's umask"
 d="$(newdir)"
 run_cmd "$d" sh -c 'umask 077; exec "$@"' sh "$INIT" --root "$d" --prefix ACME --worktree-command true
@@ -173,10 +185,15 @@ for v in /abs ../x .. a/../b a/.. .ai/sift .ai/sift/x .ai/sift/ .ai ./.ai/sift \
          . ./x a/./b a//b a/ "x${nl}y" ''; do
   check_rejected --worktree-link "$v"
 done
-# Empty, an embedded newline, and text bash cannot parse as a step.
-for v in '' "x${nl}y" "echo 'unterminated" 'if true; then'; do
+# Empty, an embedded newline, text bash cannot parse as a step, and an
+# unterminated here-document, which bash -n only warns about.
+for v in '' "x${nl}y" "echo 'unterminated" 'if true; then' 'cat <<EOF'; do
   check_rejected --worktree-command "$v"
 done
+d="$(newdir)"
+run_cmd "$d" "$INIT" --root "$d" --prefix ACME --worktree-command 'cat <<<x'
+assert_eq 0 "$R_STATUS" "a here-string command is accepted"
+assert_contains "$(cat "$d/$HOOK_REL" 2>&1)" 'cat <<<x' "and written to the hook"
 d="$(newdir)"
 run_cmd "$d" "$INIT" --root "$d" --prefix ACME --worktree-link
 assert_eq 2 "$R_STATUS" "a missing --worktree-link value exits 2"

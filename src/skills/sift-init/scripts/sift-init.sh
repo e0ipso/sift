@@ -35,8 +35,9 @@
 # missing or PATH already exists. A command step runs CMD verbatim. An existing
 # hook is kept as it is, whatever options this run was given.
 # A link must be relative, with no empty, `.` or `..` component, and must not
-# be .ai, .ai/sift or under it. A command must be one non-blank line that bash
-# can parse on its own. Either violation exits 2 before anything is written.
+# be .ai, .ai/sift or under it. A command must be one non-blank line that
+# `bash -n` parses with no error or warning. Either violation exits 2 before
+# anything is written.
 #
 # Writes are create-if-absent. A repeat run repairs missing scaffolding without
 # replacing repository content. Shipped README/schema drift is reported with
@@ -84,15 +85,19 @@ add_link() {  # add_link <path>
 }
 
 # Each command becomes one line of the hook. bash -n rejects text that would
-# leave the generated script unparseable, such as an unterminated quote.
+# leave the generated script unparseable, such as an unterminated quote. For an
+# unterminated here-document it only warns, yet that heredoc would swallow the
+# later steps. Any stderr output is therefore a rejection.
 add_command() {  # add_command <command>
+  local err
   case "$1" in
     *"$nl"*) echo "error: --worktree-command must not contain a newline" >&2; exit 2 ;;
     *[![:space:]]*) ;;
     *) echo "error: --worktree-command must not be blank" >&2; exit 2 ;;
   esac
-  printf '%s\n' "$1" | bash -n 2>/dev/null || {
-    echo "error: --worktree-command is not a complete bash command: $1" >&2; exit 2; }
+  if ! err=$(printf '%s\n' "$1" | bash -n 2>&1) || [ -n "$err" ]; then
+    echo "error: --worktree-command is not a complete bash command: $1" >&2; exit 2
+  fi
   commands="${commands}${1}${nl}"
 }
 
@@ -359,9 +364,10 @@ EOF
 
 # install_hook — write_file cannot set a mode, so stage, chmod and publish here.
 # `chmod +x` with no "who" is masked by the umask, like the file's other bits.
+# A dangling symlink fails `-e` yet is still the project's hook, so test `-L`.
 install_hook() {
   local dest="config/worktree-setup" tmp
-  if [ -e "$sift/$dest" ]; then note_kept ".ai/sift/$dest"; return 0; fi
+  if [ -e "$sift/$dest" ] || [ -L "$sift/$dest" ]; then note_kept ".ai/sift/$dest"; return 0; fi
   tmp=$(new_temp "$sift/config") || { echo "error: cannot stage $sift/$dest" >&2; return 2; }
   if ! worktree_hook_body > "$tmp" || ! chmod +x "$tmp"; then
     rm -f "$tmp"; echo "error: cannot write $sift/$dest" >&2; return 2

@@ -12,6 +12,22 @@ Set the permanent prefix in `.ai/sift/config/config.yaml`:
 prefix: ABCD      # uppercase; stable for the life of the repository
 ```
 
+Drain can review each wave's changes before its end-to-end tests. Without this optional
+block it asks at the start of every drain:
+
+```yaml
+code_review:
+  enabled: true                               # false skips review without asking
+  command: codex exec --yolo --model <model>  # optional; another harness
+  model: <model>                              # optional; this harness on this model
+```
+
+`command` runs another harness non-interactively, with the review prompt on standard input
+and the report on standard output. Without `command`, the harness running the drain reviews
+on `model`, or on its own model when `model` is absent. `command` wins over `model`.
+Wrap `command` in single quotes when it contains ` #` or `: `, which YAML would read as a
+comment or a mapping, and double each single quote inside it.
+
 `MILESTONES.md` names and orders milestones. `<PREFIX>` and `<milestone>` below stand for
 these configured values. Changing a prefix requires rewriting every ticket ID, filename and
 reference with the config change.

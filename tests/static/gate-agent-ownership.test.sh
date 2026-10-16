@@ -136,4 +136,96 @@ assert_contains "$(gate_prompt "$damaged" '## 1. E2E specialist agent')" \
 assert_contains "$(contract_errors "$damaged")" \
   '## 1. E2E specialist agent: assigns a merge' "the inflected form is caught"
 
+# The optional code reviewer, from this harness or another one, only reports.
+# It commits nothing, so instead of the commit rules it must stay read-only.
+review_errors() {
+  local prompt flattened
+  prompt="$(gate_prompt "$1" '## Reviewer prompt')"
+  [ -n "$prompt" ] || { printf 'reviewer: missing prompt\n'; return; }
+  flattened="$(printf '%s\n' "$prompt" | tr '\n' ' ')"
+  for rule in \
+    'Verify every named path' \
+    'This review is read-only.' \
+    'Do not edit, create or delete files.' \
+    'Do not commit.' \
+    'Do not merge.' \
+    'Never `git push`.' \
+    'Never run `git checkout`, `git switch`, `git reset`, `git clean`, `git stash` or `git add`' \
+    'Do not write tracker state.' \
+    'Do not edit the sift-drain skill.' \
+    'Never file, comment on, or patch an external tracker.' \
+    'type: dx' \
+    'findings: <count>'
+  do
+    printf '%s\n' "$flattened" | grep -Fq "$rule" || printf 'reviewer: missing %s\n' "$rule"
+  done
+}
+
+review="$repo/src/skills/sift-drain/references/code-review.md"
+
+test_case "the code reviewer prompt is read-only and leaves ownership to the orchestrator"
+assert_eq "" "$(review_errors "$review")" "every read-only rule remains inside the reviewer prompt"
+
+test_case "a missing read-only rule fails the reviewer check"
+damaged="$(newdir)/code-review.md"
+sed 's/Do not commit\. //' "$review" > "$damaged"
+assert_not_contains "$(gate_prompt "$damaged" '## Reviewer prompt')" 'Do not commit.' \
+  "the no-commit rule is gone from the damaged prompt"
+assert_contains "$(review_errors "$damaged")" 'reviewer: missing Do not commit.' \
+  "the reviewer check rejects the missing rule"
+
+# Every reviewer is checked by comparing integration state before and after
+# it runs. Execute the documented snapshot command on a real checkout.
+snapshot_cmd() {
+  awk '
+    /^[[:space:]]*```sh$/ { inside = 1; next }
+    inside && /^[[:space:]]*```$/ { exit }
+    inside { sub(/^   /, ""); print }
+  ' "$1"
+}
+
+snapshot() {
+  (cd "$1" && STATE_BEFORE="$2" bash -c "$cmd")
+}
+
+test_case "the reviewer snapshot ignores the review worktree and catches outside writes"
+cmd="$(snapshot_cmd "$review")"
+assert_contains "$cmd" 'find .ai/sift -type f' "the snapshot covers the ignored tracker"
+assert_contains "$cmd" 'git ls-files --others' "the snapshot covers untracked files"
+d="$(newdir)"
+git -C "$d" init -q
+printf 'code\n' > "$d/code.txt"
+git -C "$d" add code.txt
+git -C "$d" -c user.name=Fixture -c user.email=fixture@example.invalid commit -qm initial
+git -C "$d" branch -M main
+mkdir -p "$d/.ai/sift/open"
+printf 'live tracker\n' > "$d/.ai/sift/open/live.md"
+printf '.ai/\n' > "$d/.git/info/exclude"
+git -C "$d" worktree add -q -b sift-review-wave-1 "$TMPROOT/review" main
+states="$(newdir)"
+snapshot "$d" "$states/before"
+printf 'scratch\n' > "$TMPROOT/review/scratch.txt"
+snapshot "$d" "$states/clean"
+assert_eq 0 "$(cmp -s "$states/before" "$states/clean"; echo $?)" "writes inside the review worktree do not trip the check"
+printf 'rewritten\n' > "$d/.ai/sift/open/live.md"
+snapshot "$d" "$states/tracker"
+assert_eq 1 "$(cmp -s "$states/before" "$states/tracker"; echo $?)" "an ignored tracker edit is caught"
+printf 'live tracker\n' > "$d/.ai/sift/open/live.md"
+printf 'changed\n' > "$d/code.txt"
+snapshot "$d" "$states/code"
+assert_eq 1 "$(cmp -s "$states/before" "$states/code"; echo $?)" "a tracked edit is caught"
+git -C "$d" checkout -q code.txt
+printf 'one\n' > "$d/notes.txt"
+snapshot "$d" "$states/untracked-before"
+printf 'two\n' > "$d/notes.txt"
+snapshot "$d" "$states/untracked-after"
+assert_eq 1 "$(cmp -s "$states/untracked-before" "$states/untracked-after"; echo $?)" "an edit to an existing untracked file is caught"
+rm "$d/notes.txt"
+git -C "$d" branch stray
+snapshot "$d" "$states/ref"
+assert_eq 1 "$(cmp -s "$states/before" "$states/ref"; echo $?)" "a new ref is caught"
+git -C "$d" branch -q -D stray
+snapshot "$d" "$states/restored"
+assert_eq 0 "$(cmp -s "$states/before" "$states/restored"; echo $?)" "the snapshot is stable once state is restored"
+
 summary

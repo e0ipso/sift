@@ -271,3 +271,49 @@ graph TD
 ### Execution Summary
 - Total Phases: 3
 - Total Tasks: 4
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-10-16
+
+### Results
+- **`prepare-worktree.sh`** now runs `<git toplevel>/.ai/sift/config/worktree-setup` when it exists, in every worktree it creates.
+  - The hook runs with cwd set to the new worktree, stdin from `/dev/null`, stdout sent to stderr, and `SIFT_ROOT`, `SIFT_WORKTREE`, `SIFT_BRANCH` and `SIFT_BASE_COMMIT` set.
+  - A failing hook exits 3 and keeps the worktree and branch. A hook that is not an executable file exits 1 before anything is created.
+  - With no hook, stdout matches the script on `main`.
+- **Drain prose:** SKILL.md, run-management, wave-gate and code-review now handle exit 3: no dispatch, a report, and a kept worktree. A failed review-worktree setup skips the review stage, the same way an existing reviewer failure does.
+- **`sift-init.sh`** gains `--suggest-worktree-links`, which is read-only and excludes `.ai` and `.ai/sift`. It also gains repeatable `--worktree-link` and `--worktree-command`, which publish an executable hook create-if-absent.
+- **Docs:** README `## Configuration` and its shipped mirror document the hook, its interface, exit 3, the boundaries and an example. sift-init's SKILL.md asks the setup question on fresh initialization only.
+- **Commits:**
+  - `feat: run a project worktree setup hook in prepare-worktree.sh`
+  - `2c77d22 feat: let sift-init detect worktree links and write the setup hook`
+  - `a5e1bb9 docs: specify the worktree setup hook and the init question`
+- **Verification:** the full `tests/run.sh` exits 0: 40 files, 631 tests, 2679 assertions, 0 failures, 6 skipped. The skips are pre-existing (shellcheck not installed, no BSD host). All seven Self Validation steps were run in scratch repositories and passed.
+
+### Noteworthy Events
+- **Tasks were generated at execution time**, because the plan had none. There are 4 tasks in 3 phases. Execution routing reported `no-config`.
+- **Commit attribution:** the repository's commitlint `no-ai-generated` rule rejects the `Co-Authored-By` trailer, so the phase commits carry none.
+- **Task 1 test deviation:** `git worktree add` already prints `HEAD is now at …` on stdout. The no-hook and passing-hook tests therefore assert that stdout *ends with* the three key lines, rather than equals them. This matches the "no-hook output unchanged" requirement. The orchestrator also tightened the failing-hook assertion from `7` to `exit 7`.
+- **Task 2 deviations:** the agent made these changes to the task notes and reported each one. All were reviewed and accepted.
+  - Detection also drops `.ai` itself, because git collapses an ignored `.ai/sift/` to `.ai/`, and linking `.ai` would expose the tracker. A side effect is that repositories ignoring all of `.ai/` get no suggestions beneath it.
+  - Link validation is stricter: no empty or `.` components.
+  - Commands must pass `bash -n`.
+  - Names git C-quotes are dropped.
+  - Worktree-side paths are spelled `./PATH`.
+- **Task 4 deviation:** the README example guards the symlink with `if [ -e "$SIFT_ROOT/.env" ] && [ ! -e .env ]`. The `[ -e .env ] || ln -s` form from the notes would create a dangling link when the root has no `.env`.
+- **Shellcheck** is not installed on this host, so shellcheck has not checked the new or changed scripts.
+- **Code review gate** JSON line, verbatim:
+
+```json
+{"kind":"skipped","reason":"no-reviewer-candidate","detail":"No reviewer candidate; review gate skipped. claude is excluded as the current harness. codex: Harness exited 0 but did not create the required readiness file with the expected content. stderr: 2026-10-16T21:07:03.934198Z ERROR codex_core::session::session: failed to load skill /home/e0ipso/.agents/skills/canvas/SKILL.md: missing field `description`\nOpenAI Codex v0.163.0\n--------\nworkdir: /tmp/strikethroo-harness-probe-wX4bqI\nmodel: gpt-6.1-sol\nprovider: openai\napproval: never\nsandbox: read-only\nreasoning effort: none\nreasoning summaries: none\nsession id: 01a1468a-3051-7681-bdc1-9450e7a03666\n--------\nuser\nRun a shell command that creates strikethroo-readiness.txt in the current workspace with the exact UTF-8 content \"strikethroo-readiness:18a24b67-abfa-4b0a-b115-e0029db8c660\\n\". Do not use a file editing tool.\nSTRIKETHROO_READINESS={\"file\":\"strikethroo-readiness.txt\",\"content\":\"strikethroo-readiness:18a24b67-abfa-4b0a-b115-e0029db8c660\\n\"}\n\ncodex\nI’ll run the shell command to create the file with the exact content.\n\ncodex\nThe shell command failed because the workspace filesystem is read-only. `strikethroo-readiness.txt` was not created.\ntokens used\n7,689 stdout: The shell command failed because the workspace filesystem is read-only. `strikethroo-readiness.txt` was not created. cursor: Harness readiness check exited 1. stderr: ⚠ Workspace Trust Required\n\n  Cursor Agent can execute code and access files in this directory.\n  Do you trust the contents of this directory?\n\n    /tmp/strikethroo-harness-probe-t07kLA\n\n  To proceed, you can either:\n    • Run 'agent' interactively to decide\n    • Pass --trust, --yolo, or -f if you trust this directory gemini: Harness executable 'gemini' was not found on PATH. copilot: Harness executable 'copilot' was not found on PATH. opencode: Harness executable 'opencode' was not found on PATH.","action":"continue","codeReview":"Failed; No reviewer performed a certified review. No reviewer candidate; review gate skipped. claude is excluded as the current harness. codex: Harness exited 0 but did not create the required readiness file with the expected content. stderr: 2026-10-16T21:07:03.934198Z ERROR codex_core::session::session: failed to load skill /home/e0ipso/.agents/skills/canvas/SKILL.md: missing field `description` OpenAI Codex v0.163.0 -------- workdir: /tmp/strikethroo-harness-probe-wX4bqI model: gpt-6.1-sol provider: openai approval: never sandbox: read-only reasoning effort: none reasoning summaries: none session id: 01a1468a-3051-7681-bdc1-9450e7a03666 -------- user Run a shell command that creates strikethroo-readiness.txt in the current workspace with the exact UTF-8 content \"strikethroo-readiness:18a24b67-abfa-4b0a-b115-e0029db8c660\\n\". Do not use a file editing tool. STRIKETHROO_READINESS={\"file\":\"strikethroo-readiness.txt\",\"content\":\"strikethroo-readiness:18a24b67-abfa-4b0a-b115-e0029db8c660\\n\"} codex I’ll run the shell command to create the file with the exact content. codex The shell command failed because the workspace filesystem is read-only. `strikethroo-readiness.txt` was not created. tokens used 7,689 stdout: The shell command failed because the workspace filesystem is read-only. `strikethroo-readiness.txt` was not created. cursor: Harness readiness check exited 1. stderr: ⚠ Workspace Trust Required Cursor Agent can execute code and access files in this directory. Do you trust the contents of this directory? /tmp/strikethroo-harness-probe-t07kLA To proceed, you can either: • Run 'agent' interactively to decide • Pass --trust, --yolo, or -f if you trust this directory gemini: Harness executable 'gemini' was not found on PATH. copilot: Harness executable 'copilot' was not found on PATH. opencode: Harness executable 'opencode' was not found on PATH."}
+```
+
+- **Findings:** the verdict was not `review-recorded`, so there were no findings to act on or ignore. The review is uncertified, not clean.
+
+### Code Review
+Failed; No reviewer performed a certified review. No reviewer candidate; review gate skipped. claude is excluded as the current harness. codex: the readiness probe ran in a read-only sandbox and could not write its file. cursor: needs workspace trust (`--trust`). gemini, copilot, opencode: not on PATH. The full verbatim `codeReview` value is in the JSON line above.
+
+### Necessary follow-ups
+- Get an independent review of `75101cc..HEAD`. One way is to make a second harness pass the readiness probe: give codex a writable workspace, or give cursor `--trust`. Then review this diff by hand or in the next plan's gate.
+- Run shellcheck on `prepare-worktree.sh`, `sift-init.sh` and the two test files on a host that has it installed.

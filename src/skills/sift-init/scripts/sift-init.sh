@@ -216,12 +216,15 @@ new_temp() {
   printf '%s\n' "$tmp"
 }
 
-# publish <temp path> <relative destination> — consumes the temp file either way.
+# publish <temp path> <relative destination> [keep-symlink] — consumes the temp
+# file either way. With keep-symlink, a dangling link that makes ln fail counts as
+# occupied, so the mv fallback can never replace it. Other entries leave it off,
+# which lets a repeat run repair a dangling README.
 publish() {
   if ln "$1" "$sift/$2" 2>/dev/null; then
     rm -f "$1"; note_created ".ai/sift/$2"; return 0
   fi
-  if [ -e "$sift/$2" ]; then
+  if [ -e "$sift/$2" ] || { [ -n "${3:-}" ] && [ -L "$sift/$2" ]; }; then
     rm -f "$1"; note_kept ".ai/sift/$2"; return 0
   fi
   # Filesystems without hard links fall back to an atomic same-directory rename;
@@ -372,7 +375,7 @@ install_hook() {
   if ! worktree_hook_body > "$tmp" || ! chmod +x "$tmp"; then
     rm -f "$tmp"; echo "error: cannot write $sift/$dest" >&2; return 2
   fi
-  publish "$tmp" "$dest"
+  publish "$tmp" "$dest" keep-symlink
 }
 
 if [ -n "$links$commands" ]; then

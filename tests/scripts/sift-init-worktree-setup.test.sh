@@ -152,6 +152,28 @@ else t_fail "the hook path is still the same symlink" "$(ls -l "$d/$HOOK_REL" 2>
 assert_contains "$R_OUT" "kept     $HOOK_REL" "the report names the hook as kept"
 assert_not_contains "$R_OUT" "created  $HOOK_REL" "and never as created"
 
+test_case "a dangling hook link that appears during publication is kept"
+# A wrapper ln plants the link just before the real ln publishes the hook, so
+# publication sees EEXIST from a link that the fast path could not have seen.
+d="$(newdir)"
+stub="$(newdir)"
+real_ln="$(command -v ln)"
+cat > "$stub/ln" <<EOF
+#!/usr/bin/env bash
+case "\${2:-}" in
+  */config/worktree-setup) '$real_ln' -s '$TMPROOT/raced-hook-target' "\$2" ;;
+esac
+exec '$real_ln' "\$@"
+EOF
+chmod +x "$stub/ln"
+run_cmd "$d" env "PATH=$stub:$PATH" "$INIT" --root "$d" --prefix ACME --worktree-command true
+assert_eq 0 "$R_STATUS" "exits 0"
+if [ -L "$d/$HOOK_REL" ] && [ "$(readlink "$d/$HOOK_REL")" = "$TMPROOT/raced-hook-target" ]
+then t_ok "the raced link is still the same symlink"
+else t_fail "the raced link is still the same symlink" "$(ls -l "$d/$HOOK_REL" 2>&1)"; fi
+assert_contains "$R_OUT" "kept     $HOOK_REL" "the report names the hook as kept"
+assert_eq "" "$(find "$d/.ai/sift/config" -name '.sift-init.*')" "no staged temp file is left behind"
+
 test_case "the hook mode honours the operator's umask"
 d="$(newdir)"
 run_cmd "$d" sh -c 'umask 077; exec "$@"' sh "$INIT" --root "$d" --prefix ACME --worktree-command true

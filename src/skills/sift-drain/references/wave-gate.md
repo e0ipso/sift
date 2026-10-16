@@ -1,7 +1,8 @@
 # Wave gate
 
-Run the gate between waves in this order: e2e, batch coverage, root-cause fixes, knowledge
-capture, close. The e2e specialist runs alone first; the batch agent may also run the close.
+Run the gate between waves in this order: code review when the run's choice is on (see
+code-review.md), e2e, batch coverage, root-cause fixes, knowledge capture, close. The
+e2e specialist runs alone after any code review; the batch agent may also run the close.
 
 Prepare each agent's branch/worktree with prepare-worktree.sh. Substitute placeholders and
 dispatch the selected fence verbatim. Each fence contains its agent's full ownership rules.
@@ -206,6 +207,7 @@ Wave {{WAVE}} closed.
   tickets done:    <IDs>
   tickets blocked: <IDs and one-line reasons> | none
   tickets filed:   <IDs and titles> | none
+  code review: <command or model: N findings, M tickets filed> | skipped: <reason> | off
   tests added:     <classes/counts; e2e test files/counts>
   suite status:    tests <N, M assertions> green; e2e <N> green | no e2e layer; lint clean
   waves:           <wave-status.sh, summarised in one line>

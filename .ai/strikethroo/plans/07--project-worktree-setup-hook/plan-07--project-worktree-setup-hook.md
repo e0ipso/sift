@@ -258,9 +258,9 @@ graph TD
 - ✔️ Task 1: Run the project worktree setup hook in prepare-worktree.sh
 - ✔️ Task 3: Document exit-3 setup-failure handling in the drain coordinator prose
 
-### Phase 2: sift-init hook generation
+### ✅ Phase 2: sift-init hook generation
 **Parallel Tasks:**
-- Task 2: Add worktree-setup detection and hook publication to sift-init.sh (depends on: 1)
+- ✔️ Task 2: Add worktree-setup detection and hook publication to sift-init.sh (depends on: 1)
 
 ### Phase 3: Specification
 **Parallel Tasks:**

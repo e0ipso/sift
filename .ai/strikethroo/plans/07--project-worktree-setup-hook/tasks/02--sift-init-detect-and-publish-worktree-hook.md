@@ -2,7 +2,7 @@
 id: 2
 group: "sift-init"
 dependencies: [1]
-status: "pending"
+status: "completed"
 created: 2026-10-16
 skills:
   - bash
@@ -25,16 +25,16 @@ published hook through `prepare-worktree.sh`.
 Portable bash and git ignore semantics (`bash`), and the shell test harness (`shell-testing`).
 
 ## Acceptance Criteria
-- [ ] `sift-init.sh --suggest-worktree-links --root PATH` writes nothing. It prints one root-relative path per line, from git's own ignore resolution, sorted with `sort -u` and without trailing `/`. It never lists `.ai/sift` or anything under it. A root that is not a git work tree prints nothing and exits 0.
-- [ ] The materialization command accepts repeatable `--worktree-link PATH` and `--worktree-command CMD`. When at least one is given, it publishes `.ai/sift/config/worktree-setup` with the executable bit set, via `new_temp` + `publish`. The report gets one `created` or `kept` line for it. An existing hook is kept byte-identical.
-- [ ] With neither option, no hook is written and the report has no hook line. Existing runs and existing `sift-init-*.test.sh` cases are unaffected.
-- [ ] Invalid input exits 2 before any write, as other validation does:
+- [x] `sift-init.sh --suggest-worktree-links --root PATH` writes nothing. It prints one root-relative path per line, from git's own ignore resolution, sorted with `sort -u` and without trailing `/`. It never lists `.ai/sift` or anything under it. A root that is not a git work tree prints nothing and exits 0.
+- [x] The materialization command accepts repeatable `--worktree-link PATH` and `--worktree-command CMD`. When at least one is given, it publishes `.ai/sift/config/worktree-setup` with the executable bit set, via `new_temp` + `publish`. The report gets one `created` or `kept` line for it. An existing hook is kept byte-identical.
+- [x] With neither option, no hook is written and the report has no hook line. Existing runs and existing `sift-init-*.test.sh` cases are unaffected.
+- [x] Invalid input exits 2 before any write, as other validation does:
   - a link that is absolute, contains a `..` component, is empty, or is `.ai/sift` or a path under it;
   - a link or command containing a newline;
   - an empty command.
-- [ ] The generated hook is bash. It uses only `SIFT_ROOT` and the cwd. Each link step is preceded by a comment naming its origin, and it skips silently when the source is missing in `$SIFT_ROOT` or the target already exists in the worktree. Each command step runs verbatim in the listed order. The hook passes `bash -n` and shellcheck when available.
-- [ ] The script header (`-h` output) documents the new mode and options.
-- [ ] `tests/run.sh scripts` and `tests/run.sh static` exit 0.
+- [x] The generated hook is bash. It uses only `SIFT_ROOT` and the cwd. Each link step is preceded by a comment naming its origin, and it skips silently when the source is missing in `$SIFT_ROOT` or the target already exists in the worktree. Each command step runs verbatim in the listed order. The hook passes `bash -n` and shellcheck when available.
+- [x] The script header (`-h` output) documents the new mode and options.
+- [x] `tests/run.sh scripts` and `tests/run.sh static` exit 0.
 
 Use your internal Todo tool to track these and keep on track.
 

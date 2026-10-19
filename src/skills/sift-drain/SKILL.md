@@ -79,7 +79,7 @@ scripts/read-context.sh FILE HEADING_OR_--all [PAGE]
 scripts/next-ticket.sh --group   # optional cluster hint for planning a sitting
 scripts/ticket-check.sh
 scripts/reserve-ids.sh <count>
-scripts/prepare-worktree.sh <base> <branch> <absolute-new-path>
+scripts/prepare-worktree.sh <base> <branch> <absolute-new-path>  # exit 3: setup failed, worktree kept
 scripts/drain-log.sh dispatch <TICKET>...
 scripts/drain-log.sh return <TICKET> <STATUS>...
 scripts/drain-log.sh report
@@ -111,7 +111,9 @@ Repeat until no dispatchable work remains in this wave:
 2. Prepare each branch and worktree using `prepare-worktree.sh` from the original
    repository. Pass the prepared worktree as `PROJECT_ROOT`, its branch, and the original
    project root as `SIFT_ROOT`. Keep the integration checkout for landings. Workers use
-   absolute shared tracker paths; do not replace their `.ai/sift` with a symlink.
+   absolute shared tracker paths; do not replace their `.ai/sift` with a symlink. On exit 3,
+   do not dispatch that sitting; report it and keep the worktree (see
+   [run-management.md](references/run-management.md)).
 3. Stamp `drain-log.sh dispatch` immediately before dispatch. For a fresh worker, load the
    placeholder preamble and Template section of [ticket-agent-prompt.md](references/ticket-agent-prompt.md)
    and send the fixed contract first, verbatim, followed by its resolved Assignment block.
@@ -152,8 +154,8 @@ Do not load [wave-gate.md](references/wave-gate.md) during intake or implementat
 At each gate stage, read only its numbered section and send that stage's resolved fence.
 Load section 3 only for failures and section 4 only when capture is warranted. Load section 5
 at close. The order and skip conditions are below; other stage prompts can stay unread.
-Prepare gate worktrees and branches as for implementation workers. Workers from the
-wave do not continue into the gate or the next wave.
+Prepare gate worktrees and branches as for implementation workers, and handle exit 3 the
+same way. Workers from the wave do not continue into the gate or the next wave.
 
 With code review on, read [code-review.md](references/code-review.md) at the
 gate, then run the reviewer and land its fix tickets before stage 1. Otherwise leave it

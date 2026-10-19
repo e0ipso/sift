@@ -4,9 +4,11 @@ Run the gate between waves in this order: code review when the run's choice is o
 code-review.md), e2e, batch coverage, root-cause fixes, knowledge capture, close. The
 e2e specialist runs alone after any code review; the batch agent may also run the close.
 
-Prepare each agent's branch/worktree with prepare-worktree.sh. Substitute placeholders and
-dispatch the selected fence verbatim. Each fence contains its agent's full ownership rules.
-Read only the numbered section for the stage now beginning. Do not preload later prompts.
+Prepare each agent's branch/worktree with prepare-worktree.sh; on exit 3, do not dispatch
+that agent, report it and keep the worktree (see run-management.md). Substitute
+placeholders and dispatch the selected fence verbatim. Each fence contains its agent's full
+ownership rules. Read only the numbered section for the stage now beginning. Do not preload
+later prompts.
 
 ## 1. E2E specialist agent
 

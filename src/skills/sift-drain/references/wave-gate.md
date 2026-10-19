@@ -209,7 +209,7 @@ Wave {{WAVE}} closed.
   tickets done:    <IDs>
   tickets blocked: <IDs and one-line reasons> | none
   tickets filed:   <IDs and titles> | none
-  code review: <command or model: N findings, M tickets filed> | skipped: <reason> | off
+  code review: <command or model: N findings, M tickets filed, S scratch files[; rule violation: <lines>]> | skipped: <reason> | off
   tests added:     <classes/counts; e2e test files/counts>
   suite status:    tests <N, M assertions> green; e2e <N> green | no e2e layer; lint clean
   waves:           <wave-status.sh, summarised in one line>

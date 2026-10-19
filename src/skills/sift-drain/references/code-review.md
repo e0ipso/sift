@@ -22,8 +22,9 @@ The reviewer is one of:
    context loss, search `git log` on the integration branch for each archived current-wave
    ticket ID and use the parent of the earliest match. Name any ticket with no match in the
    wave summary.
-3. Substitute the placeholders in the Reviewer prompt fence. From the project root, snapshot
-   the integration checkout to a temporary file outside it:
+3. Substitute the placeholders in the Reviewer prompt fence, with the review worktree as
+   `{{PROJECT_ROOT}}`. From the project root, snapshot the integration checkout to a
+   temporary file outside it:
 
    ```sh
    { git rev-parse HEAD; git status --porcelain; git diff HEAD | cksum
@@ -44,13 +45,34 @@ The reviewer is one of:
    `diff "$STATE_BEFORE" "$STATE_AFTER"`. Do not restore, reset, clean or check out anything,
    do not file tickets from the report, and do not land or test further work until the user
    answers. This is the one case where code review blocks the gate.
-6. Run `git status --porcelain` in the review worktree. Output there means the reviewer
-   wrote files despite the read-only rule; mention it in the wave summary. Then remove the
-   review worktree and its branch.
+6. List what the reviewer left in the review worktree:
+
+   ```sh
+   git -C "$REVIEW_WORKTREE" status --porcelain --untracked-files=all > "$REVIEW_STATUS"
+   grep -c '^?? ' "$REVIEW_STATUS"   # untracked scratch files
+   grep -v '^?? ' "$REVIEW_STATUS"   # changed tracked files
+   ```
+
+   Scratch files are allowed; give their count in the wave summary. Any other line means
+   the reviewer modified, deleted or staged a tracked file, which its prompt forbids. Report
+   that in the wave summary as a rule violation, with the lines. Copy each scratch script a
+   finding cites as evidence into the session's temporary directory. Then remove the review
+   worktree and its branch from the project root:
+
+   ```sh
+   git worktree remove --force "$REVIEW_WORKTREE"
+   git branch -d "$REVIEW_BRANCH"
+   ```
+
+   Git refuses to remove a worktree holding untracked files without `--force`. If
+   `git branch -d` refuses an unmerged branch, report it; do not force it.
 
 The snapshot check runs for every reviewer. A command such as `codex exec --yolo` has no
-sandbox, and a reviewer agent has this harness's write tools. The prompt forbids writes,
-but nothing enforces it, and ignored tracker files have no git history to restore.
+sandbox, and a reviewer agent has this harness's write tools. The prompt limits writes to
+scratch files in the review worktree or a temporary directory, but nothing enforces it. The
+snapshot covers the integration checkout and the tracker, whose ignored files have no git
+history to restore. Step 6 covers the review worktree. Neither sees writes elsewhere, such
+as containers or caches the project's tests create.
 
 A nonzero exit, an empty report, a report without a `findings:` count or one with
 `status: blocked` skips the stage: record the exit code, the reviewer's reason if it gave
@@ -64,6 +86,9 @@ workers verify it.
 - Drop findings without a location or concrete evidence. Count them in the wave summary.
 - Group the rest by root cause. Reserve IDs and file each group as a ticket of the fitting
   type, citing the location, evidence and the reviewer's command or model under Evidence.
+  When the evidence is a scratch script, cite the copy from step 6 and the command that
+  runs it. The drain removes the copy with the session's temporary directory; the ticket
+  keeps the reviewer's command and output.
   `blocker` becomes p1 and `major` p2, both in the current wave. `minor` becomes p3 in the
   next wave. `dx` findings follow the skill's upstream rule.
 - Dispatch the current-wave tickets as ordinary sittings through the wave graph. Do not
@@ -102,12 +127,25 @@ Each finding names the file and line and the concrete input or state that fails.
 naming, design preferences, speculative hardening and missing tests. Zero findings is a
 valid result; do not invent findings to justify the run.
 
-This review is read-only. Do not edit, create or delete files. Do not commit. Do not merge.
+When running something can show a finding, run it: the project's build, tests or linters,
+or a scratch script. Put the command and the output that shows the problem in `evidence`,
+or the scratch script's absolute path and what it printed. Run only what a finding needs;
+the wave gate runs the full suites after review.
+
+Write only scratch files: repro scripts, throwaway tests, build output. Put them inside
+{{PROJECT_ROOT}}, your review worktree, or in a temporary directory outside every checkout.
+Put a throwaway test in a new file, and never write through a symlink that leads out of the
+worktree. The orchestrator removes the worktree after the review. You may run the project's
+build, tests, linters and the containers its tests use. Never reinstall the shared dev
+environment, uninstall real components or run a destructive action a guard prevents. Stop
+the containers and fixtures you start.
+
+Do not edit or delete files tracked in git. Do not commit. Do not merge.
 Never `git push`. Never run `git checkout`, `git switch`, `git reset`, `git clean`,
 `git stash` or `git add`: ignored tracker files have no history to restore them from.
 Do not write tracker state. Do not edit the sift-drain skill. Never file,
 comment on, or patch an external tracker. Report upstream proposals as type: dx findings.
-Do not write patches; describe the fix in one line.
+Do not write patches; describe the fix in one line. A scratch script is evidence, not a fix.
 
 REPORT (only this, as plain text):
   status: done | blocked

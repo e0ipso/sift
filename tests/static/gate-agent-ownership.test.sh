@@ -137,7 +137,8 @@ assert_contains "$(contract_errors "$damaged")" \
   '## 1. E2E specialist agent: assigns a merge' "the inflected form is caught"
 
 # The optional code reviewer, from this harness or another one, only reports.
-# It commits nothing, so instead of the commit rules it must stay read-only.
+# It commits nothing and may write only scratch files, so instead of the commit
+# rules it carries its write limits and the evidence a run produces.
 review_errors() {
   local prompt flattened
   prompt="$(gate_prompt "$1" '## Reviewer prompt')"
@@ -145,8 +146,11 @@ review_errors() {
   flattened="$(printf '%s\n' "$prompt" | tr '\n' ' ')"
   for rule in \
     'Verify every named path' \
-    'This review is read-only.' \
-    'Do not edit, create or delete files.' \
+    'Put the command and the output that shows the problem in `evidence`' \
+    'Write only scratch files' \
+    'a temporary directory outside every checkout' \
+    'Never reinstall the shared dev environment' \
+    'Do not edit or delete files tracked in git.' \
     'Do not commit.' \
     'Do not merge.' \
     'Never `git push`.' \
@@ -154,6 +158,8 @@ review_errors() {
     'Do not write tracker state.' \
     'Do not edit the sift-drain skill.' \
     'Never file, comment on, or patch an external tracker.' \
+    'Do not write patches; describe the fix in one line.' \
+    'A scratch script is evidence, not a fix.' \
     'type: dx' \
     'findings: <count>'
   do
@@ -163,10 +169,10 @@ review_errors() {
 
 review="$repo/src/skills/sift-drain/references/code-review.md"
 
-test_case "the code reviewer prompt is read-only and leaves ownership to the orchestrator"
-assert_eq "" "$(review_errors "$review")" "every read-only rule remains inside the reviewer prompt"
+test_case "the code reviewer prompt limits writes to scratch files and leaves ownership to the orchestrator"
+assert_eq "" "$(review_errors "$review")" "every reviewer rule remains inside the reviewer prompt"
 
-test_case "a missing read-only rule fails the reviewer check"
+test_case "a missing reviewer rule fails the reviewer check"
 damaged="$(newdir)/code-review.md"
 sed 's/Do not commit\. //' "$review" > "$damaged"
 assert_not_contains "$(gate_prompt "$damaged" '## Reviewer prompt')" 'Do not commit.' \
@@ -176,9 +182,10 @@ assert_contains "$(review_errors "$damaged")" 'reviewer: missing Do not commit.'
 
 # Every reviewer is checked by comparing integration state before and after
 # it runs. Execute the documented snapshot command on a real checkout.
-snapshot_cmd() {
-  awk '
-    /^[[:space:]]*```sh$/ { inside = 1; next }
+# sh_block <file> <n> prints the nth ```sh block without its list indent.
+sh_block() {
+  awk -v want="$2" '
+    /^[[:space:]]*```sh$/ { n++; inside = (n == want); next }
     inside && /^[[:space:]]*```$/ { exit }
     inside { sub(/^   /, ""); print }
   ' "$1"
@@ -189,7 +196,7 @@ snapshot() {
 }
 
 test_case "the reviewer snapshot ignores the review worktree and catches outside writes"
-cmd="$(snapshot_cmd "$review")"
+cmd="$(sh_block "$review" 1)"
 assert_contains "$cmd" 'find .ai/sift -type f' "the snapshot covers the ignored tracker"
 assert_contains "$cmd" 'git ls-files --others' "the snapshot covers untracked files"
 d="$(newdir)"
@@ -227,5 +234,32 @@ assert_eq 1 "$(cmp -s "$states/before" "$states/ref"; echo $?)" "a new ref is ca
 git -C "$d" branch -q -D stray
 snapshot "$d" "$states/restored"
 assert_eq 0 "$(cmp -s "$states/before" "$states/restored"; echo $?)" "the snapshot is stable once state is restored"
+
+# Step 6 sorts what the reviewer left in its worktree: untracked scratch files
+# are counted, any other status line is a changed tracked file. Run the
+# documented commands on the same checkout.
+test_case "the review worktree check counts scratch files apart from tracked changes"
+status_cmd="$(sh_block "$review" 2)"
+remove_cmd="$(sh_block "$review" 3)"
+assert_contains "$status_cmd" 'git -C "$REVIEW_WORKTREE" status --porcelain' "step 6 lists the review worktree"
+assert_contains "$remove_cmd" 'git worktree remove --force' "step 6 removes a worktree that holds scratch files"
+review_status() {
+  (cd "$d" && REVIEW_WORKTREE="$wt" REVIEW_STATUS="$states/status" bash -c "$status_cmd")
+}
+snapshot "$d" "$states/before-review"
+wt="$(newdir)/review"
+git -C "$d" worktree add -q -b sift-review-wave-2 "$wt" main
+assert_eq 0 "$(review_status)" "a clean worktree has no scratch files and no violation"
+mkdir "$wt/scratch"
+printf 'repro\n' > "$wt/scratch/repro.sh"
+printf 'test\n' > "$wt/scratch/throwaway.test.sh"
+assert_eq 2 "$(review_status)" "each scratch file counts, and scratch files are no violation"
+printf 'edited\n' > "$wt/code.txt"
+assert_eq "$(printf '2\n M code.txt')" "$(review_status)" "a tracked edit is listed apart from the scratch count"
+(cd "$d" && REVIEW_WORKTREE="$wt" REVIEW_BRANCH=sift-review-wave-2 bash -c "$remove_cmd") >/dev/null
+assert_no_dir "$wt" "the worktree is removed with its scratch files"
+assert_eq "" "$(git -C "$d" branch --list sift-review-wave-2)" "the review branch is deleted"
+snapshot "$d" "$states/after-review"
+assert_eq 0 "$(cmp -s "$states/before-review" "$states/after-review"; echo $?)" "the integration checkout and tracker are as before"
 
 summary

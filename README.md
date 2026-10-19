@@ -23,8 +23,11 @@ code_review:
 ```
 
 `command` runs another harness non-interactively, with the review prompt on standard input
-and the report on standard output. Without `command`, the harness running the drain reviews
-on `model`, or on its own model when `model` is absent. `command` wins over `model`.
+and the report on standard output. The reviewer works in its own worktree, where it may run
+the project's build and tests and write scratch scripts to prove a finding. Give `command`
+a mode that allows commands and writes; a read-only sandbox blocks scratch scripts and most
+test runs. Without `command`, the harness running the drain reviews on `model`, or on its
+own model when `model` is absent. `command` wins over `model`.
 Wrap `command` in single quotes when it contains ` #` or `: `, which YAML would read as a
 comment or a mapping, and double each single quote inside it.
 

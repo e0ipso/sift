@@ -870,3 +870,50 @@ Phase 6 committed as 1d21563 after its green parent full suite. Phase 7 readines
 ### Phase 7 verified
 
 Parent inspected specification/extractor changes and restored the existing milestone-preservation assertion in the expanded old-tree refresh test. Fresh retained refresh passed 14 cases/77 assertions; asset synchronization reports README 62516 bytes, operation script and five schema files matching. Full tests/run.sh passed 706 tests, 4555 assertions, zero failures and six documented skips in 540 seconds. Complete output read from /tmp/sift-plan8-phase7-verification.log; diff check passed. Parent also executed every Self Validation owner with retained disposable fixtures before this full suite. No implementation change followed the proving run. POST_PHASE.md has no additional lint/format command. Commit precedes final POST_EXECUTION checks and the one-shot review mechanism.
+
+### Final POST_EXECUTION validation
+
+Phase 7 committed as 6e009d8. Parent executed the final Self Validation owners with retained disposable trees, then the complete quiescent suite, and read their outputs/statuses. The complete suite is the test/static-analysis gate: 706 tests, 4555 assertions, zero failures and six documented skips. No implementation, configuration, test or normative document changed afterward; only execution records are being finalized. A fresh Git status check was clean after the phase commit, all eight task frontmatters are completed, and canonical/shipped README comparison passed. No repeat broad run is needed for the same verified implementation.
+
+| Self Validation items | Fresh command and log | Retained evidence |
+|---|---|---|
+| 1, 3, 4, 6, 10 | SIFT_TEST_KEEP=1 bash tests/benchmarks/drain-execution-observability.sh; /tmp/sift-plan8-self-execution.log | /tmp/sift-test-drain-execution-observability.sh.aphWFp/artifacts; five cases/21 assertions, zero failures/skips, three development deliveries and zero full deliveries with scoped fixture deferral |
+| 2, 3, 8, 9 | SIFT_TEST_KEEP=1 bash tests/scripts/drain-log.test.sh; /tmp/sift-plan8-self-drain-log.log | /tmp/sift-test-drain-log.vYk9UM; 86 cases/1512 assertions, zero failures/skips, including real concurrent/killed publishers, exact interval/accounting, immutable legacy bytes and stable/revised ETA bounds |
+| 5, 6 | SIFT_TEST_KEEP=1 bash tests/scripts/check-evidence.test.sh; /tmp/sift-plan8-self-check-evidence.log | /tmp/sift-test-check-evidence.K91kZT; 15 cases/445 assertions, zero failures/skips, actual input/config/platform/membership changes and changed-during-command rejection |
+| 4 | SIFT_TEST_KEEP=1 bash tests/scripts/prepare-worktree.test.sh; /tmp/sift-plan8-self-prepare.log | /tmp/sift-test-prepare-worktree.GRZHYH; 12 cases/93 assertions, zero failures/skips, real setup/Git failures and clock gaps |
+| 7 | SIFT_TEST_KEEP=1 bash tests/scripts/review-state.test.sh; /tmp/sift-plan8-self-review.log | /tmp/sift-test-review-state.YE55vT; five cases/68 assertions, zero failures/skips, exact event allowance and historical/ticket/config/reservation/Git tamper refusal |
+| 10 | SIFT_TEST_KEEP=1 bash tests/benchmarks/drain-context.sh; /tmp/sift-plan8-self-context.log | /tmp/sift-test-drain-context.sh.QjYNVX; preserved 32-dispatch/four-context read trace, provider/token measurements unavailable |
+| 11 | bash src/skills/sift-init/scripts/sync-assets.sh; /tmp/sift-plan8-self-sync.log; SIFT_TEST_KEEP=1 bash tests/scripts/convention-assets.test.sh; /tmp/sift-plan8-phase7-refresh.log | /tmp/sift-test-convention-assets.X2UtiO; 14 cases/77 assertions, zero failures/skips, printed old-tree refresh preserves config/milestones/tickets/reservations/legacy/event bytes |
+| 11 and all mechanical gates | bash tests/run.sh; /tmp/sift-plan8-phase7-verification.log | Complete summary includes real-BSD and shellcheck unavailability, existing textual-count blind spot and unreachable sync precondition; gawk unavailable and nawk aliases mawk |
+
+Success Criteria 1-12 map to the tested behavior and documentation above and the earlier phase evidence. AGENTS.md remains correct: ticket lifecycle/IDs/allocation and parsed inventories are unchanged; only .ai/sift/.gitignore is tracked. Parsed README section, allocator agreement, portability and asset checks pass. Cleanup assessment found no abandoned runtime path or generated drift requiring a fix; the explicitly requested legacy reader remains supported. Kenkeep freshness completed with 29 potentially stale nodes, whose old descriptions do not override live contracts. No production/provider throughput, token, agent-adherence or real-BSD claim is made. POST_EXECUTION is green before the one-shot review mechanism.
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-10-22
+**Code Review**: Skipped; Code review is disabled. Set code_review.enabled to true in config/config.yaml or select Enable code review in Customize to opt in.
+
+### Results
+
+All eight tasks completed across seven verified phases. Drain now publishes immutable correlated execution events, reconstructs concurrent activity and authoritative delivery, reuses checks only with matching input evidence, instruments preparation and protects review state, and retains graph-constrained estimate origins and revisions. Worker/gate contracts assign final verification ownership and retain retry/repair provenance. Runnable real-path measurements, normative examples, shared extraction guards and generated assets agree.
+
+The final full suite passed 706 tests, 4555 assertions, zero failures and six documented skips in 540 seconds. Complete output is /tmp/sift-plan8-phase7-verification.log; the fresh retained Self Validation commands and artifact roots are listed above. The equivalent-obligation fixture measured two check executions/eight publications without shared evidence versus one execution/five publications with reuse. These counts do not establish production throughput or model performance.
+
+Implementation commits: d6f865a, fbf0422, 1cdf94a, 33cb158, eaabdad, 1d21563 and 6e009d8. The separately authorized Kenkeep/Strikethroo update was committed as c9a9de5. No push or PR was performed.
+
+### Noteworthy Events
+
+Initial execution halted for pre-existing tooling changes, then resumed after the user authorized their separate commit. Parent verification repaired lazy-layout guards, quoted preparation paths, incomplete-clock handling, cancelled-history retry eligibility, missing wave reporting, fresh-clone ETA reproduction and preservation assertions before their respective gates passed. The dependency ordering was corrected so accounting consumes real check evidence.
+
+The one-shot review mechanism ran after POST_EXECUTION passed. Its exact outcome is:
+
+```json
+{"kind":"skipped","reason":"review-disabled","detail":"Code review is disabled. Set code_review.enabled to true in config/config.yaml or select Enable code review in Customize to opt in.","action":"continue","codeReview":"Skipped; Code review is disabled. Set code_review.enabled to true in config/config.yaml or select Enable code review in Customize to opt in."}
+```
+
+No reviewer findings were produced or acted on because review was disabled. This skipped result is not a certified clean review. The originally captured cumulative base was preserved; the review mechanism was not rerun.
+
+### Necessary follow-ups
+
+No required implementation follow-ups remain. Real BSD execution and shellcheck were unavailable; the suite records those and its existing textual-count/unreachable-precondition skips, with narrowed awk coverage. Kenkeep reports 29 potentially stale nodes for future curation. Agent adherence, provider scheduling and representative production performance remain outside the demonstrated fixture evidence.

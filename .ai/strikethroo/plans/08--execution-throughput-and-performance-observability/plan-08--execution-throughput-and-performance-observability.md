@@ -748,10 +748,10 @@ Task 003 owns the new check helper and its case. Task 004 owns preparation and r
 **Parallel Tasks:**
 - ✔️ Task 006: Wire worker and gate evidence ownership contracts, completed, depends on 002, 003, 004 and 005.
 
-### Phase 6: Real execution measurement
-**Status:** pending
+### ✅ Phase 6: Real execution measurement
+**Status:** completed
 **Parallel Tasks:**
-- Task 007: Measure real execution and verification paths, depends on 006.
+- ✔️ Task 007: Measure real execution and verification paths, completed, depends on 006.
 
 ### Phase 7: Normative specification and shipped assets
 **Status:** pending
@@ -854,3 +854,11 @@ Phase 4 committed as 33cb158 after its green parent full suite. Phase 5 readines
 ### Phase 5 verified
 
 Parent inspected the correlated worker, specialist, reviewer and recovery contracts and their executable guards. Attempts stay live through same-attempt ticket outcome/landing and coordinator cleanup. Final check ownership validates all obligations after the last input change; review permissions retain exact receipt authorization and historical tamper protection. Full tests/run.sh passed 702 tests, 4516 assertions, zero failures and six documented skips in 479 seconds. Complete output read from /tmp/sift-plan8-phase5-verification.log; diff check passed. Kenkeep freshness reports 29 potentially stale nodes; live interfaces govern where snapshots describe older contracts. POST_PHASE.md defines no additional lint/format command. Phase 5 will be committed before measurement dispatch.
+
+### Phase 6 dispatch
+
+Phase 5 committed as eaabdad after its green parent full suite. Phase 6 readiness passed for task 007. Resolver selected gpt-5.6-sol/high; fresh T3 capabilities advertise both, and the delegate response matches provider/model/options. Active task: node:delegated-task:command%3Amcp%3Abbce80ee-93ab-4685-aaaa-f0d59a7048cd%3Adelegate-task%3Asift-plan8-task7-20261022-v1. Scope is real disposable execution fixtures, equivalent-obligation command/publication/coordination counts and measurement documentation, with all Self Validation procedures mapped to reproducible evidence. Parent owns the quiescent full-suite phase gate; final normative shipping remains task 008.
+
+### Phase 6 verified
+
+Parent inspection requested two corrections: replace the temporary ETA handoff dependency with checked-in reproducible cases, and positively assert the three development deliveries and preserved mixed-group member. The implementer completed both. Parent then ran the real fixture fresh: five cases, 21 assertions, zero failures/skips; retained artifacts are /tmp/sift-test-drain-execution-observability.sh.ztGuDw/artifacts and complete output is /tmp/sift-plan8-phase6-demo.log. Equivalent requests execute two checks/eight publications without shared evidence versus one check/five publications with reuse. The full fixture retains nine requests, seven executions, 110 events, 44 event-field reads, 83 explicit receipts and three validations, with three development deliveries and zero full deliveries under actual fixture compatibility deferral. These are scripted helper counts, not production throughput. Full tests/run.sh passed 703 tests, 4526 assertions, zero failures and six documented skips in 526 seconds; complete output read from /tmp/sift-plan8-phase6-verification.log. Diff check passed; POST_PHASE.md adds no lint/format command. Commit precedes task 008 dispatch.

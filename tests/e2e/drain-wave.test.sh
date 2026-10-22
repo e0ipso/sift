@@ -216,4 +216,18 @@ else
   t_fail 'paged deltas return fewer bytes than repeated full reads' "$before_bytes -> $after_bytes"
 fi
 
+test_case "real execution observability measures equivalent final obligations"
+run_cmd "$root" "$REPO_ROOT/tests/benchmarks/drain-execution-observability.sh"
+assert_eq 0 "$R_STATUS" "the disposable execution path finishes"
+assert_contains "$R_OUT" 'fixture_version=1' "the measurement identifies its fixture input"
+assert_contains "$R_OUT" 'project_prefix=LAB' "the fixture cannot target Sift's own prefix"
+assert_contains "$R_OUT" 'baseline_check_executions=2' "the baseline executes both equivalent obligations"
+assert_contains "$R_OUT" 'reuse_check_executions=1' "matching final evidence executes once"
+assert_contains "$R_OUT" 'baseline_event_publications=8' "two baseline executions publish every check boundary"
+assert_contains "$R_OUT" 'reuse_event_publications=5' "reuse replaces the second four-event execution with one decision"
+assert_contains "$R_OUT" 'authorized_compatibility_deferrals=1' "the actual scoped deferral remains separate"
+assert_contains "$R_OUT" 'fully_verified_product=0' "deferred compatibility never becomes full delivery"
+assert_contains "$R_OUT" 'measurement=scripted helper wiring; no provider or scheduler invoked' \
+  "counts do not claim autonomous execution or throughput"
+
 summary

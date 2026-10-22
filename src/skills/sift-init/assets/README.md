@@ -80,6 +80,8 @@ reference with the config change.
 ├── MILESTONES.md              ← milestone definitions
 ├── .id-sequence/              ← reservation marks; created on first allocation
 ├── RUNLOG.md                  ← diagnostic log; created on first dispatch
+├── runs/                      ← correlated diagnostics; created on first event
+│   └── <run-id>/events/<event-id>/event.md
 ├── config/
 │   └── config.yaml            ← ticket prefix
 ├── scripts/
@@ -255,6 +257,136 @@ Append-only. One row per drain event; rows are never rewritten.
 Each dispatch or return call writes one row per ticket with a shared timestamp. Each phase
 writes one ticketless row. Readers group dispatches by epoch and calculate with that integer,
 not UTC text. Writers use `date -u +%Y-%m-%dT%H:%M:%SZ` and `date +%s`.
+
+### Immutable execution event schema, version 1
+
+Correlated callers use the Drain skill's `scripts/drain-log.sh event KIND key=value...`.
+Each operand is one shell argument; quote values containing spaces. This mode writes only
+`runs/<run-id>/events/<event-id>/event.md`. Existing `dispatch`, `phase`, `return` and
+`report` invocations retain their six-column behavior. Events remain diagnostic;
+ticket front-matter owns ticket status.
+
+An event begins with `---`, followed by unique `key: 'value'` lines, then `---`, one blank
+line, and `# Execution event`. All scalars, including numbers, are single quoted. Double
+an embedded single quote; a backslash is literal. Values are 1–4096 printable ASCII bytes,
+including spaces and punctuation. Newlines, tabs, control bytes and non-ASCII bytes are
+rejected; encode such external metadata before passing it. There are no nested mappings,
+lists, comments, nulls, extra body lines or unlisted fields. Readers accept any field order.
+The writer emits a final newline; readers also accept an unterminated last body line.
+
+The following table is the complete field set. Fields are optional unless required below.
+An identity is 1–128 ASCII letters/digits, dots, underscores or hyphens, starting with a
+letter/digit. An integer is `0` or a nonzero digit followed by digits, at most 15 digits.
+Ticket IDs keep the configured prefix and four-or-more digits without changing allocation.
+
+| Fields | Values |
+|---|---|
+| `version` | Required, exactly `1` |
+| `event_id`, `run_id` | Required identities |
+| `kind` | Required kind from the next table |
+| `actor` | Required: `coordinator`, `worker`, `gate`, `reviewer`, `helper` |
+| `timestamp` | Required integer, Unix epoch seconds |
+| `actor_id`, `wave_id`, `sitting_id`, `gate_id`, `attempt_id`, `retry_of`, `span_id`, `origin_attempt_id`, `origin_gate_id`, `root_cause`, `check_id` | Identities |
+| `wave` | Positive integer, existing ticket wave number |
+| `members` | Ordered comma-separated distinct ticket IDs, no spaces; `-` means explicitly empty |
+| `ticket_id` | One ticket ID |
+| `duration` | Nonnegative integer seconds; zero is valid |
+| `activity` | `preparation`, `orientation`, `implementation`, `verification`, `review`, `landing`, `cleanup` |
+| `outcome` | `done`, `failed`, `blocked`, `wontfix`, `superseded`, `cancelled`, `passed`, `reused`, `invalidated`, `deferred` |
+| `reason` | `dependencies`, `write-ownership`, `resource-admission`, `provider-limits`, `user-input`, `setup-failure`, `command-failure`, `interrupted`, `retry`, `repair`, `missing-evidence`, `changed-inputs`, `unchanged-inputs`, `unavailable-environment`, `authorized-deferral`, `other` |
+| `reason_detail` | Opaque scalar; required for reason `other` |
+| `wait_class` | `external` or `actionable` |
+| `work_class` | `product`, `infrastructure`, `unknown`; absent means unknown |
+| `stage` | `development` or `compatibility` |
+| `relation` | `follow-up` or `repair` |
+| `exit_status` | Integer 0–255 |
+| `external_id`, `evidence_ref` | Opaque scalars; never evaluated, fetched or interpreted as shell commands |
+
+Every kind requires the common fields above. This table gives additional required fields.
+A starred identity defaults to the generated event identity on publication; it must be
+present in the stored record. A caller may supply a stable identity explicitly instead.
+
+| Kind | Additional required fields |
+|---|---|
+| `run-start`, `run-resume` | None |
+| `run-interrupt` | `reason` |
+| `run-end` | `outcome` |
+| `wave-start` | `wave_id`*, `wave` |
+| `wave-end` | `wave_id`, `outcome` |
+| `sitting` | `sitting_id`*, `wave_id`, nonempty `members` |
+| `gate` | `gate_id`*, `wave_id` |
+| `attempt-start` | `attempt_id`*, `wave_id`, `members`, exactly one of `sitting_id` or `gate_id` |
+| `attempt-interrupt` | `attempt_id`, `reason` |
+| `attempt-resume` | `attempt_id` |
+| `attempt-end` | `attempt_id`, `outcome` |
+| `span-start` | `span_id`*, `attempt_id`, `activity` |
+| `span-end` | `span_id`, `attempt_id`, `duration`, `outcome` |
+| `wait-start` | `span_id`*, `attempt_id`, `reason`, `wait_class` |
+| `wait-end` | `span_id`, `attempt_id`, `duration` |
+| `ticket-outcome` | `attempt_id`, `ticket_id`, `outcome` |
+| `landed` | `attempt_id`, `ticket_id`, `evidence_ref` |
+| `link` | `relation`, `ticket_id`, at least one of `origin_attempt_id` or `origin_gate_id` |
+| `check` | `attempt_id`, `check_id`, `stage`, `outcome`, `evidence_ref` |
+
+`members` appears only on `sitting` and `attempt-start`. An empty membership is permitted
+only for gate attempts. `retry_of` appears only on `attempt-start` and cannot refer to
+that same attempt. `sitting_id` and `gate_id` are mutually exclusive. If `ticket_id` and
+`members` both appear, the ticket must be a member. Wait reasons are limited to dependencies,
+write ownership, resource admission, provider limits and user input, using their exact
+spellings in the field table. Ticket outcomes allow only `done`, `failed`, `blocked`,
+`wontfix`, `superseded` and `cancelled`. Check outcomes allow only `passed`, `failed`,
+`reused`, `invalidated` and `deferred`. Passed/failed checks require `exit_status` matching
+the outcome; other check outcomes require `reason`. The evidence reference names a separate
+manifest or log; this record schema does not establish evidence reuse or deferral authority.
+
+`version` defaults to `1`, and `timestamp` defaults to one `date +%s` reading. An explicit
+timestamp supports deterministic producers. The writer always generates `event_id` and
+rejects a caller-supplied one or a `kind=` operand. `run_id` is required except on
+`run-start`, where omission reserves a new `run.XXXXXXXXXX` directory. Publish that start
+before preparing work. For example, `drain-log.sh event run-start actor=coordinator`
+returns the absolute final record path on stdout. Success exits 0; validation/setup/write
+errors exit 2 with a diagnostic on stderr and no publication receipt.
+
+`drain-log.sh event-validate FILE` validates a whole record without writing or printing it.
+`drain-log.sh event-fields FILE` validates first, then prints decoded `key<TAB>value` lines.
+It emits no partial fields on failure. For example, pass the returned path to
+`event-fields` and extract `run_id` with `awk -F '\t' '$1 == "run_id" {print $2}'`.
+Neither command establishes that a file is published: readers enumerate only final
+`events/*/event.md` files and check that `run_id` and `event_id` match the enclosing paths.
+As with the legacy subcommands, `--` is accepted only before the
+subcommand; all later arguments are operands. Only `SIFT_ROOT` and `SIFT_PREFIX` affect
+root/prefix selection; event correlation is explicit in operands.
+
+A run identity is project-scoped; all other identities and references are scoped to that
+run. Timestamps and scan order never define parentage. A sitting retains its original
+ordered membership. Each attempt declares its own subset; a retry uses a new attempt
+identity and `retry_of`, preserving successful members from earlier attempts. A resume
+keeps the run and attempt identity and opens new spans; restarting uses a new attempt.
+Gate-only work has a gate identity and an attempt with `members=-`. Repeated publications
+remain separate immutable observations. Readers must deduplicate matching semantic events
+by kind and subject identity, and diagnose conflicting repetitions or terminal outcomes.
+
+Validation covers the complete local grammar, not the history graph. Unknown references
+are permitted so missing or concurrently arriving evidence stays observable. Reconstruction
+must check retry subsets, parent membership, conflicting declarations, orphan references,
+resume-after-terminal, timestamp order and duration agreement. Equal timestamps and zero
+durations are legal. A successful worker outcome or a landed event alone is not verified
+delivery. Unknown versions, keys, actors, reasons or malformed values are rejected.
+
+Each producer reserves an exclusive `event.XXXXXXXXXX` directory with `mktemp -d`, writes
+its validated record to `event.pending` there, then renames it in the same directory to
+`event.md`. No other producer reuses that directory, and published files are never replaced.
+There is no shared sequence or global lock. A directory without `event.md` is incomplete
+publication, even if `event.pending` looks complete; preserve it after a crash. A scan may
+observe missing references while another producer publishes. Process-crash preservation
+is supported; power-loss durability beyond filesystem guarantees is not promised. A crash
+after rename but before stdout can leave a published record without a receipt; inspect the
+observed records before retrying a semantic event.
+
+Migration is additive: update Drain and refresh this specification using the existing
+installed-copy commands. No paths or keys are renamed and no historical file is converted.
+Keep `RUNLOG.md` unchanged. Callers adopt event mode explicitly; legacy records cannot
+establish the new attempt, worker or gate identities.
 
 ## Rules for agents
 

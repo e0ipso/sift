@@ -1147,4 +1147,288 @@ assert_eq "" "$(readme_runlog_schema)" "an anchor that no longer matches yields 
 README="$REPO_ROOT/README.md"
 assert_ne "" "$(readme_runlog_schema)" "and the real README still extracts, so the case put it back"
 
+# --- Immutable execution events ---------------------------------------------
+
+# Read the bounded quoted scalar grammar, not general YAML. Escaped quotes are
+# doubled; backslashes and punctuation are literal data.
+event_field() {
+  awk -v key="$2" '
+    index($0, key ": ") == 1 {
+      s = substr($0, length(key) + 4, length($0) - length(key) - 4)
+      q = sprintf("%c", 39); gsub(q q, q, s); print s
+    }' "$1"
+}
+
+test_case "concurrent first and later event writers retain distinct complete records"
+events_root="$(newdir)"; make_tree "$events_root" SFT
+# All producers use an identical timestamp, including the second batch. The
+# first batch races on creation of runs/, the run, and events/ as well as writes.
+for batch in first later; do
+  pids=()
+  for producer in 1 2 3 4 5 6 7 8; do
+    env SIFT_ROOT="$events_root" "$DRAINLOG" event attempt-start \
+      run_id=run-race wave_id=wave-race sitting_id=sitting-race \
+      members=SFT-0001,SFT-0002 actor=worker timestamp=1000 \
+      "external_id=$batch producer $producer: task='opaque'\\id" \
+      > "$events_root/$batch-$producer.out" 2> "$events_root/$batch-$producer.err" &
+    pids+=("$!")
+  done
+  for pid in "${pids[@]}"; do
+    writer_status=0; wait "$pid" || writer_status=$?
+    assert_eq 0 "$writer_status" "$batch producer succeeded"
+  done
+  for producer in 1 2 3 4 5 6 7 8; do
+    published="$(cat "$events_root/$batch-$producer.out")"
+    assert_file "$published" "stdout names the final record"
+    if [ -f "$published" ]; then
+      assert_eq 1000 "$(event_field "$published" timestamp)" "controlled timestamp survives"
+      assert_eq SFT-0001,SFT-0002 "$(event_field "$published" members)" "membership is ordered and explicit"
+      assert_eq "$batch producer $producer: task='opaque'\\id" "$(event_field "$published" external_id)" "opaque data round trips"
+      assert_eq "$(basename "$(dirname "$published")")" "$(event_field "$published" event_id)" "record identity names its private directory"
+      run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" event-validate "$published"
+      assert_eq 0 "$R_STATUS" "every final record is complete and valid"
+      if [ "$batch" = first ]; then cp "$published" "$events_root/saved-$producer.md"; fi
+    fi
+  done
+done
+if [ -d "$events_root/.ai/sift/runs" ]; then
+  assert_eq 16 "$(find "$events_root/.ai/sift/runs" -name event.md | wc -l | tr -d ' ')" "no concurrent publication is lost"
+  assert_eq 16 "$(cat "$events_root"/*.out | sort -u | wc -l | tr -d ' ')" "same-second producers never share identity"
+fi
+for producer in 1 2 3 4 5 6 7 8; do
+  published="$(cat "$events_root/first-$producer.out")"
+  if [ -f "$published" ]; then
+    if cmp -s "$events_root/saved-$producer.md" "$published"; then
+      t_ok "later writers preserve earlier bytes"
+    else t_fail "later writers preserve earlier bytes"; fi
+  fi
+done
+assert_no_file "$events_root/.ai/sift/RUNLOG.md" "correlated mode never writes the legacy log"
+
+event_call() {
+  run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" event "$@"
+  assert_eq 0 "$R_STATUS" "event $1 publishes"
+  event_path=$R_OUT
+}
+
+test_case "run, ordered sitting, narrowed retry, resume and gate-only work keep explicit identities"
+events_root="$(newdir)"; make_tree "$events_root" SFT
+event_call run-start actor=coordinator timestamp=1000
+run_record=$event_path
+if [ -f "$run_record" ]; then
+  run_id=$(event_field "$run_record" run_id)
+  event_call wave-start "run_id=$run_id" actor=coordinator timestamp=1000 wave=2
+  wave_id=$(event_field "$event_path" wave_id)
+  event_call sitting "run_id=$run_id" "wave_id=$wave_id" actor=coordinator \
+    timestamp=1000 members=SFT-0002,SFT-0001 work_class=product
+  sitting_id=$(event_field "$event_path" sitting_id)
+  event_call attempt-start "run_id=$run_id" "wave_id=$wave_id" "sitting_id=$sitting_id" \
+    actor=worker timestamp=1000 members=SFT-0002,SFT-0001
+  first_attempt=$(event_field "$event_path" attempt_id)
+  event_call ticket-outcome "run_id=$run_id" "attempt_id=$first_attempt" actor=worker \
+    timestamp=1000 ticket_id=SFT-0002 outcome=done
+  event_call landed "run_id=$run_id" "attempt_id=$first_attempt" actor=coordinator \
+    timestamp=1000 ticket_id=SFT-0002 evidence_ref=commit:abc
+  event_call attempt-end "run_id=$run_id" "attempt_id=$first_attempt" actor=worker \
+    timestamp=1000 outcome=failed
+  event_call attempt-start "run_id=$run_id" "wave_id=$wave_id" "sitting_id=$sitting_id" \
+    "retry_of=$first_attempt" actor=worker timestamp=1000 members=SFT-0001
+  retry_attempt=$(event_field "$event_path" attempt_id)
+  assert_ne "$first_attempt" "$retry_attempt" "retry identity is independent of the unchanged clock"
+  assert_eq "$first_attempt" "$(event_field "$event_path" retry_of)" "retry names its originating attempt"
+  assert_eq SFT-0001 "$(event_field "$event_path" members)" "completed member is excluded explicitly"
+  event_call attempt-interrupt "run_id=$run_id" "attempt_id=$retry_attempt" actor=worker \
+    timestamp=1000 reason=interrupted
+  event_call run-interrupt "run_id=$run_id" actor=coordinator timestamp=1000 reason=interrupted
+  event_call run-resume "run_id=$run_id" actor=coordinator timestamp=1000
+  assert_eq "$run_id" "$(event_field "$event_path" run_id)" "resume keeps the run"
+  event_call attempt-resume "run_id=$run_id" "attempt_id=$retry_attempt" actor=worker timestamp=1000
+  assert_eq "$retry_attempt" "$(event_field "$event_path" attempt_id)" "resume keeps the attempt"
+  event_call gate "run_id=$run_id" "wave_id=$wave_id" actor=coordinator timestamp=1000
+  gate_id=$(event_field "$event_path" gate_id)
+  event_call attempt-start "run_id=$run_id" "wave_id=$wave_id" "gate_id=$gate_id" \
+    actor=gate timestamp=1000 members=- work_class=infrastructure
+  gate_attempt=$(event_field "$event_path" attempt_id)
+  assert_eq - "$(event_field "$event_path" members)" "gate-only attempt has an explicit empty membership"
+  assert_eq '' "$(event_field "$event_path" sitting_id)" "gate does not invent a ticket sitting"
+  event_call span-start "run_id=$run_id" "attempt_id=$gate_attempt" actor=helper \
+    timestamp=1000 activity=verification stage=development
+  span_id=$(event_field "$event_path" span_id)
+  event_call span-end "run_id=$run_id" "attempt_id=$gate_attempt" "span_id=$span_id" \
+    actor=helper timestamp=1000 duration=0 outcome=failed evidence_ref='/tmp/check logs/one'
+  assert_eq 0 "$(event_field "$event_path" duration)" "zero duration is valid"
+  event_call check "run_id=$run_id" "attempt_id=$gate_attempt" actor=helper timestamp=1000 \
+    check_id=check-build stage=development outcome=failed exit_status=1 evidence_ref='/tmp/manifest'
+  event_call link "run_id=$run_id" actor=coordinator timestamp=1000 \
+    "origin_attempt_id=$gate_attempt" "origin_gate_id=$gate_id" \
+    ticket_id=SFT-0003 relation=follow-up root_cause=broken-build
+  assert_eq "$gate_attempt" "$(event_field "$event_path" origin_attempt_id)" "follow-up names the failed attempt"
+  assert_eq "$gate_id" "$(event_field "$event_path" origin_gate_id)" "follow-up retains its gate"
+  for reason in dependencies write-ownership resource-admission provider-limits user-input; do
+    event_call wait-start "run_id=$run_id" "attempt_id=$retry_attempt" actor=worker timestamp=1000 \
+      "reason=$reason" wait_class=external
+    wait_id=$(event_field "$event_path" span_id)
+    event_call wait-end "run_id=$run_id" "attempt_id=$retry_attempt" "span_id=$wait_id" \
+      actor=worker timestamp=1000 duration=0
+  done
+  # A reader must distinguish unknown references from malformed syntax; the
+  # writer does not require a terminal, or scan history to infer membership.
+  event_call span-end "run_id=$run_id" attempt_id=unknown span_id=unknown \
+    actor=worker timestamp=1000 duration=0 outcome=failed
+  for record in "$events_root/.ai/sift/runs/$run_id/events"/*/event.md; do
+    run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" event-validate "$record"
+    assert_eq 0 "$R_STATUS" "the public validator accepts every lifecycle record"
+  done
+  # Unknown versions and truncated records fail even when they came from a real
+  # successful producer, so malformed-file checks cannot pass vacuously.
+  for damage in version actor timestamp duplicate truncated; do
+    case "$damage" in
+      version) sed "s/version: '1'/version: '2'/" "$run_record" > "$events_root/bad.md" ;;
+      actor) sed "s/actor: 'coordinator'/actor: 'stranger'/" "$run_record" > "$events_root/bad.md" ;;
+      timestamp) sed "s/timestamp: '1000'/timestamp: '-1'/" "$run_record" > "$events_root/bad.md" ;;
+      duplicate) sed "/version: /p" "$run_record" > "$events_root/bad.md" ;;
+      truncated) sed '$d' "$run_record" > "$events_root/bad.md" ;;
+    esac
+    run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" event-validate "$events_root/bad.md"
+    assert_eq 2 "$R_STATUS" "$damage record is rejected"
+    assert_contains "$R_ERR" 'error: execution event:' "refusal is diagnosed"
+  done
+fi
+
+test_case "malformed event fields are refused before any directory or record is written"
+events_root="$(newdir)"; make_tree "$events_root" SFT
+for bad in version=2 actor=stranger timestamp=-1 timestamp=1.5 timestamp=01 \
+  timestamp=1000000000000000 run_id=../escape wave_id=../escape \
+  members=SFT-001 members=SFT-0001,SFT-0001 members=SFT-0001, members=- \
+  reason=guess wait_class=guess work_class=guess stage=guess duration=-1 \
+  unknown=value external_id= event_id=chosen kind=chosen \
+  $'external_id=opaque\nreason=retry' $'external_id=opaque\tdata'; do
+  # Replace a valid required operand, rather than testing only duplicate-key
+  # detection when the intended assertion is value validation.
+  args=(run_id=run-invalid wave_id=wave-1 sitting_id=sitting-1 members=SFT-0001 actor=worker timestamp=1000)
+  filtered=()
+  for arg in "${args[@]}"; do
+    [ "${arg%%=*}" = "${bad%%=*}" ] || filtered+=("$arg")
+  done
+  run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" event attempt-start "${filtered[@]}" "$bad"
+  assert_eq 2 "$R_STATUS" "invalid $bad exits 2"
+  assert_contains "$R_ERR" 'error: execution event:' "invalid field is diagnosed"
+  assert_eq '' "$R_OUT" "no publication receipt on refusal"
+done
+run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" event attempt-start \
+  run_id=run-invalid wave_id=wave-1 sitting_id=sitting-1 gate_id=gate-1 \
+  members=SFT-0001 actor=worker timestamp=1000
+assert_eq 2 "$R_STATUS" "an attempt cannot belong to both a sitting and a gate"
+run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" event attempt-start \
+  run_id=run-invalid wave_id=wave-1 sitting_id=sitting-1 members=SFT-0001 \
+  actor=worker timestamp=1000 actor=worker
+assert_eq 2 "$R_STATUS" "duplicate keys are rejected even with identical values"
+assert_no_dir "$events_root/.ai/sift/runs" "all validation occurs before the first filesystem mutation"
+
+test_case "a producer interrupted before rename leaves observable incomplete publication"
+events_root="$(newdir)"; make_tree "$events_root" SFT
+event_call attempt-start run_id=run-crash wave_id=wave-1 sitting_id=sitting-1 \
+  members=SFT-0001 actor=worker timestamp=1000
+saved_path=$event_path
+cp "$saved_path" "$events_root/saved.md"
+mkdir "$events_root/bin"
+cat > "$events_root/bin/mv" <<'SH'
+#!/usr/bin/env bash
+# Interrupt the real producer after staging and before publication. No timing
+# threshold, sleep, FIFO, or product-only fault-injection branch is involved.
+kill -KILL "$PPID"
+exit 99
+SH
+chmod +x "$events_root/bin/mv"
+run_cmd "$events_root" env PATH="$events_root/bin:$PATH" SIFT_ROOT="$events_root" \
+  "$DRAINLOG" event attempt-start run_id=run-crash wave_id=wave-1 sitting_id=sitting-1 \
+  members=SFT-0001 actor=worker timestamp=1000
+assert_eq 137 "$R_STATUS" "the real producer was killed before its publication point"
+assert_eq '' "$R_OUT" "an interrupted producer issues no success receipt"
+assert_eq 1 "$(find "$events_root/.ai/sift/runs" -name event.md | wc -l | tr -d ' ')" "only the earlier complete record is published"
+assert_eq 1 "$(find "$events_root/.ai/sift/runs" -name event.pending | wc -l | tr -d ' ')" "private staging survives as incomplete evidence"
+if cmp -s "$saved_path" "$events_root/saved.md"; then t_ok "interruption preserves earlier bytes"
+else t_fail "interruption preserves earlier bytes"; fi
+event_call attempt-start run_id=run-crash wave_id=wave-1 sitting_id=sitting-1 \
+  members=SFT-0001 actor=worker timestamp=1000
+assert_eq 2 "$(find "$events_root/.ai/sift/runs" -name event.md | wc -l | tr -d ' ')" "later publication works without recovering a lock"
+assert_eq 1 "$(find "$events_root/.ai/sift/runs" -name event.pending | wc -l | tr -d ' ')" "later producers do not erase incomplete evidence"
+
+test_case "validated fields support downstream helpers without evaluating opaque metadata"
+events_root="$(newdir)"; make_tree "$events_root" ACME
+run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" -- event attempt-start \
+  run_id=run-fields wave_id=wave-1 sitting_id=sitting-1 members=ACME-10000 \
+  actor=helper actor_id=prep-1 timestamp=0 version=1 "external_id=task='x'\\y:=# value"
+assert_eq 0 "$R_STATUS" "event accepts -- before the subcommand, an explicit version and a wider custom-prefix ID"
+record=$R_OUT
+run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" event-fields "$record"
+assert_eq 0 "$R_STATUS" "the bounded reader validates before decoding"
+assert_contains "$R_OUT" $'members\tACME-10000' "membership is ready for reconstruction"
+assert_contains "$R_OUT" $'external_id\ttask=\'x\'\\y:=# value' "opaque quoting is lossless and never shell-evaluated"
+sed "s/version: '1'/version: '999'/" "$record" > "$events_root/bad.md"
+run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" event-fields "$events_root/bad.md"
+assert_eq 2 "$R_STATUS" "unknown versions fail decoding"
+assert_eq '' "$R_OUT" "no partial fields leak from a malformed record"
+
+test_case "repeated and conflicting semantic events remain immutable separate observations"
+events_root="$(newdir)"; make_tree "$events_root" SFT
+for outcome in done done failed; do
+  event_call attempt-end run_id=run-repeat attempt_id=attempt-1 actor=worker timestamp=1000 "outcome=$outcome"
+done
+assert_eq 3 "$(find "$events_root/.ai/sift/runs" -name event.md | wc -l | tr -d ' ')" "writer preserves repetitions for reader deduplication and conflict diagnosis"
+
+test_case "automatic run identities survive concurrent starts on the same default clock"
+events_root="$(newdir)"; make_tree "$events_root" SFT
+mkdir "$events_root/bin"
+cat > "$events_root/bin/date" <<'SH'
+#!/usr/bin/env bash
+[ "$#" -eq 1 ] && [ "$1" = +%s ] || exit 1
+printf '1000\n'
+SH
+chmod +x "$events_root/bin/date"
+pids=()
+for producer in 1 2 3 4; do
+  env SIFT_ROOT="$events_root" PATH="$events_root/bin:$PATH" "$DRAINLOG" event run-start actor=coordinator \
+    > "$events_root/run-$producer.out" 2> "$events_root/run-$producer.err" &
+  pids+=("$!")
+done
+for pid in "${pids[@]}"; do
+  writer_status=0; wait "$pid" || writer_status=$?
+  assert_eq 0 "$writer_status" "concurrent run start succeeds"
+done
+for producer in 1 2 3 4; do
+  record=$(cat "$events_root/run-$producer.out")
+  assert_file "$record" "start persists before returning its path"
+  if [ -f "$record" ]; then
+    assert_eq 1000 "$(event_field "$record" timestamp)" "the default clock was read through date +%s"
+    run_id=$(event_field "$record" run_id)
+    assert_file "$events_root/.ai/sift/runs/$run_id/events/$(event_field "$record" event_id)/event.md" "generated identities match storage paths"
+  fi
+done
+assert_eq 4 "$(find "$events_root/.ai/sift/runs" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')" "equal clocks never merge independent runs"
+
+test_case "required relationships and controlled values fail with actionable diagnostics"
+events_root="$(newdir)"; make_tree "$events_root" SFT
+invalid_event() {
+  run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" event "$1" \
+    run_id=run-invalid actor=worker timestamp=1000 "${@:2}"
+  assert_eq 2 "$R_STATUS" "malformed $1 fails"
+  assert_contains "$R_ERR" 'error: execution event:' "failure names the event boundary"
+}
+invalid_event unknown-kind
+invalid_event $'run-start\nactor_id=injected'
+invalid_event sitting wave_id=wave-1 members=-
+invalid_event sitting wave_id=wave-1
+invalid_event attempt-start wave_id=wave-1 members=SFT-0001
+invalid_event attempt-start wave_id=wave-1 sitting_id=sitting-1 members=SFT-0001 attempt_id=attempt-1 retry_of=attempt-1
+invalid_event wave-start wave=0
+invalid_event span-start attempt_id=attempt-1 activity=guess
+invalid_event wait-start attempt_id=attempt-1 reason=retry wait_class=external
+invalid_event attempt-end attempt_id=attempt-1 outcome=guess
+invalid_event attempt-interrupt attempt_id=attempt-1 reason=other
+invalid_event link relation=follow-up ticket_id=SFT-0001
+invalid_event ticket-outcome attempt_id=attempt-1 ticket_id=SFT-001 outcome=done
+invalid_event check attempt_id=attempt-1 check_id=check-1 stage=development outcome=passed exit_status=1 evidence_ref=/tmp/check
+assert_no_dir "$events_root/.ai/sift/runs" "bad relationships create no event tree"
+
 summary

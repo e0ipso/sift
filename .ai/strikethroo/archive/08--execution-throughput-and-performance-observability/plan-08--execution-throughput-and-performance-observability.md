@@ -892,7 +892,8 @@ Success Criteria 1-12 map to the tested behavior and documentation above and the
 
 **Status**: ✅ Completed Successfully
 **Completed Date**: 2026-10-22
-**Code Review**: Skipped; Code review is disabled. Set code_review.enabled to true in config/config.yaml or select Enable code review in Customize to opt in.
+**Code Review**: Address; Harness: claude; model: CLI-selected (exact model unknown). Findings: 2.
+**Reviewer**: Claude Opus 5.5 (`claude-opus-5-5`), confirmed by T3 dispatch metadata for the separately requested post-archive review.
 
 ### Results
 
@@ -916,4 +917,21 @@ No reviewer findings were produced or acted on because review was disabled. This
 
 ### Necessary follow-ups
 
-No required implementation follow-ups remain. Real BSD execution and shellcheck were unavailable; the suite records those and its existing textual-count/unreachable-precondition skips, with narrowed awk coverage. Kenkeep reports 29 potentially stale nodes for future curation. Agent adherence, provider scheduling and representative production performance remain outside the demonstrated fixture evidence.
+The separately requested post-archive review found a major dangling-reference accounting defect requiring follow-up in execution-report.awk. No implementation fix was requested or applied in that review. Real BSD execution and shellcheck were unavailable; the suite records those and its existing textual-count/unreachable-precondition skips, with narrowed awk coverage. Kenkeep reports 29 potentially stale nodes for future curation. Agent adherence, provider scheduling and representative production performance remain outside the demonstrated fixture evidence.
+
+### User-requested post-archive Opus 5.5 review
+
+After archival, the user explicitly requested enabling code_review.enabled and reviewing with Opus 5.5. The local workspace configuration is now true. A fresh independent T3 task selected provider claudeAgent, model claude-opus-5-5, confirmed by the returned dispatch metadata in review/opus-5.5-dispatch.json. This new request supersedes the earlier skipped outcome; it did not repeat a review to check a fix. The captured base remained 38358fd19ae3b4f462d5689d5bfbc0a65f093229, including the separately authorized tooling update.
+
+The bundled runReview mechanism generated its prompt and unique delivery token, dispatched through the T3 bridge, validated the returned XML against the vendored schema and independently counted findings. Exact mechanism result:
+
+```json
+{"kind":"reviewed","harness":"claude","baseCommit":"38358fd19ae3b4f462d5689d5bfbc0a65f093229","reviewFile":"/home/e0ipso/workspace/apps/sift/.ai/strikethroo/archive/08--execution-throughput-and-performance-observability/review/review.xml","verdict":{"kind":"review-recorded"},"counts":{"total":2,"critical":0,"major":1,"minor":1,"info":0,"unlabelled":0},"detail":"The reviewer raised 2 finding(s) (1 major, 1 minor). They are recorded, not applied: read them and decide which to act on. See /home/e0ipso/workspace/apps/sift/.ai/strikethroo/archive/08--execution-throughput-and-performance-observability/review/findings.json.","action":"continue","codeReview":"Address; Harness: claude; model: CLI-selected (exact model unknown). Findings: 2."}
+```
+
+The mechanism's fixed summary says the exact CLI-selected model is unknown; the separate T3 dispatch receipt confirms this review actually ran on claude-opus-5-5. The certified report is review/review.xml and its parsed index is review/findings.json. Two findings were recorded: one major/high-confidence defect and one minor/low-confidence policy concern.
+
+- Major, execution-report.awk lines 145-166 and related identity lookups: referencing missing attempt/wave/gate/sitting IDs inserts empty awk array entries, which later enumeration counts as declared entities. Parent independently reproduced the finding with real init/event/report helpers in /tmp/sift-opus55-review-proof.uVbob6WQXA. A span referencing undeclared a-missing produces attempts=1, incomplete_attempts=1, retry_denominator_attempts=1 and incomplete_attempt_elapsed_lower_bound_seconds=1100 at observation 1100, despite no attempt-start. Phantom wave rows also appear. This is an actionable defect; membership checks should precede referenced-ID indexing.
+- Minor, execution-delivery.awk lines 102-104: a failed optional review withholds full verified delivery. Not adopted as a defect because README.md lines 715-716 explicitly require successful heads of every gate retry chain, and task 6 notes plus wave-gate.md expressly document this conservative behavior. The reviewer marks this concern low-confidence and acknowledges that contract. Any policy change would need a separate deliberate decision.
+
+Review only: no runtime, test, normative specification or tracker changes were applied, and no review was rerun. The earlier mechanical test result remains historical evidence, not proof that the newly found major defect is absent.

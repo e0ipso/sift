@@ -753,10 +753,10 @@ Task 003 owns the new check helper and its case. Task 004 owns preparation and r
 **Parallel Tasks:**
 - ✔️ Task 007: Measure real execution and verification paths, completed, depends on 006.
 
-### Phase 7: Normative specification and shipped assets
-**Status:** pending
+### ✅ Phase 7: Normative specification and shipped assets
+**Status:** completed
 **Parallel Tasks:**
-- Task 008: Document and ship the additive observability upgrade, depends on 007.
+- ✔️ Task 008: Document and ship the additive observability upgrade, completed, depends on 007.
 
 ### Post-phase Actions
 
@@ -862,3 +862,11 @@ Phase 5 committed as eaabdad after its green parent full suite. Phase 6 readines
 ### Phase 6 verified
 
 Parent inspection requested two corrections: replace the temporary ETA handoff dependency with checked-in reproducible cases, and positively assert the three development deliveries and preserved mixed-group member. The implementer completed both. Parent then ran the real fixture fresh: five cases, 21 assertions, zero failures/skips; retained artifacts are /tmp/sift-test-drain-execution-observability.sh.ztGuDw/artifacts and complete output is /tmp/sift-plan8-phase6-demo.log. Equivalent requests execute two checks/eight publications without shared evidence versus one check/five publications with reuse. The full fixture retains nine requests, seven executions, 110 events, 44 event-field reads, 83 explicit receipts and three validations, with three development deliveries and zero full deliveries under actual fixture compatibility deferral. These are scripted helper counts, not production throughput. Full tests/run.sh passed 703 tests, 4526 assertions, zero failures and six documented skips in 526 seconds; complete output read from /tmp/sift-plan8-phase6-verification.log. Diff check passed; POST_PHASE.md adds no lint/format command. Commit precedes task 008 dispatch.
+
+### Phase 7 dispatch
+
+Phase 6 committed as 1d21563 after its green parent full suite. Phase 7 readiness passed for task 008. Resolver selected gpt-5.6-sol/high, and current T3 capabilities plus delegate response match that selection. Active task: node:delegated-task:command%3Amcp%3Abbce80ee-93ab-4685-aaaa-f0d59a7048cd%3Adelegate-task%3Asift-plan8-task8-20261022-v1. Ownership is normative specification/examples, shared extraction guards, preserved installed-tree refresh and generated assets. Parent retains the quiescent Phase 7 whole-suite gate and final POST_EXECUTION/review/archive sequence.
+
+### Phase 7 verified
+
+Parent inspected specification/extractor changes and restored the existing milestone-preservation assertion in the expanded old-tree refresh test. Fresh retained refresh passed 14 cases/77 assertions; asset synchronization reports README 62516 bytes, operation script and five schema files matching. Full tests/run.sh passed 706 tests, 4555 assertions, zero failures and six documented skips in 540 seconds. Complete output read from /tmp/sift-plan8-phase7-verification.log; diff check passed. Parent also executed every Self Validation owner with retained disposable fixtures before this full suite. No implementation change followed the proving run. POST_PHASE.md has no additional lint/format command. Commit precedes final POST_EXECUTION checks and the one-shot review mechanism.

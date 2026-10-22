@@ -1147,6 +1147,39 @@ assert_eq "" "$(readme_runlog_schema)" "an anchor that no longer matches yields 
 README="$REPO_ROOT/README.md"
 assert_ne "" "$(readme_runlog_schema)" "and the real README still extracts, so the case put it back"
 
+test_case "the documented correlated event example runs against a real tree"
+example="$(readme_execution_event_example)"
+assert_ne "" "$example" 'the correlated event example extracts from README.md'
+example_root="$(newdir)"
+make_tree "$example_root" SFT
+run_recipe "$example_root" "$example" \
+  DRAINLOG="$DRAINLOG" SIFT_ROOT="$example_root" WORKTREE="$example_root"
+assert_eq 0 "$R_STATUS" 'the extracted event and report commands execute'
+assert_contains "$R_OUT" $'metric\treport_version\t1' 'the example renders the public report'
+example_gate="$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1 == "gate" {print $2}')"
+example_attempt="$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1 == "attempt" {print $2}')"
+example_attempt_gate="$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1 == "attempt" {print $5}')"
+example_span_attempt="$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1 == "span" {print $3}')"
+assert_ne "" "$example_gate" 'the generated gate identity survives reconstruction'
+assert_ne "" "$example_attempt" 'the generated attempt identity survives reconstruction'
+assert_eq "$example_gate" "$example_attempt_gate" \
+  'the attempt remains attached to its declared gate by identity'
+assert_eq "$example_attempt" "$example_span_attempt" \
+  'the verification span remains attached to its declared attempt by identity'
+assert_no_file "$example_root/.ai/sift/RUNLOG.md" \
+  'correlated event mode leaves six-column legacy history absent'
+
+test_case "a reworded correlated-example anchor extracts no substitute block"
+work="$(newdir)"
+damaged="$(readme_reworded "$work" "$ANCHOR_EXECUTION_EVENT_EXAMPLE")" || damaged=''
+assert_ne "" "$damaged" 'the correlated-example anchor exists in README.md'
+README="${damaged:-$README}"
+assert_eq "" "$(readme_execution_event_example)" \
+  'the extractor does not fall through to a neighbouring shell block'
+README="$REPO_ROOT/README.md"
+assert_ne "" "$(readme_execution_event_example)" \
+  'the real README restores the runnable correlated example'
+
 # --- Immutable execution events ---------------------------------------------
 
 # Read the bounded quoted scalar grammar, not general YAML. Escaped quotes are

@@ -55,7 +55,12 @@ MS=v1-2
 LAYOUT_EXCUSED=".id-sequence/|created lazily by the first reservation, not by initialization
 RUNLOG.md|the spec says so itself: the first dispatch of a drain creates it, so a freshly initialized tree has none
 runs/|created lazily by the first correlated event, not by initialization
+runs/<run-id>/|created with the first event for that run, not by initialization
 runs/<run-id>/events/<event-id>/event.md|shape instantiated by an event publication; a freshly initialized tree has no run or event records
+runs/<run-id>/estimates/<estimate-id>/|reserved by an explicit estimate request; initialization creates no estimate bundle
+runs/<run-id>/estimates/<estimate-id>/snapshot.tsv|published only inside an estimate bundle
+runs/<run-id>/estimates/<estimate-id>/observations.tsv|published only inside an estimate bundle
+runs/<run-id>/estimates/<estimate-id>/estimate.md|final publication marker for an estimate bundle
 open/$MS/<category>/|shape, not a path: <category> is the closed type set, and a category folder appears with the first ticket filed under it
 open/$MS/<category>/<PREFIX>-0001--short-slug.md|shape, not a path: an initialised tree holds no tickets
 archive/$MS/<category>/<PREFIX>-0001--short-slug.md|shape, not a path: the archive mirrors open/ and starts empty"
@@ -315,7 +320,15 @@ assert_contains "$R_OUT" 'OK: 0 ticket file(s) are consistent' "counting nothing
 test_case "lazy layout excuses remain exact and necessary"
 # Work on copied trees and extracted lists. The clean tree above is the positive
 # control for these comparisons; no repository document or script is mutated.
-for entry in 'runs/' 'runs/<run-id>/events/<event-id>/event.md'; do
+for entry in \
+  'runs/' \
+  'runs/<run-id>/' \
+  'runs/<run-id>/events/<event-id>/event.md' \
+  'runs/<run-id>/estimates/<estimate-id>/' \
+  'runs/<run-id>/estimates/<estimate-id>/snapshot.tsv' \
+  'runs/<run-id>/estimates/<estimate-id>/observations.tsv' \
+  'runs/<run-id>/estimates/<estimate-id>/estimate.md'
+do
   withdrawn="$(set_diff "$DOCUMENTED" "$entry")"
   assert_contains "$(layout_missing_differences "$root" "$withdrawn" "$LAYOUT_EXCUSED")" \
     "layout-missing excuse no longer needed: $entry" \
@@ -333,6 +346,10 @@ mkdir "$eager/.ai/sift/runs"
 assert_contains "$(layout_missing_differences "$eager" "$DOCUMENTED" "$LAYOUT_EXCUSED")" \
   'layout-missing excuse no longer needed: runs/' \
   "even an empty eager runs directory invalidates its lazy excuse"
+
+# Public estimate fixtures in drain-log.test.sh materialize and validate all
+# four estimate entries. This file owns the fresh-init side of that contract:
+# no eager estimate directory or half-bundle is created by initialization.
 
 missing="$(newdir)"
 cp -R "$root/.ai" "$missing/"
@@ -363,7 +380,12 @@ $event_layout" "$DOCUMENTED")" "both lazy event paths are drawn in the normative
 resolved="$(printf '%s\n' "$event_layout" | sed "s|<run-id>|$run_id|; s|<event-id>|$event_id|")"
 assert_eq "$events_root/.ai/sift/$resolved" "$published" \
   "the final record occupies the documented path with its own identities substituted"
-assert_dir "$events_root/.ai/sift/runs" "publication creates the documented runs directory"
+if [ -d "$events_root/.ai/sift/runs" ]; then
+  t_ok 'publication creates the documented runs directory'
+else
+  t_fail 'publication creates the documented runs directory' \
+    "missing: $events_root/.ai/sift/runs"
+fi
 assert_file "$events_root/.ai/sift/$resolved" "publication creates the documented event file"
 
 test_case "--root, not \$PWD, decides where the tree lands"

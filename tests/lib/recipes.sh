@@ -76,15 +76,19 @@ ANCHOR_FRONTMATTER='Every ticket starts with YAML front-matter.'
 ANCHOR_BODY_CANONICAL='Use these sections in order.'
 ANCHOR_BODY_BUG='For bugs, Expected behaviour'
 ANCHOR_BODY_FEATURE='For features, Problem states motivation'
-ANCHOR_RUNLOG='Six columns, with'
-ANCHOR_REFRESH='Only the specification, schemas and operation script are shipped assets:'
+ANCHOR_CHECK_DECLARATION='<!-- @CHECK-DECLARATION: begin -->'
+ANCHOR_RUNLOG='<!-- @LEGACY-RUNLOG: begin -->'
+ANCHOR_EXECUTION_EVENT_EXAMPLE='<!-- @EXECUTION-EVENT-EXAMPLE: begin -->'
+ANCHOR_REFRESH='<!-- @REFRESH-COMMANDS: begin -->'
 
 readme_layout()              { readme_block "$ANCHOR_LAYOUT"; }
 readme_frontmatter_example() { readme_block "$ANCHOR_FRONTMATTER"; }
 readme_body_canonical()      { readme_block "$ANCHOR_BODY_CANONICAL"; }
 readme_body_bug()            { readme_block "$ANCHOR_BODY_BUG"; }
 readme_body_feature()        { readme_block "$ANCHOR_BODY_FEATURE"; }
+readme_check_declaration()   { readme_block "$ANCHOR_CHECK_DECLARATION"; }
 readme_runlog_schema()       { readme_block "$ANCHOR_RUNLOG"; }
+readme_execution_event_example() { readme_block "$ANCHOR_EXECUTION_EVENT_EXAMPLE"; }
 readme_refresh()             { readme_block "$ANCHOR_REFRESH"; }
 
 # readme_reworded <dir> <anchor> — a copy of README.md at <dir>/README.md with

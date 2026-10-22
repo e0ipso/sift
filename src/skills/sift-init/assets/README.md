@@ -31,6 +31,17 @@ own model when `model` is absent. `command` wins over `model`.
 Wrap `command` in single quotes when it contains ` #` or `: `, which YAML would read as a
 comment or a mapping, and double each single quote inside it.
 
+The coordinator protects review state with the installed Drain skill's
+`scripts/review-state.sh`. `snapshot` writes a read-only snapshot to standard output.
+`compare BEFORE AFTER [--allow-event EVENT.md]...` exits 0 only when Git state and every
+historical tracker file are unchanged, and each new tracker file is one explicitly allowed,
+valid execution event at its exact path. Repeat `--allow-event` for each authorized receipt.
+Relative `.ai/sift/...` and absolute event paths are accepted. Changed or deleted history,
+unused or duplicate allowances, pending publications, malformed records and any other new
+tracker file exit 1. Usage or malformed snapshots exit 2. This is an exact receipt list,
+not permission to change `runs/` generally. Check evidence lives outside both checkouts and
+does not enter this comparison.
+
 Drain creates ticket, wave-gate and review worktrees with its `prepare-worktree.sh`. A new
 worktree holds only tracked files, so ignored local state such as `.env` and installed
 dependencies is missing. An optional executable hook at `.ai/sift/config/worktree-setup`
@@ -66,6 +77,16 @@ tree. The hook runs unsandboxed, so keep it within these limits:
 - Parallel sittings and gates prepare worktrees together, so hooks may run concurrently.
 - A failed worktree is kept, never reset or cleaned. A retry prepares a fresh path and
   branch; `prepare-worktree.sh` still refuses a path that exists.
+
+Correlated preparation sets both `SIFT_PREPARE_RUN_ID` and `SIFT_PREPARE_ATTEMPT_ID` before
+calling `prepare-worktree.sh`; setting only one exits 2 before worktree or event creation.
+The caller publishes the referenced attempt first. The helper then records one preparation
+span while preserving its existing stdout and exit contract. Setup-hook failure remains
+exit 3 and keeps the worktree. If the end clock is unavailable, malformed or earlier than
+the start, the helper prints an instrumentation-gap diagnostic and leaves the span open. It
+does not invent a duration, terminal outcome or command status. A failed preparation keeps
+its original nonzero status; a successful preparation with incomplete telemetry exits 2.
+Uncorrelated standalone use sets neither variable and writes no event.
 
 ### Verification declarations and evidence
 
@@ -219,9 +240,14 @@ reference with the config change.
 ├── .id-sequence/              ← reservation marks; created on first allocation
 ├── RUNLOG.md                  ← diagnostic log; created on first dispatch
 ├── runs/                      ← correlated diagnostics; created on first event
-│   └── <run-id>/events/<event-id>/event.md
+│   └── <run-id>/
+│       ├── events/<event-id>/event.md
+│       └── estimates/<estimate-id>/
+│           ├── snapshot.tsv
+│           ├── observations.tsv
+│           └── estimate.md
 ├── config/
-│   └── config.yaml            ← ticket prefix
+│   └── config.yaml            ← prefix and optional Drain policy/declarations
 ├── scripts/
 │   └── sift.sh                ← local operations
 ├── schemas/
@@ -375,6 +401,7 @@ For an authorized mirror, put the issue URL in `source:`. Keep front-matter auth
 Drain alone appends RUNLOG.md. Never edit it by hand or use it as ticket state.
 Six columns, with `-` for unused cells:
 
+<!-- @LEGACY-RUNLOG: begin -->
 ```markdown
 # Run log
 
@@ -391,6 +418,7 @@ Append-only. One row per drain event; rows are never rewritten.
 | return | <PREFIX>-0025 | - | 2026-08-10T09:41:12Z | 1786354872 | done |
 | return | <PREFIX>-0031 | - | 2026-08-10T09:41:12Z | 1786354872 | done |
 ```
+<!-- @LEGACY-RUNLOG: end -->
 
 Each dispatch or return call writes one row per ticket with a shared timestamp. Each phase
 writes one ticketless row. Readers group dispatches by epoch and calculate with that integer,
@@ -484,6 +512,40 @@ rejects a caller-supplied one or a `kind=` operand. `run_id` is required except 
 before preparing work. For example, `drain-log.sh event run-start actor=coordinator`
 returns the absolute final record path on stdout. Success exits 0; validation/setup/write
 errors exit 2 with a diagnostic on stderr and no publication receipt.
+
+This runnable gate-only example uses generated identities rather than timestamps for
+correlation. Set `DRAINLOG` to the installed Drain helper, export `SIFT_ROOT` for the
+tracker checkout, and set `WORKTREE` to the integrated checkout being observed:
+
+<!-- @EXECUTION-EVENT-EXAMPLE: begin -->
+```bash
+run_record=$(bash "$DRAINLOG" event run-start actor=coordinator timestamp=1000)
+run_id=$(bash "$DRAINLOG" event-fields "$run_record" | awk -F '\t' '$1 == "run_id" {print $2}')
+wave_record=$(bash "$DRAINLOG" event wave-start "run_id=$run_id" wave=1 \
+  actor=coordinator timestamp=1000)
+wave_id=$(bash "$DRAINLOG" event-fields "$wave_record" | awk -F '\t' '$1 == "wave_id" {print $2}')
+gate_record=$(bash "$DRAINLOG" event gate "run_id=$run_id" "wave_id=$wave_id" \
+  actor=coordinator work_class=infrastructure timestamp=1000)
+gate_id=$(bash "$DRAINLOG" event-fields "$gate_record" | awk -F '\t' '$1 == "gate_id" {print $2}')
+attempt_record=$(bash "$DRAINLOG" event attempt-start "run_id=$run_id" \
+  "wave_id=$wave_id" "gate_id=$gate_id" members=- actor=gate \
+  work_class=infrastructure timestamp=1000)
+attempt_id=$(bash "$DRAINLOG" event-fields "$attempt_record" | \
+  awk -F '\t' '$1 == "attempt_id" {print $2}')
+span_record=$(bash "$DRAINLOG" event span-start "run_id=$run_id" \
+  "attempt_id=$attempt_id" actor=gate activity=verification timestamp=1000)
+span_id=$(bash "$DRAINLOG" event-fields "$span_record" | awk -F '\t' '$1 == "span_id" {print $2}')
+bash "$DRAINLOG" event span-end "run_id=$run_id" "attempt_id=$attempt_id" \
+  "span_id=$span_id" actor=gate duration=5 outcome=done timestamp=1005 >/dev/null
+bash "$DRAINLOG" event attempt-end "run_id=$run_id" "attempt_id=$attempt_id" \
+  actor=gate outcome=done timestamp=1005 >/dev/null
+bash "$DRAINLOG" event wave-end "run_id=$run_id" "wave_id=$wave_id" \
+  actor=coordinator outcome=passed timestamp=1005 >/dev/null
+bash "$DRAINLOG" event run-end "run_id=$run_id" actor=coordinator \
+  outcome=done timestamp=1005 >/dev/null
+bash "$DRAINLOG" report-events "$run_id" "$WORKTREE" 1005
+```
+<!-- @EXECUTION-EVENT-EXAMPLE: end -->
 
 `drain-log.sh event-validate FILE` validates a whole record without writing or printing it.
 `drain-log.sh event-fields FILE` validates first, then prints decoded `key<TAB>value` lines.
@@ -892,18 +954,31 @@ milestone front-matter reports the moved path for manual repair.
 
 ## Updating installed copies
 
-Update the Sift skills, then run sift-init to add missing shipped files. It preserves existing
-files and reports drift. Review local annotations before applying its resolved refresh
-commands. Only the specification, schemas and operation script are shipped assets:
+Update the Drain and sift-init skills together, then run the current sift-init helper. It
+adds missing files, preserves every existing file and reports drift. When an installed
+README is old, the current helper still prints the fully resolved refresh commands; the
+remedy does not depend on instructions inside that old README. Review local annotations
+before running those commands. Only the specification, schemas and operation script are
+shipped assets:
 
+<!-- @REFRESH-COMMANDS: begin -->
 ```sh
 cp "$SKILL/assets/README.md" .ai/sift/README.md
 cp "$SKILL"/assets/schemas/*.xsd "$SKILL"/assets/schemas/*.xml .ai/sift/schemas/
 cp "$SKILL/assets/scripts/sift.sh" .ai/sift/scripts/sift.sh
 ```
+<!-- @REFRESH-COMMANDS: end -->
 
 `SKILL` is the installed sift-init directory. Refresh never changes tickets, milestones,
-config, logs or reservation marks. Orphan schemas remain until the owner removes them.
+config, legacy RUNLOG bytes, correlated run/estimate history or reservation marks. Check
+evidence remains in its external store. Orphan schemas remain until the owner removes them.
+
+The observability upgrade is additive. It introduces no ticket key, status, allocator or
+existing path rename, so no `find`/`sed` migration is required. Existing six-column history
+stays byte-for-byte unchanged and remains available through `drain-log.sh report` with its
+documented attribution limits. Existing configuration remains valid; add `verification`
+only when its input, environment and platform declarations are complete enough to support
+reuse. New events and estimates appear lazily when the upgraded Drain helpers publish them.
 
 Migration is additive: sift-init installs `scripts/sift.sh`; no ticket path or key changes.
 Folders emptied before the prune rule existed stay until removed once:

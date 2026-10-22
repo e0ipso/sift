@@ -298,15 +298,7 @@ fi
 test_case "the documented declaration executes through the public helper"
 fixture
 # Single owning caller: extract the normative block, not a hand-maintained copy.
-documented_declaration() {
-  awk '
-    /<!-- @CHECK-DECLARATION: begin -->/ {inside=1; next}
-    /<!-- @CHECK-DECLARATION: end -->/ {inside=0}
-    inside && /^```/ {next}
-    inside {print}
-  ' "$README"
-}
-declaration=$(documented_declaration)
+declaration=$(readme_check_declaration)
 assert_contains "$declaration" 'verification:' 'the normative declaration extractor is nonempty'
 printf 'prefix: ABCD\n%s\n' "$declaration" > "$project/.ai/sift/config/config.yaml"
 run_cmd "$project" bash "$CHECK" -- run "$run_id" "$attempt" suite development integrated "$project" . -- bash tests/check.sh
@@ -317,6 +309,17 @@ if [ -f "$evidence" ]; then
   run_cmd "$project" bash "$CHECK" -- validate-declared "$evidence" suite development integrated "$project"
   assert_eq 0 "$R_STATUS" 'documented evidence validates against the declaration'
 fi
+
+test_case "a reworded declaration anchor cannot select neighbouring configuration"
+work=$(newdir)
+damaged="$(readme_reworded "$work" "$ANCHOR_CHECK_DECLARATION")" || damaged=''
+assert_ne "" "$damaged" 'the declaration anchor exists in README.md'
+README="${damaged:-$README}"
+assert_eq "" "$(readme_check_declaration)" \
+  'the extractor returns nothing when its named anchor is obsolete'
+README="$REPO_ROOT/README.md"
+assert_contains "$(readme_check_declaration)" 'verification:' \
+  'restoring the normative README restores the exact declaration'
 
 test_case "argv bytes are retained without evaluation even outside declaration syntax"
 fixture

@@ -103,7 +103,7 @@ land_ticket() {
 
 archive_ticket() {
   local ticket_id=$1 status
-  (cd "$project" && SIFT_ROOT="$project" bash "$OPERATIONS" archive "$ticket_id" done \
+  (cd "$project" && SIFT_ROOT="$project" bash "$OPERATIONS" archive "$ticket_id" 'done' \
     'Scripted fixture work landed and verified') > "$artifacts/$ticket_id.archive.out" \
     2> "$artifacts/$ticket_id.archive.err"
   status=$?; record_status "archive:$ticket_id" "$status"

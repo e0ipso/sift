@@ -179,8 +179,10 @@ END {
             if(v[e,"origin_attempt_id"]!="" && v[e,"origin_gate_id"]!="" && v[lookup(attempts,v[e,"origin_attempt_id"]),"gate_id"]!=v[e,"origin_gate_id"]) reject(e,"link-origin-mismatch")
         }
     }
-    run_state=lifecycle(rs,re,run,"run")
-    for(a in attempts) attempt_state[a]=lifecycle(attempts[a],ends[a],a,"attempt")
+    # Optional terminal indexes must be numeric zero when no event exists.
+    # Passing an uninitialized array value can corrupt GNU awk function locals.
+    run_state=lifecycle(rs+0,re+0,run,"run")
+    for(a in attempts) attempt_state[a]=lifecycle(attempts[a],lookup(ends,a),a,"attempt")
     for(a in attempts) {
         e=attempts[a]; t=ends[a]
         r=v[e,"retry_of"]
@@ -262,7 +264,9 @@ END {
             activities[v[e,"activity"]]=1;add_interval("activity" SUBSEP v[e,"activity"],s,end)
         }
     }
-    for(a in attempts) effort+=union("effort" SUBSEP a)
+    # Attempts without work spans contribute zero. Avoid creating empty interval
+    # groups during this traversal; GNU awk can corrupt its iterator on that path.
+    for(a in attempts) if(("effort" SUBSEP a) in count) effort+=union("effort" SUBSEP a)
     for(label in waits) { split(label,parts,SUBSEP); print "wait",parts[1],parts[2],union("wait" SUBSEP label) }
     for(label in activities) print "activity",label,union("activity" SUBSEP label)
     for(i=2;i<=completed;i++) { x=samples[i]; j=i-1; while(j>0 && samples[j]>x) {samples[j+1]=samples[j];j--} samples[j+1]=x }

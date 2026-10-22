@@ -1332,7 +1332,7 @@ test_case "malformed event fields are refused before any directory or record is 
 events_root="$(newdir)"; make_tree "$events_root" SFT
 for bad in version=2 actor=stranger timestamp=-1 timestamp=1.5 timestamp=01 \
   timestamp=1000000000000000 run_id=../escape wave_id=../escape \
-  members=SFT-001 members=SFT-0001,SFT-0001 members=SFT-0001, members=- \
+  members=SFT-001 members=SFT-0001,SFT-0001 'members=SFT-0001,' members=- \
   reason=guess wait_class=guess work_class=guess stage=guess duration=-1 \
   unknown=value external_id= event_id=chosen kind=chosen \
   $'external_id=opaque\nreason=retry' $'external_id=opaque\tdata'; do
@@ -1405,7 +1405,7 @@ assert_eq '' "$R_OUT" "no partial fields leak from a malformed record"
 
 test_case "repeated and conflicting semantic events remain immutable separate observations"
 events_root="$(newdir)"; make_tree "$events_root" SFT
-for outcome in done done failed; do
+for outcome in 'done' 'done' failed; do
   event_call attempt-end run_id=run-repeat attempt_id=attempt-1 actor=worker timestamp=1000 "outcome=$outcome"
 done
 assert_eq 3 "$(find "$events_root/.ai/sift/runs" -name event.md | wc -l | tr -d ' ')" "writer preserves repetitions for reader deduplication and conflict diagnosis"
@@ -1640,6 +1640,7 @@ report_event attempt-start 1000 wave_id=w sitting_id=s attempt_id=retry-missing 
 report_event attempt-end 1001 attempt_id=retry-missing outcome=failed
 before=$(tree_digest "$events_root")
 report_read 1100
+assert_eq 0 "$R_STATUS" 'resolved attempts without work spans render successfully'
 assert_eq 0 "$(report_metric integrity_errors)" 'later publication resolves all parent relationships'
 assert_eq 4 "$(report_metric attempts)" 'the newly published ancestor is now a real fourth attempt'
 assert_eq 1 "$(report_metric completed_attempts)" 'the declared failed ancestor has an actual completed envelope'
@@ -1721,13 +1722,11 @@ report_check() {
     PATH="$report_tools/bin:$PATH" REPORT_CLOCK="$clock" \
     bash "${DRAINLOG%/*}/check-evidence.sh" run report-run "$attempt" "$id" "$stage" integrated "$events_root" . -- bash tests/check.sh "$id"
   assert_eq 0 "$R_STATUS" 'actual check helper publishes eligible evidence'
-  checked_evidence=$R_OUT
 }
 
 test_case "verified delivery requires every current obligation, landing and completed integrated gate"
 report_checks_fixture
 report_check suite development
-suite_evidence=$checked_evidence
 report_read
 assert_eq 2 "$(report_metric authoritative_done)" 'front matter remains authoritative'
 assert_eq 2 "$(report_metric returned_done)" 'worker return is separate'
@@ -1889,9 +1888,9 @@ root=$(newdir); make_tree "$root" SFT; log_new "$root"
 log_row "$root" dispatch SFT-0001 1000 -
 log_row "$root" dispatch SFT-0002 1000 -
 log_row "$root" dispatch SFT-0003 1010 -
-log_row "$root" return SFT-0001 1020 done
-log_row "$root" return SFT-0002 1030 done
-log_row "$root" return SFT-0003 1040 done
+log_row "$root" return SFT-0001 1020 'done'
+log_row "$root" return SFT-0002 1030 'done'
+log_row "$root" return SFT-0003 1040 'done'
 legacy_before="$TMPROOT/legacy-before.md"
 cp "$root/.ai/sift/RUNLOG.md" "$legacy_before"
 run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
@@ -1994,6 +1993,7 @@ report_event attempt-interrupt 1001 attempt_id=a reason=interrupted
 report_event attempt-resume 1002 attempt_id=a
 report_event attempt-start 1003 wave_id=w sitting_id=s attempt_id=b retry_of=a members=SFT-0001
 report_read
+assert_eq 0 "$R_STATUS" 'invalid retries without work spans still render diagnostics'
 assert_contains "$R_OUT" 'retry-without-stop' 'old interruption is not current stop evidence'
 assert_eq 1 "$(report_metric invalid_attempts)" 'unclosed retry excluded from valid samples'
 

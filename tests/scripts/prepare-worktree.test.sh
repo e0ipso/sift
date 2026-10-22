@@ -143,7 +143,7 @@ assert_eq 0 "$R_STATUS" "correlated success preserves the helper status"
 assert_eq "$(printf 'worktree=%s\nbranch=task/correlated\nbase=%s' "$worker" "$base")" \
   "$(printf '%s\n' "$R_OUT" | tail -n 3)" "correlated success preserves the trailing key lines"
 assert_not_contains "$R_OUT" '/events/' "event publication adds no stdout receipt"
-assert_eq done "$(event_field "$d" span-end outcome)" "the preparation span ends successfully"
+assert_eq 'done' "$(event_field "$d" span-end outcome)" "the preparation span ends successfully"
 assert_eq 3 "$(event_field "$d" span-end duration)" "the span uses the controlled elapsed seconds"
 assert_eq attempt-fixture "$(event_field "$d" span-start attempt_id)" \
   "the span start carries the explicit attempt"
@@ -162,7 +162,7 @@ run_cmd "$d" env PATH="$clock:$PATH" SIFT_ROOT="$d" \
   SIFT_PREPARE_RUN_ID=run-fixture SIFT_PREPARE_ATTEMPT_ID=attempt-fixture \
   "$copied_prepare" main task/copied-skill "$worker"
 assert_eq 0 "$R_STATUS" "the copied installed skill can publish through its spaced script path"
-assert_eq done "$(event_field "$d" span-end outcome)" "the copied skill publishes its terminal record"
+assert_eq 'done' "$(event_field "$d" span-end outcome)" "the copied skill publishes its terminal record"
 assert_eq task/copied-skill "$(git -C "$worker" branch --show-current)" \
   "the real copied helper still prepares the requested branch"
 

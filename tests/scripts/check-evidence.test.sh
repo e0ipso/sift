@@ -36,7 +36,7 @@ EOF
   export SIFT_ROOT="$project" SIFT_EVIDENCE_DIR="$d/evidence"
   export CHECK_ENV=toolchain-v1 CHECK_PLATFORM=fixture-platform COUNTER="$d/count"
   run_id=run-fixture
-  attempt=attempt-1
+  attempt='attempt-1'
 }
 execute() {
   run_cmd "$project" bash "$CHECK" run "$run_id" "$attempt" suite development integrated "$project" . -- bash tests/check.sh 'two words' '' '*'
@@ -56,7 +56,7 @@ if [ -f "$evidence" ]; then
   assert_eq executed "$(cat "$COUNTER")" 'first request executes once'
   assert_eq $'<two words>\n<>\n<*>' "$(cat "${evidence%/*}/raw.log")" 'argv boundaries survive and raw log is outside checkout'
   prior=$(tree_digest "$d/evidence")
-  attempt=attempt-2
+  attempt='attempt-2'
   execute
   assert_eq 0 "$R_STATUS" 'second request succeeds'
   assert_eq "$evidence" "$R_OUT" 'reuse points at original producing evidence'

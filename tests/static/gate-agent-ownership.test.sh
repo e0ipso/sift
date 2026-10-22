@@ -276,7 +276,9 @@ assert_file "$receipt" "the coordinator has an actual publication receipt"
 compare_documented() (
   cd "$d" || exit
   export SIFT_ROOT="$d" SCRIPTS_DIR="$scripts"
-  STATE_BEFORE="$states/event-before" STATE_AFTER="$states/event-after"
+  export STATE_BEFORE="$states/event-before" STATE_AFTER="$states/event-after"
+  # The extracted normative block reads this Bash array through eval below.
+  # shellcheck disable=SC2034
   ALLOW_EVENTS=("$@")
   # Execute the documented block with a real Bash array, never interpolate receipt data.
   eval "$comparison"

@@ -67,6 +67,144 @@ tree. The hook runs unsandboxed, so keep it within these limits:
 - A failed worktree is kept, never reset or cleaned. A retry prepares a fresh path and
   branch; `prepare-worktree.sh` still refuses a path that exists.
 
+### Verification declarations and evidence
+
+Drain's optional `verification` mapping declares required check obligations. Each check
+has an identity and exactly these fields. This example assumes the named files and
+directories exist and the environment stamps have been established by project setup:
+
+<!-- @CHECK-DECLARATION: begin -->
+```yaml
+verification:
+  suite:
+    complete: true
+    required: true
+    stage: development
+    scope: integrated
+    cwd: .
+    command: [bash, tests/check.sh]
+    inputs: [src, tests, deps, settings]
+    environment: [CHECK_ENV]
+    platform: CHECK_PLATFORM
+```
+<!-- @CHECK-DECLARATION: end -->
+
+The mapping belongs in `.ai/sift/config/config.yaml`, beside `prefix`. Check names and
+scope labels use the execution-event identity grammar. `stage` is `development` or
+`compatibility`. `cwd` is a logical directory relative to the checked worktree, with `.`
+meaning its root. `command` is the exact argv array, never shell code. Use an explicit
+interpreter argument such as `bash` when appropriate. There is no shell expansion of lists,
+paths or stamps. Use a separate check identity for each platform or scope obligation.
+
+The parser accepts two spaces before check names and four before fields, single-line
+scalars and nonempty flow lists. Values may be plain, single quoted with doubled embedded
+quotes, or double quoted without escapes. Empty quoted command arguments are allowed.
+Unquoted list elements cannot contain YAML punctuation; quote spaces, commas, hashes and
+other punctuation. Comments begin at an unquoted hash preceded by whitespace. Multiline
+values, aliases, nested structures, duplicate keys and unknown check fields disable reuse.
+This is a bounded subset, not a general YAML loader. Unrelated top-level configuration is
+preserved. Required checks need every field above and both booleans set to `true`.
+
+`complete: true` is the project's assertion that the declarations cover all relevant
+source, dependencies, tests, fixtures, command implementations, configuration and mutable
+environment state. Input files and directory contents include untracked files, discovered
+membership, permission modes, direct regular-file symlink targets and target contents/modes.
+Paths are literal worktree-relative names without `..`, redundant `.` components or trailing
+slashes. Every declared input must exist. Directory symlinks, link chains, special files
+and unreadable inputs disable reuse. Represent unsupported external dependencies with
+explicit project-maintained stamp files instead, and include those files in `inputs`.
+
+`environment` lists variable names whose nonempty values identify the required environment.
+`platform` names another nonempty variable identifying the platform obligation. The helper
+also records the host OS/release/architecture from `uname -srm` and the caller's umask.
+Setup must change stamps when toolchains, dependency installations, services, credentials
+that affect results, or other dynamic state changes. Declare relevant variables such as
+`PATH`, locale or feature flags, or cover them with an authoritative environment stamp.
+Values are hashed, not published. Missing stamps or unavailable platform identification
+disable reuse. An unknown dependency or uncertain environment requires `complete: false`.
+Sift still runs commands without a complete declaration.
+
+The installed Drain skill provides these command forms. `CHECKER` names its
+`scripts/check-evidence.sh`; `SIFT_ROOT` selects the original tracker checkout, and
+`WORKTREE` selects the current checked tree:
+
+```bash
+export SIFT_EVIDENCE_DIR=/absolute/existing-parent/check-evidence
+evidence=$(bash "$CHECKER" run "$run_id" "$attempt_id" suite development integrated \
+  "$WORKTREE" . -- bash tests/check.sh)
+bash "$CHECKER" validate "$evidence" suite development integrated \
+  "$WORKTREE" . -- bash tests/check.sh
+bash "$CHECKER" validate-declared "$evidence" suite development integrated "$WORKTREE"
+```
+
+An optional `--` may precede the subcommand. The required later `--` separates the fixed
+operands from command argv, which may contain empty arguments or any shell-special bytes.
+`run` preserves argv, stdin, the caller's umask and the command exit status. Combined raw
+stdout/stderr goes to the evidence log; stdout from the helper is only the absolute
+`evidence.md` receipt. Setup/usage errors exit 2 before execution. A diagnostic failure
+after execution preserves a nonzero command status; following a zero command status it
+exits 2 without a success receipt. Interrupted publication leaves incomplete files for
+inspection. The wrapper does not supervise background processes or forward signals.
+
+An unavailable, malformed or backwards end clock leaves the verification span incomplete.
+The helper prints an instrumentation-gap diagnostic naming the span and retained evidence,
+publishes neither a fabricated `span-end` nor a timestamped check result, and returns no
+receipt. A failed command keeps its original nonzero status; a successful command returns
+wrapper status 2. End clocks must use the event timestamp grammar before duration arithmetic;
+equal valid timestamps still produce an observed zero-second span.
+
+Content evidence is published before this end-clock observation. That immutable record
+retains the actual command result and remains eligible for read-only validation and later
+reuse if every existing content, declaration and environment check passes. A failed or
+unstable command remains ineligible. Retained content evidence does not close the missing
+span or establish its duration. Reporters must retain the instrumentation gap separately,
+even when a later request successfully reuses the check.
+
+The store defaults to `${TMPDIR:-/tmp}/sift-check-evidence`. Its parent must exist. The
+resolved store must be outside both the original checkout and checked worktree. Each
+execution reserves a private `check.XXXXXXXXXX` directory containing `argv.nul`, `raw.log`,
+`before.manifest`, `after.manifest`, and finally `evidence.md`. Publication renames a private
+`evidence.pending` file; helpers never replace published evidence. Preserve this directory
+with diagnostic history. A removed or changed log invalidates evidence. These are local
+integrity checks, not authentication against an actor rewriting evidence and its hashes.
+
+The version-1 record starts with `# Check evidence v1`, a blank line, and unique tab-separated
+key/value rows. Its fields are `run_id`, `attempt_id`, `check_id`, `stage`, `scope`, `cwd`,
+`exit_status`, `complete`, `stable`, `reason`, `before_hash`, `after_hash`, `argv_hash` and
+`log_hash`. Hashes use Git's content identity without writing objects. `argv.nul` retains
+the exact arguments, each followed by NUL. The input manifests include the full project
+config identity, logical obligation, argv identity, environment/platform observations and
+sorted file identities. Paths and symlink targets are hex encoded. Commit IDs and physical
+checkout paths are excluded, permitting reuse across commits and prepared trees.
+
+`run` uses the public `drain-log.sh event` interface to publish a check decision and, on execution,
+a verification span plus a result. An invalidation event has `reason=other` and a concrete
+`reason_detail`; reuse has `reason=unchanged-inputs`. Every reference names the immutable
+evidence record. Reuse returns the original producing record and attempt, even when the
+request comes from another attempt or run. Failed commands and unequal before/after
+observations cannot satisfy validation, even when a check result event says `passed`.
+
+Both validation commands are read-only and execute no check. They return 0 only for
+complete, stable, passing evidence matching current inputs, exact command, required scope,
+stage, logical directory, platform and environment, with intact manifests, argv and raw log.
+Exit 1 means invalid or unavailable evidence; usage/setup errors exit 2. Their stdout is
+TSV: `valid` and `reason`, followed on success by `producing_run` and `producing_attempt`.
+Reasons include `unchanged-inputs`, `changed-inputs`, `missing-evidence`, `failed-evidence`,
+`unstable-inputs`, `incomplete-declaration`, `unavailable-inputs`, `unavailable-environment`
+and `unavailable-platform`. A first execution records `no-prior-evidence`.
+
+`validate-declared` gets the expected cwd and argv from current project configuration,
+never from the event or evidence being validated. Reporters supply the expected check,
+stage, scope and final integrated worktree and must treat every nonzero result as an
+outstanding obligation. No event outcome alone proves final verification. Gate owners run
+each invalidated obligation against the final tree, then validate every required check.
+Snapshots cannot observe a transient mutation restored between reads, or undeclared state;
+final validation requires quiescent inputs and honest completeness declarations.
+
+Migration is additive. Update the Drain skill and refresh the shipped README; existing
+configuration and logs need no conversion. Add declarations only when their completeness
+can be established. No declaration means conservative execution, not a Sift setup error.
+
 `MILESTONES.md` names and orders milestones. `<PREFIX>` and `<milestone>` below stand for
 these configured values. Changing a prefix requires rewriting every ticket ID, filename and
 reference with the config change.

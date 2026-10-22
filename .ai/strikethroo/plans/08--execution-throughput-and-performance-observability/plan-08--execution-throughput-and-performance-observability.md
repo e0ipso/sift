@@ -725,11 +725,11 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 001: Publish immutable correlated execution events, completed.
 
-### Phase 2: Evidence and helper boundaries
-**Status:** pending
+### ✅ Phase 2: Evidence and helper boundaries
+**Status:** completed
 **Parallel Tasks:**
-- Task 003: Execute checks with input-matched reusable evidence, depends on 001.
-- Task 004: Instrument preparation and protect diagnostic ownership, depends on 001.
+- ✔️ Task 003: Execute checks with input-matched reusable evidence, completed, depends on 001.
+- ✔️ Task 004: Instrument preparation and protect diagnostic ownership, completed, depends on 001.
 
 Task 003 owns the new check helper and its case. Task 004 owns preparation and review snapshot code and cases. Coordinate shared schema/documentation boundaries before editing.
 
@@ -810,3 +810,19 @@ Code/interface inspection established that task 2 verified-delivery reporting co
 ### Phase 1 verified
 
 Parent tests/run.sh recheck passed: 644 tests, 3052 assertions, zero failures, six documented skips, 140 seconds. Both initialization lazy-path coverage and the nested suite contract passed. Log: /tmp/sift-plan8-phase1-recheck.log. Diff inspected and git diff --check passed. POST_PHASE.md defines no extra lint/format command. Phase 1 is complete and will be committed before Phase 2 dispatch.
+
+### Phase 2 dispatch
+
+Phase 1 committed as d6f865a after its green full-suite gate. Phase 2 readiness passed for tasks 003 and 004. Resolver routes: task 003 gpt-6-astra/high; task 004 gpt-5.6-sol/high. Both T3 delegates launched together and returned the requested provider/model/options. Task IDs: node:delegated-task:command%3Amcp%3Abbce80ee-93ab-4685-aaaa-f0d59a7048cd%3Adelegate-task%3Asift-plan8-task3-20261022-v1 and node:delegated-task:command%3Amcp%3Abbce80ee-93ab-4685-aaaa-f0d59a7048cd%3Adelegate-task%3Asift-plan8-task4-20261022-v1. The parent full-phase gate waits for both workers to stop editing. Task 003 owns the evidence/manifest and its read-only validation API; task 004 owns preparation and a narrow review-state helper.
+
+### Phase 2 preparation review corrections
+
+Parent diff review requested correction of an unquoted event-writer command path and fabricated zero duration on an unavailable/backwards end clock. The task 4 implementer addressed both in follow-up task node:delegated-task:command%3Amcp%3Abbce80ee-93ab-4685-aaaa-f0d59a7048cd%3Athread-send%3Asift-plan8-task4-parent-corrections-20261022-v1. Invalid end clocks now leave explicit incomplete telemetry with a diagnostic; original failing command statuses are preserved. Parent focused preparation and review-state commands were run separately while task 3 remained active. The full phase gate waits for task 3.
+
+### Phase 2 evidence review correction
+
+The first full phase suite completed before new edits resumed. Parent review found check-evidence.sh still clamped a backwards clock to zero duration. Requested a task 3 implementer follow-up to preserve an explicit clock gap/incomplete span and original command statuses, with controlled-clock tests. Phase 2 remains open; the prior green suite must be rerun after this change. The inline normative declaration extractor will be consolidated under tests/lib/recipes.sh by task 8 as required by tests/README.md.
+
+### Phase 2 verified
+
+Parent tests/run.sh passed after both clock corrections: 669 tests, 3611 assertions, zero failures, six documented skips, 197 seconds. Full output read from /tmp/sift-plan8-phase2-recheck.log. The earlier run before the evidence clock correction passed 668 tests and 3323 assertions but was superseded by this fresh gate. Diff inspected and git diff --check passed. POST_PHASE.md defines no extra lint/format command. Task 003 and task 004 are completed; Phase 2 will be committed before Phase 3 dispatch.

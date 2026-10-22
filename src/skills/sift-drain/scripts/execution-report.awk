@@ -8,6 +8,9 @@ function given(s) { return s=="" ? "-" : s }
 function metric(k,x) { print "metric",k,x }
 function diagnostic(code,id) { print "diagnostic",code,id; issues++; if(code=="incomplete-publication") pending++ }
 function reject(e,code) { if (!bad[e]) diagnostic(code,eid[e]); bad[e]=1 }
+# Reading an absent awk element inserts it. Only declarations may add identity
+# keys; unresolved references must not enter later accounting enumerations.
+function lookup(table,id) { return (id in table) ? table[id] : 0 }
 function subject(e,   k) {
     k=v[e,"kind"]
     if(k ~ /^run-/) return run
@@ -142,37 +145,38 @@ END {
         if(v[e,"timestamp"]+0>now) { reject(e,"after-observation"); continue }
         if(k!="run-start" && !parent(e,rs)) continue
         if(re && !bad[re] && v[e,"timestamp"]+0>v[re,"timestamp"]+0) reject(e,"after-run-terminal")
-        if(k=="sitting" || k=="gate" || k=="attempt-start" || k=="wave-end") parent(e,waves[v[e,"wave_id"]])
+        if(k=="sitting" || k=="gate" || k=="attempt-start" || k=="wave-end") parent(e,lookup(waves,v[e,"wave_id"]))
         if(k=="attempt-start") {
-            p=(v[e,"sitting_id"]!="") ? sittings[v[e,"sitting_id"]] : gates[v[e,"gate_id"]]
+            p=(v[e,"sitting_id"]!="") ? lookup(sittings,v[e,"sitting_id"]) : lookup(gates,v[e,"gate_id"])
             if(parent(e,p)) {
                 if(v[p,"wave_id"]!=v[e,"wave_id"]) reject(e,"parent-wave-mismatch")
                 if(v[e,"sitting_id"]!="" && !subset(v[e,"members"],v[p,"members"])) reject(e,"invalid-ordered-membership")
                 if(v[e,"gate_id"]!="" && v[e,"members"]!="-") reject(e,"gate-has-members")
             }
         } else if(v[e,"attempt_id"]!="") {
-            p=attempts[v[e,"attempt_id"]]
+            p=lookup(attempts,v[e,"attempt_id"])
             if(parent(e,p)) {
                 if(v[e,"wave_id"]!="" && v[e,"wave_id"]!=v[p,"wave_id"]) reject(e,"parent-wave-mismatch")
                 if(v[e,"ticket_id"]!="" && !member(v[p,"members"],v[e,"ticket_id"])) reject(e,"ticket-outside-attempt")
                 if(v[e,"sitting_id"]!="" && v[e,"sitting_id"]!=v[p,"sitting_id"]) reject(e,"parent-sitting-mismatch")
                 if(v[e,"gate_id"]!="" && v[e,"gate_id"]!=v[p,"gate_id"]) reject(e,"parent-gate-mismatch")
-                t=ends[v[e,"attempt_id"]]
+                t=lookup(ends,v[e,"attempt_id"])
                 if(t && k ~ /^(span|wait|check|ticket-outcome)/ && v[e,"timestamp"]+0>v[t,"timestamp"]+0) reject(e,"after-attempt-terminal")
             }
         }
         w=v[e,"wave_id"]
-        if(w=="" && v[e,"attempt_id"]!="") w=v[attempts[v[e,"attempt_id"]],"wave_id"]
-        if(w!="" && wave_end[w] && v[e,"timestamp"]+0>v[wave_end[w],"timestamp"]+0) reject(e,"after-wave-terminal")
-        if(k=="span-end" || k=="wait-end") parent(e,spans[v[e,"span_id"]])
+        if(w=="" && v[e,"attempt_id"]!="") w=v[lookup(attempts,v[e,"attempt_id"]),"wave_id"]
+        t=lookup(wave_end,w)
+        if(w!="" && t && v[e,"timestamp"]+0>v[t,"timestamp"]+0) reject(e,"after-wave-terminal")
+        if(k=="span-end" || k=="wait-end") parent(e,lookup(spans,v[e,"span_id"]))
         if(k=="run-end" || k=="wave-end" || k=="attempt-end") {
-            p=(k=="run-end" ? rs : (k=="wave-end" ? waves[v[e,"wave_id"]] : attempts[v[e,"attempt_id"]]))
+            p=(k=="run-end" ? rs : (k=="wave-end" ? lookup(waves,v[e,"wave_id"]) : lookup(attempts,v[e,"attempt_id"])))
             if(p && v[e,"duration"]!="" && v[e,"timestamp"]-v[p,"timestamp"]!=v[e,"duration"]+0) reject(e,"invalid-interval")
         }
         if(k=="link") {
-            if(v[e,"origin_attempt_id"]!="") parent(e,attempts[v[e,"origin_attempt_id"]])
-            if(v[e,"origin_gate_id"]!="") parent(e,gates[v[e,"origin_gate_id"]])
-            if(v[e,"origin_attempt_id"]!="" && v[e,"origin_gate_id"]!="" && v[attempts[v[e,"origin_attempt_id"]],"gate_id"]!=v[e,"origin_gate_id"]) reject(e,"link-origin-mismatch")
+            if(v[e,"origin_attempt_id"]!="") parent(e,lookup(attempts,v[e,"origin_attempt_id"]))
+            if(v[e,"origin_gate_id"]!="") parent(e,lookup(gates,v[e,"origin_gate_id"]))
+            if(v[e,"origin_attempt_id"]!="" && v[e,"origin_gate_id"]!="" && v[lookup(attempts,v[e,"origin_attempt_id"]),"gate_id"]!=v[e,"origin_gate_id"]) reject(e,"link-origin-mismatch")
         }
     }
     run_state=lifecycle(rs,re,run,"run")
@@ -181,7 +185,7 @@ END {
         e=attempts[a]; t=ends[a]
         r=v[e,"retry_of"]
         if(r!="") {
-            p=attempts[r]
+            p=lookup(attempts,r)
             if(parent(e,p)) {
                 if(v[e,"wave_id"]!=v[p,"wave_id"] || v[e,"sitting_id"]!=v[p,"sitting_id"] || v[e,"gate_id"]!=v[p,"gate_id"] || !subset(v[e,"members"],v[p,"members"])) reject(e,"invalid-retry-parent")
                 if(!ends[r] && !stopped_at(r,v[e,"timestamp"]+0)) reject(e,"retry-without-stop")
@@ -206,11 +210,11 @@ END {
       changed=0
       for(e=1;e<=n;e++) if(!duplicate[e] && !bad[e]) {
         k=v[e,"kind"]
-        if(bad[rs] || (v[e,"wave_id"]!="" && bad[waves[v[e,"wave_id"]]]) ||
-           (v[e,"sitting_id"]!="" && bad[sittings[v[e,"sitting_id"]]]) ||
-           (v[e,"gate_id"]!="" && bad[gates[v[e,"gate_id"]]]) ||
-           (v[e,"attempt_id"]!="" && bad[attempts[v[e,"attempt_id"]]]) ||
-           (v[e,"retry_of"]!="" && bad[attempts[v[e,"retry_of"]]])) {reject(e,"invalid-parent");changed=1}
+        if(bad[rs] || (v[e,"wave_id"]!="" && bad[lookup(waves,v[e,"wave_id"])]) ||
+           (v[e,"sitting_id"]!="" && bad[lookup(sittings,v[e,"sitting_id"])]) ||
+           (v[e,"gate_id"]!="" && bad[lookup(gates,v[e,"gate_id"])]) ||
+           (v[e,"attempt_id"]!="" && bad[lookup(attempts,v[e,"attempt_id"])]) ||
+           (v[e,"retry_of"]!="" && bad[lookup(attempts,v[e,"retry_of"])])) {reject(e,"invalid-parent");changed=1}
       }
     }
     window_start=(rs && !bad[rs]) ? v[rs,"timestamp"]+0 : -1
@@ -218,12 +222,12 @@ END {
     if(window_start>window_end || window_end>now) window_start=-1
     for(a in attempts) {
         e=attempts[a]; t=ends[a]; w=v[e,"wave_id"]
-        if(bad[waves[w]]) reject(e,"invalid-parent")
+        if(bad[lookup(waves,w)]) reject(e,"invalid-parent")
         if(t && !bad[t] && v[t,"timestamp"]+0<v[e,"timestamp"]+0) reject(t,"invalid-interval")
         state=bad[e] ? "invalid" : ((!t || bad[t]) ? "incomplete" : "completed")
         duration=state=="completed" ? v[t,"timestamp"]-v[e,"timestamp"] : "-"
         class=v[e,"work_class"]
-        if(class=="") class=v[(v[e,"sitting_id"]!="" ? sittings[v[e,"sitting_id"]] : gates[v[e,"gate_id"]]),"work_class"]
+        if(class=="") class=v[(v[e,"sitting_id"]!="" ? lookup(sittings,v[e,"sitting_id"]) : lookup(gates,v[e,"gate_id"])),"work_class"]
         if(class=="") class="unknown"
         attempt_class[a]=class
         ast[a]=state
@@ -237,7 +241,7 @@ END {
         if(v[e,"retry_of"]!="") retries++
     }
     for(id in spans) {
-        e=spans[id]; t=span_end[id]; a=v[e,"attempt_id"]; p=attempts[a]
+        e=spans[id]; t=span_end[id]; a=v[e,"attempt_id"]; p=lookup(attempts,a)
         label=(v[e,"kind"]=="wait-start" ? v[e,"reason"] : v[e,"activity"])
         if(bad[p]) reject(e,"invalid-parent")
         if(t && (v[t,"attempt_id"]!=a || (v[e,"kind"]=="wait-start")!=(v[t,"kind"]=="wait-end"))) reject(t,"span-parent-mismatch")
@@ -323,7 +327,7 @@ END {
         }
     }
     for(e=1;e<=n;e++) if(!bad[e] && !duplicate[e]) {
-        k=v[e,"kind"];a=v[e,"attempt_id"];p=attempts[a];w=v[p,"wave_id"]
+        k=v[e,"kind"];a=v[e,"attempt_id"];p=lookup(attempts,a);w=v[p,"wave_id"]
         if(k ~ /^(run|attempt)-(interrupt|resume)$/) print "transition",k,subject(e),v[e,"timestamp"],given(v[e,"reason"])
         if(k=="ticket-outcome" || k=="landed")
             print "ticket-event",v[e,"ticket_id"],a,w,k,given(v[e,"outcome"]),v[e,"timestamp"],given(v[e,"evidence_ref"])

@@ -1588,6 +1588,66 @@ assert_contains "$R_OUT" $'diagnostic\tunresolved-reference' 'unknown references
 assert_contains "$R_OUT" $'diagnostic\tinvalid-ordered-membership' 'retry cannot reorder original members'
 assert_contains "$R_OUT" $'span\topen\ta\tincomplete\t1001\t-\t-' 'incomplete sample has no end or duration'
 
+test_case "dangling references diagnose gaps without declaring accounting identities"
+report_fixture
+report_event span-start 1005 attempt_id=a-missing span_id=orphan-start activity=orientation
+report_event span-end 1006 attempt_id=a-missing span_id=span-missing duration=0 outcome=done
+report_event gate 1006 wave_id=w-missing gate_id=declared-gate
+report_event link 1007 relation=follow-up ticket_id=SFT-0001 \
+  origin_attempt_id=origin-missing origin_gate_id=gate-missing
+before=$(tree_digest "$events_root")
+report_read 1100
+assert_eq 0 "$R_STATUS" 'unresolved references remain diagnostic report data'
+assert_contains "$R_OUT" $'diagnostic\tunresolved-reference' 'the missing declarations remain visible'
+assert_eq 0 "$(report_metric attempts)" 'no attempt-start means no declared attempt'
+assert_eq 0 "$(report_metric incomplete_attempts)" 'missing attempt references cannot become incomplete executions'
+assert_eq 0 "$(report_metric retry_denominator_attempts)" 'retry denominator contains only declared attempts'
+assert_eq - "$(report_metric retry_rate)" 'an empty attempt denominator has no retry rate'
+assert_eq 0 "$(report_metric incomplete_attempt_elapsed_lower_bound_seconds)" \
+  'a missing start cannot create epoch-sized elapsed time'
+assert_eq 1 "$(report_metric invalid_spans)" 'only the actually declared orphan span is counted'
+assert_eq 0 "$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1=="attempt" {n++} END {print n+0}')" \
+  'a dangling attempt or origin never produces an attempt row'
+assert_eq 1 "$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1=="wave" {n++} END {print n+0}')" \
+  'only the published wave has a row and window'
+assert_eq 0 "$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1=="sitting" {n++} END {print n+0}')" \
+  'fallback classification cannot invent an empty sitting'
+assert_eq 1 "$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1=="gate" {n++} END {print n+0}')" \
+  'the invalid declared gate remains visible without an invented origin gate'
+assert_eq "$before" "$(tree_digest "$events_root")" 'diagnosing gaps leaves all published bytes unchanged'
+
+test_case "missing sitting gate and retry declarations resolve on a later report"
+report_fixture
+report_event sitting 1000 wave_id=w sitting_id=s members=SFT-0001
+report_event gate 1000 wave_id=w gate_id=g
+report_event attempt-start 1005 wave_id=w sitting_id=s-missing attempt_id=lost-sitting members=SFT-0001
+report_event attempt-start 1005 wave_id=w gate_id=g-missing attempt_id=lost-gate members=-
+report_event attempt-start 1005 wave_id=w sitting_id=s attempt_id=lost-retry retry_of=retry-missing members=SFT-0001
+report_read 1100
+assert_contains "$R_OUT" $'diagnostic\tunresolved-reference' 'all unresolved parent types are diagnosed'
+assert_eq 3 "$(report_metric attempts)" 'only the three real declarations enter attempt accounting'
+assert_eq 3 "$(report_metric invalid_attempts)" 'unresolved declared attempts remain invalid'
+assert_eq 0 "$(report_metric incomplete_attempts)" 'invalid parents do not become incomplete samples'
+assert_eq 0 "$(report_metric incomplete_attempt_elapsed_lower_bound_seconds)" 'invalid declarations add no elapsed sample'
+assert_eq 3 "$(report_metric retry_denominator_attempts)" 'an unknown retry ancestor cannot inflate the denominator'
+assert_eq 1 "$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1=="sitting" {n++} END {print n+0}')" \
+  'the missing sitting is not reported as declared'
+assert_eq 1 "$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1=="gate" {n++} END {print n+0}')" \
+  'the missing gate is not reported as declared'
+report_event sitting 1000 wave_id=w sitting_id=s-missing members=SFT-0001
+report_event gate 1000 wave_id=w gate_id=g-missing
+report_event attempt-start 1000 wave_id=w sitting_id=s attempt_id=retry-missing members=SFT-0001
+report_event attempt-end 1001 attempt_id=retry-missing outcome=failed
+before=$(tree_digest "$events_root")
+report_read 1100
+assert_eq 0 "$(report_metric integrity_errors)" 'later publication resolves all parent relationships'
+assert_eq 4 "$(report_metric attempts)" 'the newly published ancestor is now a real fourth attempt'
+assert_eq 1 "$(report_metric completed_attempts)" 'the declared failed ancestor has an actual completed envelope'
+assert_eq 3 "$(report_metric incomplete_attempts)" 'the original real attempts retain their incomplete lifetimes'
+assert_eq 285 "$(report_metric incomplete_attempt_elapsed_lower_bound_seconds)" \
+  'three actual starts at 1005 contribute 95 seconds each'
+assert_eq "$before" "$(tree_digest "$events_root")" 'resolution is read-only and does not rewrite earlier observations'
+
 test_case "retry and resume graph checks reject preserved members and terminal resumes"
 report_fixture
 report_event sitting 1000 wave_id=w sitting_id=s members=SFT-0001,SFT-0002

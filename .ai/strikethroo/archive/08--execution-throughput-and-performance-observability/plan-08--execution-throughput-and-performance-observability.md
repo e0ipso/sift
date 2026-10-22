@@ -917,7 +917,7 @@ No reviewer findings were produced or acted on because review was disabled. This
 
 ### Necessary follow-ups
 
-The separately requested post-archive review found a major dangling-reference accounting defect requiring follow-up in execution-report.awk. No implementation fix was requested or applied in that review. Real BSD execution and shellcheck were unavailable; the suite records those and its existing textual-count/unreachable-precondition skips, with narrowed awk coverage. Kenkeep reports 29 potentially stale nodes for future curation. Agent adherence, provider scheduling and representative production performance remain outside the demonstrated fixture evidence.
+The separately requested post-archive review found a major dangling-reference accounting defect, subsequently adopted and fixed under issue 8 with fresh focused and full-suite proof recorded below. The recorded independent review outcome remains Address because it was not rerun after the fix. Real BSD execution and shellcheck were unavailable; the suite records those and its existing textual-count/unreachable-precondition skips, with narrowed awk coverage. Kenkeep reports 29 potentially stale nodes for future curation. Agent adherence, provider scheduling and representative production performance remain outside the demonstrated fixture evidence.
 
 ### User-requested post-archive Opus 5.5 review
 
@@ -935,3 +935,13 @@ The mechanism's fixed summary says the exact CLI-selected model is unknown; the 
 - Minor, execution-delivery.awk lines 102-104: a failed optional review withholds full verified delivery. Not adopted as a defect because README.md lines 715-716 explicitly require successful heads of every gate retry chain, and task 6 notes plus wave-gate.md expressly document this conservative behavior. The reviewer marks this concern low-confidence and acknowledges that contract. Any policy change would need a separate deliberate decision.
 
 Review only: no runtime, test, normative specification or tracker changes were applied, and no review was rerun. The earlier mechanical test result remains historical evidence, not proof that the newly found major defect is absent.
+
+### Adopted finding and remote follow-up
+
+The user subsequently authorized deciding the findings, creating a remote issue if absent, fixing the adopted defect and merging a PR only after green checks. The major finding is adopted. The minor concern is not adopted because the explicit README and wave-gate policy deliberately requires successful gate heads for full verification. No policy change is warranted by that low-confidence concern.
+
+No duplicate defect issue existed; the focused report is https://github.com/e0ipso/sift/issues/8, related to the broader observability work in issue 7. It records the real reproduction and expected non-fabricated accounting. The fix introduces non-inserting identity lookup for referenced declarations, including parent propagation, retry origins, spans and follow-up provenance. Declared invalid entities stay visible; unresolved references cannot invent accounting rows. Regression cases exercise all missing-parent types and subsequent declaration publication through real public helpers.
+
+RED: the expanded drain-log suite reported 88 cases, 1556 assertions and 15 expected failures in /tmp/sift-reference-fix-red.log. GREEN: the same suite reported 88 cases, 1556 assertions, zero failures/skips in /tmp/sift-reference-fix-green.log. Parent reproduction /tmp/sift-opus55-review-proof.j7ZilcdqbK now reports attempts=0 and incomplete-attempt lower bound=0 with unresolved-reference diagnostics retained. Portability and diff checks passed. Full integrated verification is pending before the fix commit/PR.
+
+Final fix verification: `bash tests/run.sh` passed 708 tests, 4599 assertions, zero failures and six documented skips in 511 seconds. Complete output was read from /tmp/sift-reference-fix-full.log. No implementation change followed that proving run. The earlier review report is preserved unchanged; no second reviewer pass was run. PR creation and merge are authorized only against passing hosted checks.

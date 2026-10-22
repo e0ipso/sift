@@ -31,6 +31,17 @@ own model when `model` is absent. `command` wins over `model`.
 Wrap `command` in single quotes when it contains ` #` or `: `, which YAML would read as a
 comment or a mapping, and double each single quote inside it.
 
+The coordinator protects review state with the installed Drain skill's
+`scripts/review-state.sh`. `snapshot` writes a read-only snapshot to standard output.
+`compare BEFORE AFTER [--allow-event EVENT.md]...` exits 0 only when Git state and every
+historical tracker file are unchanged, and each new tracker file is one explicitly allowed,
+valid execution event at its exact path. Repeat `--allow-event` for each authorized receipt.
+Relative `.ai/sift/...` and absolute event paths are accepted. Changed or deleted history,
+unused or duplicate allowances, pending publications, malformed records and any other new
+tracker file exit 1. Usage or malformed snapshots exit 2. This is an exact receipt list,
+not permission to change `runs/` generally. Check evidence lives outside both checkouts and
+does not enter this comparison.
+
 Drain creates ticket, wave-gate and review worktrees with its `prepare-worktree.sh`. A new
 worktree holds only tracked files, so ignored local state such as `.env` and installed
 dependencies is missing. An optional executable hook at `.ai/sift/config/worktree-setup`
@@ -67,6 +78,154 @@ tree. The hook runs unsandboxed, so keep it within these limits:
 - A failed worktree is kept, never reset or cleaned. A retry prepares a fresh path and
   branch; `prepare-worktree.sh` still refuses a path that exists.
 
+Correlated preparation sets both `SIFT_PREPARE_RUN_ID` and `SIFT_PREPARE_ATTEMPT_ID` before
+calling `prepare-worktree.sh`; setting only one exits 2 before worktree or event creation.
+The caller publishes the referenced attempt first. The helper then records one preparation
+span while preserving its existing stdout and exit contract. Setup-hook failure remains
+exit 3 and keeps the worktree. If the end clock is unavailable, malformed or earlier than
+the start, the helper prints an instrumentation-gap diagnostic and leaves the span open. It
+does not invent a duration, terminal outcome or command status. A failed preparation keeps
+its original nonzero status; a successful preparation with incomplete telemetry exits 2.
+Uncorrelated standalone use sets neither variable and writes no event.
+
+### Verification declarations and evidence
+
+Drain's optional `verification` mapping declares required check obligations. Each check
+has an identity and exactly these fields. This example assumes the named files and
+directories exist and the environment stamps have been established by project setup:
+
+<!-- @CHECK-DECLARATION: begin -->
+```yaml
+verification:
+  suite:
+    complete: true
+    required: true
+    stage: development
+    scope: integrated
+    cwd: .
+    command: [bash, tests/check.sh]
+    inputs: [src, tests, deps, settings]
+    environment: [CHECK_ENV]
+    platform: CHECK_PLATFORM
+```
+<!-- @CHECK-DECLARATION: end -->
+
+The mapping belongs in `.ai/sift/config/config.yaml`, beside `prefix`. Check names and
+scope labels use the execution-event identity grammar. `stage` is `development` or
+`compatibility`. `cwd` is a logical directory relative to the checked worktree, with `.`
+meaning its root. `command` is the exact argv array, never shell code. Use an explicit
+interpreter argument such as `bash` when appropriate. There is no shell expansion of lists,
+paths or stamps. Use a separate check identity for each platform or scope obligation.
+
+The parser accepts two spaces before check names and four before fields, single-line
+scalars and nonempty flow lists. Values may be plain, single quoted with doubled embedded
+quotes, or double quoted without escapes. Empty quoted command arguments are allowed.
+Unquoted list elements cannot contain YAML punctuation; quote spaces, commas, hashes and
+other punctuation. Comments begin at an unquoted hash preceded by whitespace. Multiline
+values, aliases, nested structures, duplicate keys and unknown check fields disable reuse.
+This is a bounded subset, not a general YAML loader. Unrelated top-level configuration is
+preserved. Required checks need every field above and both booleans set to `true`.
+
+`complete: true` is the project's assertion that the declarations cover all relevant
+source, dependencies, tests, fixtures, command implementations, configuration and mutable
+environment state. Input files and directory contents include untracked files, discovered
+membership, permission modes, direct regular-file symlink targets and target contents/modes.
+Paths are literal worktree-relative names without `..`, redundant `.` components or trailing
+slashes. Every declared input must exist. Directory symlinks, link chains, special files
+and unreadable inputs disable reuse. Represent unsupported external dependencies with
+explicit project-maintained stamp files instead, and include those files in `inputs`.
+
+`environment` lists variable names whose nonempty values identify the required environment.
+`platform` names another nonempty variable identifying the platform obligation. The helper
+also records the host OS/release/architecture from `uname -srm` and the caller's umask.
+Setup must change stamps when toolchains, dependency installations, services, credentials
+that affect results, or other dynamic state changes. Declare relevant variables such as
+`PATH`, locale or feature flags, or cover them with an authoritative environment stamp.
+Values are hashed, not published. Missing stamps or unavailable platform identification
+disable reuse. An unknown dependency or uncertain environment requires `complete: false`.
+Sift still runs commands without a complete declaration.
+
+The installed Drain skill provides these command forms. `CHECKER` names its
+`scripts/check-evidence.sh`; `SIFT_ROOT` selects the original tracker checkout, and
+`WORKTREE` selects the current checked tree:
+
+```bash
+export SIFT_EVIDENCE_DIR=/absolute/existing-parent/check-evidence
+evidence=$(bash "$CHECKER" run "$run_id" "$attempt_id" suite development integrated \
+  "$WORKTREE" . -- bash tests/check.sh)
+bash "$CHECKER" validate "$evidence" suite development integrated \
+  "$WORKTREE" . -- bash tests/check.sh
+bash "$CHECKER" validate-declared "$evidence" suite development integrated "$WORKTREE"
+```
+
+An optional `--` may precede the subcommand. The required later `--` separates the fixed
+operands from command argv, which may contain empty arguments or any shell-special bytes.
+`run` preserves argv, stdin, the caller's umask and the command exit status. Combined raw
+stdout/stderr goes to the evidence log; stdout from the helper is only the absolute
+`evidence.md` receipt. Setup/usage errors exit 2 before execution. A diagnostic failure
+after execution preserves a nonzero command status; following a zero command status it
+exits 2 without a success receipt. Interrupted publication leaves incomplete files for
+inspection. The wrapper does not supervise background processes or forward signals.
+
+An unavailable, malformed or backwards end clock leaves the verification span incomplete.
+The helper prints an instrumentation-gap diagnostic naming the span and retained evidence,
+publishes neither a fabricated `span-end` nor a timestamped check result, and returns no
+receipt. A failed command keeps its original nonzero status; a successful command returns
+wrapper status 2. End clocks must use the event timestamp grammar before duration arithmetic;
+equal valid timestamps still produce an observed zero-second span.
+
+Content evidence is published before this end-clock observation. That immutable record
+retains the actual command result and remains eligible for read-only validation and later
+reuse if every existing content, declaration and environment check passes. A failed or
+unstable command remains ineligible. Retained content evidence does not close the missing
+span or establish its duration. Reporters must retain the instrumentation gap separately,
+even when a later request successfully reuses the check.
+
+The store defaults to `${TMPDIR:-/tmp}/sift-check-evidence`. Its parent must exist. The
+resolved store must be outside both the original checkout and checked worktree. Each
+execution reserves a private `check.XXXXXXXXXX` directory containing `argv.nul`, `raw.log`,
+`before.manifest`, `after.manifest`, and finally `evidence.md`. Publication renames a private
+`evidence.pending` file; helpers never replace published evidence. Preserve this directory
+with diagnostic history. A removed or changed log invalidates evidence. These are local
+integrity checks, not authentication against an actor rewriting evidence and its hashes.
+
+The version-1 record starts with `# Check evidence v1`, a blank line, and unique tab-separated
+key/value rows. Its fields are `run_id`, `attempt_id`, `check_id`, `stage`, `scope`, `cwd`,
+`exit_status`, `complete`, `stable`, `reason`, `before_hash`, `after_hash`, `argv_hash` and
+`log_hash`. Hashes use Git's content identity without writing objects. `argv.nul` retains
+the exact arguments, each followed by NUL. The input manifests include the full project
+config identity, logical obligation, argv identity, environment/platform observations and
+sorted file identities. Paths and symlink targets are hex encoded. Commit IDs and physical
+checkout paths are excluded, permitting reuse across commits and prepared trees.
+
+`run` uses the public `drain-log.sh event` interface to publish a check decision and, on execution,
+a verification span plus a result. An invalidation event has `reason=other` and a concrete
+`reason_detail`; reuse has `reason=unchanged-inputs`. Every reference names the immutable
+evidence record. Reuse returns the original producing record and attempt, even when the
+request comes from another attempt or run. Failed commands and unequal before/after
+observations cannot satisfy validation, even when a check result event says `passed`.
+
+Both validation commands are read-only and execute no check. They return 0 only for
+complete, stable, passing evidence matching current inputs, exact command, required scope,
+stage, logical directory, platform and environment, with intact manifests, argv and raw log.
+Exit 1 means invalid or unavailable evidence; usage/setup errors exit 2. Their stdout is
+TSV: `valid` and `reason`, followed on success by `producing_run` and `producing_attempt`.
+Reasons include `unchanged-inputs`, `changed-inputs`, `missing-evidence`, `failed-evidence`,
+`unstable-inputs`, `incomplete-declaration`, `unavailable-inputs`, `unavailable-environment`
+and `unavailable-platform`. A first execution records `no-prior-evidence`.
+
+`validate-declared` gets the expected cwd and argv from current project configuration,
+never from the event or evidence being validated. Reporters supply the expected check,
+stage, scope and final integrated worktree and must treat every nonzero result as an
+outstanding obligation. No event outcome alone proves final verification. Gate owners run
+each invalidated obligation against the final tree, then validate every required check.
+Snapshots cannot observe a transient mutation restored between reads, or undeclared state;
+final validation requires quiescent inputs and honest completeness declarations.
+
+Migration is additive. Update the Drain skill and refresh the shipped README; existing
+configuration and logs need no conversion. Add declarations only when their completeness
+can be established. No declaration means conservative execution, not a Sift setup error.
+
 `MILESTONES.md` names and orders milestones. `<PREFIX>` and `<milestone>` below stand for
 these configured values. Changing a prefix requires rewriting every ticket ID, filename and
 reference with the config change.
@@ -80,8 +239,15 @@ reference with the config change.
 ├── MILESTONES.md              ← milestone definitions
 ├── .id-sequence/              ← reservation marks; created on first allocation
 ├── RUNLOG.md                  ← diagnostic log; created on first dispatch
+├── runs/                      ← correlated diagnostics; created on first event
+│   └── <run-id>/
+│       ├── events/<event-id>/event.md
+│       └── estimates/<estimate-id>/
+│           ├── snapshot.tsv
+│           ├── observations.tsv
+│           └── estimate.md
 ├── config/
-│   └── config.yaml            ← ticket prefix
+│   └── config.yaml            ← prefix and optional Drain policy/declarations
 ├── scripts/
 │   └── sift.sh                ← local operations
 ├── schemas/
@@ -235,6 +401,7 @@ For an authorized mirror, put the issue URL in `source:`. Keep front-matter auth
 Drain alone appends RUNLOG.md. Never edit it by hand or use it as ticket state.
 Six columns, with `-` for unused cells:
 
+<!-- @LEGACY-RUNLOG: begin -->
 ```markdown
 # Run log
 
@@ -251,10 +418,473 @@ Append-only. One row per drain event; rows are never rewritten.
 | return | <PREFIX>-0025 | - | 2026-08-10T09:41:12Z | 1786354872 | done |
 | return | <PREFIX>-0031 | - | 2026-08-10T09:41:12Z | 1786354872 | done |
 ```
+<!-- @LEGACY-RUNLOG: end -->
 
 Each dispatch or return call writes one row per ticket with a shared timestamp. Each phase
 writes one ticketless row. Readers group dispatches by epoch and calculate with that integer,
 not UTC text. Writers use `date -u +%Y-%m-%dT%H:%M:%SZ` and `date +%s`.
+
+### Immutable execution event schema, version 1
+
+Correlated callers use the Drain skill's `scripts/drain-log.sh event KIND key=value...`.
+Each operand is one shell argument; quote values containing spaces. This mode writes only
+`runs/<run-id>/events/<event-id>/event.md`. Existing `dispatch`, `phase`, `return` and
+`report` invocations retain their six-column behavior. Events remain diagnostic;
+ticket front-matter owns ticket status.
+
+An event begins with `---`, followed by unique `key: 'value'` lines, then `---`, one blank
+line, and `# Execution event`. All scalars, including numbers, are single quoted. Double
+an embedded single quote; a backslash is literal. Values are 1–4096 printable ASCII bytes,
+including spaces and punctuation. Newlines, tabs, control bytes and non-ASCII bytes are
+rejected; encode such external metadata before passing it. There are no nested mappings,
+lists, comments, nulls, extra body lines or unlisted fields. Readers accept any field order.
+The writer emits a final newline; readers also accept an unterminated last body line.
+
+The following table is the complete field set. Fields are optional unless required below.
+An identity is 1–128 ASCII letters/digits, dots, underscores or hyphens, starting with a
+letter/digit. An integer is `0` or a nonzero digit followed by digits, at most 15 digits.
+Ticket IDs keep the configured prefix and four-or-more digits without changing allocation.
+
+| Fields | Values |
+|---|---|
+| `version` | Required, exactly `1` |
+| `event_id`, `run_id` | Required identities |
+| `kind` | Required kind from the next table |
+| `actor` | Required: `coordinator`, `worker`, `gate`, `reviewer`, `helper` |
+| `timestamp` | Required integer, Unix epoch seconds |
+| `actor_id`, `wave_id`, `sitting_id`, `gate_id`, `attempt_id`, `retry_of`, `span_id`, `origin_attempt_id`, `origin_gate_id`, `root_cause`, `check_id` | Identities |
+| `wave` | Positive integer, existing ticket wave number |
+| `members` | Ordered comma-separated distinct ticket IDs, no spaces; `-` means explicitly empty |
+| `ticket_id` | One ticket ID |
+| `duration` | Nonnegative integer seconds; zero is valid |
+| `activity` | `preparation`, `orientation`, `implementation`, `verification`, `review`, `landing`, `cleanup` |
+| `outcome` | `done`, `failed`, `blocked`, `wontfix`, `superseded`, `cancelled`, `passed`, `reused`, `invalidated`, `deferred` |
+| `reason` | `dependencies`, `write-ownership`, `resource-admission`, `provider-limits`, `user-input`, `setup-failure`, `command-failure`, `interrupted`, `retry`, `repair`, `missing-evidence`, `changed-inputs`, `unchanged-inputs`, `unavailable-environment`, `authorized-deferral`, `other` |
+| `reason_detail` | Opaque scalar; required for reason `other` |
+| `wait_class` | `external` or `actionable` |
+| `work_class` | `product`, `infrastructure`, `unknown`; absent means unknown |
+| `stage` | `development` or `compatibility` |
+| `relation` | `follow-up` or `repair` |
+| `exit_status` | Integer 0–255 |
+| `external_id`, `evidence_ref` | Opaque scalars; never evaluated, fetched or interpreted as shell commands |
+
+Every kind requires the common fields above. This table gives additional required fields.
+A starred identity defaults to the generated event identity on publication; it must be
+present in the stored record. A caller may supply a stable identity explicitly instead.
+
+| Kind | Additional required fields |
+|---|---|
+| `run-start`, `run-resume` | None |
+| `run-interrupt` | `reason` |
+| `run-end` | `outcome` |
+| `wave-start` | `wave_id`*, `wave` |
+| `wave-end` | `wave_id`, `outcome` |
+| `sitting` | `sitting_id`*, `wave_id`, nonempty `members` |
+| `gate` | `gate_id`*, `wave_id` |
+| `attempt-start` | `attempt_id`*, `wave_id`, `members`, exactly one of `sitting_id` or `gate_id` |
+| `attempt-interrupt` | `attempt_id`, `reason` |
+| `attempt-resume` | `attempt_id` |
+| `attempt-end` | `attempt_id`, `outcome` |
+| `span-start` | `span_id`*, `attempt_id`, `activity` |
+| `span-end` | `span_id`, `attempt_id`, `duration`, `outcome` |
+| `wait-start` | `span_id`*, `attempt_id`, `reason`, `wait_class` |
+| `wait-end` | `span_id`, `attempt_id`, `duration` |
+| `ticket-outcome` | `attempt_id`, `ticket_id`, `outcome` |
+| `landed` | `attempt_id`, `ticket_id`, `evidence_ref` |
+| `link` | `relation`, `ticket_id`, at least one of `origin_attempt_id` or `origin_gate_id` |
+| `check` | `attempt_id`, `check_id`, `stage`, `outcome`, `evidence_ref` |
+
+`members` appears only on `sitting` and `attempt-start`. An empty membership is permitted
+only for gate attempts. `retry_of` appears only on `attempt-start` and cannot refer to
+that same attempt. `sitting_id` and `gate_id` are mutually exclusive. If `ticket_id` and
+`members` both appear, the ticket must be a member. Wait reasons are limited to dependencies,
+write ownership, resource admission, provider limits and user input, using their exact
+spellings in the field table. Ticket outcomes allow only `done`, `failed`, `blocked`,
+`wontfix`, `superseded` and `cancelled`. Check outcomes allow only `passed`, `failed`,
+`reused`, `invalidated` and `deferred`. Passed/failed checks require `exit_status` matching
+the outcome; other check outcomes require `reason`. The evidence reference names a separate
+manifest or log; this record schema does not establish evidence reuse or deferral authority.
+
+`version` defaults to `1`, and `timestamp` defaults to one `date +%s` reading. An explicit
+timestamp supports deterministic producers. The writer always generates `event_id` and
+rejects a caller-supplied one or a `kind=` operand. `run_id` is required except on
+`run-start`, where omission reserves a new `run.XXXXXXXXXX` directory. Publish that start
+before preparing work. For example, `drain-log.sh event run-start actor=coordinator`
+returns the absolute final record path on stdout. Success exits 0; validation/setup/write
+errors exit 2 with a diagnostic on stderr and no publication receipt.
+
+This runnable gate-only example uses generated identities rather than timestamps for
+correlation. Set `DRAINLOG` to the installed Drain helper, export `SIFT_ROOT` for the
+tracker checkout, and set `WORKTREE` to the integrated checkout being observed:
+
+<!-- @EXECUTION-EVENT-EXAMPLE: begin -->
+```bash
+run_record=$(bash "$DRAINLOG" event run-start actor=coordinator timestamp=1000)
+run_id=$(bash "$DRAINLOG" event-fields "$run_record" | awk -F '\t' '$1 == "run_id" {print $2}')
+wave_record=$(bash "$DRAINLOG" event wave-start "run_id=$run_id" wave=1 \
+  actor=coordinator timestamp=1000)
+wave_id=$(bash "$DRAINLOG" event-fields "$wave_record" | awk -F '\t' '$1 == "wave_id" {print $2}')
+gate_record=$(bash "$DRAINLOG" event gate "run_id=$run_id" "wave_id=$wave_id" \
+  actor=coordinator work_class=infrastructure timestamp=1000)
+gate_id=$(bash "$DRAINLOG" event-fields "$gate_record" | awk -F '\t' '$1 == "gate_id" {print $2}')
+attempt_record=$(bash "$DRAINLOG" event attempt-start "run_id=$run_id" \
+  "wave_id=$wave_id" "gate_id=$gate_id" members=- actor=gate \
+  work_class=infrastructure timestamp=1000)
+attempt_id=$(bash "$DRAINLOG" event-fields "$attempt_record" | \
+  awk -F '\t' '$1 == "attempt_id" {print $2}')
+span_record=$(bash "$DRAINLOG" event span-start "run_id=$run_id" \
+  "attempt_id=$attempt_id" actor=gate activity=verification timestamp=1000)
+span_id=$(bash "$DRAINLOG" event-fields "$span_record" | awk -F '\t' '$1 == "span_id" {print $2}')
+bash "$DRAINLOG" event span-end "run_id=$run_id" "attempt_id=$attempt_id" \
+  "span_id=$span_id" actor=gate duration=5 outcome=done timestamp=1005 >/dev/null
+bash "$DRAINLOG" event attempt-end "run_id=$run_id" "attempt_id=$attempt_id" \
+  actor=gate outcome=done timestamp=1005 >/dev/null
+bash "$DRAINLOG" event wave-end "run_id=$run_id" "wave_id=$wave_id" \
+  actor=coordinator outcome=passed timestamp=1005 >/dev/null
+bash "$DRAINLOG" event run-end "run_id=$run_id" actor=coordinator \
+  outcome=done timestamp=1005 >/dev/null
+bash "$DRAINLOG" report-events "$run_id" "$WORKTREE" 1005
+```
+<!-- @EXECUTION-EVENT-EXAMPLE: end -->
+
+`drain-log.sh event-validate FILE` validates a whole record without writing or printing it.
+`drain-log.sh event-fields FILE` validates first, then prints decoded `key<TAB>value` lines.
+It emits no partial fields on failure. For example, pass the returned path to
+`event-fields` and extract `run_id` with `awk -F '\t' '$1 == "run_id" {print $2}'`.
+Neither command establishes that a file is published: readers enumerate only final
+`events/*/event.md` files and check that `run_id` and `event_id` match the enclosing paths.
+As with the legacy subcommands, `--` is accepted only before the
+subcommand; all later arguments are operands. Only `SIFT_ROOT` and `SIFT_PREFIX` affect
+root/prefix selection; event correlation is explicit in operands.
+
+A run identity is project-scoped; all other identities and references are scoped to that
+run. Timestamps and scan order never define parentage. A sitting retains its original
+ordered membership. Each attempt declares its own subset; a retry uses a new attempt
+identity and `retry_of`, preserving successful members from earlier attempts. A resume
+keeps the run and attempt identity and opens new spans; restarting uses a new attempt.
+Gate-only work has a gate identity and an attempt with `members=-`. Repeated publications
+remain separate immutable observations. Readers must deduplicate matching semantic events
+by kind and subject identity, and diagnose conflicting repetitions or terminal outcomes.
+
+Validation covers the complete local grammar, not the history graph. Unknown references
+are permitted so missing or concurrently arriving evidence stays observable. Reconstruction
+must check retry subsets, parent membership, conflicting declarations, orphan references,
+resume-after-terminal, timestamp order and duration agreement. Equal timestamps and zero
+durations are legal. A successful worker outcome or a landed event alone is not verified
+delivery. Unknown versions, keys, actors, reasons or malformed values are rejected.
+
+Each producer reserves an exclusive `event.XXXXXXXXXX` directory with `mktemp -d`, writes
+its validated record to `event.pending` there, then renames it in the same directory to
+`event.md`. No other producer reuses that directory, and published files are never replaced.
+There is no shared sequence or global lock. A directory without `event.md` is incomplete
+publication, even if `event.pending` looks complete; preserve it after a crash. A scan may
+observe missing references while another producer publishes. Process-crash preservation
+is supported; power-loss durability beyond filesystem guarantees is not promised. A crash
+after rename but before stdout can leave a published record without a receipt; inspect the
+observed records before retrying a semantic event.
+
+Migration is additive: update Drain and refresh this specification using the existing
+installed-copy commands. No paths or keys are renamed and no historical file is converted.
+Keep `RUNLOG.md` unchanged. Callers adopt event mode explicitly; legacy records cannot
+establish the new attempt, worker or gate identities.
+
+### Read-only execution reports
+
+Use the installed Drain helper with one explicit run identity. `SIFT_ROOT` selects the
+tracker; `WORKTREE` is the current final integrated checkout, defaulting to that root.
+Supply the same environment/platform stamps used for check execution. `AS_OF` defaults
+to one `date +%s` reading. Its optional explicit canonical epoch is a controlled observation
+clock for fixtures, not a historical filter; later timestamps in the observed files are
+diagnosed. The observation must follow every event being measured.
+
+```bash
+bash "$DRAINLOG" report-events "$run_id" "$WORKTREE"
+bash "$DRAINLOG" -- report-events "$run_id" "$WORKTREE" 1100
+bash "$DRAINLOG" report
+```
+
+The last command remains the six-column legacy reader. Its old arithmetic is retained and
+labelled inferred. Worker, attempt, gate and attributable phase identities and verified
+delivery are unavailable. Same-second dispatch calls and overlapping history are ambiguous;
+the reader cannot repair them by inventing identities. Neither report changes RUNLOG bytes,
+events, tickets or evidence, and neither executes project checks. Temporary observation
+files live outside the tracker and integrated checkout and are removed on exit.
+
+`report-events` exits 0 after rendering an observation, including incomplete or invalid
+history. Usage/setup errors exit 2. Diagnostics are data, so exit 0 never means verification
+passed. Only published regular `events/*/event.md` files enter reconstruction, after grammar
+and enclosing run/event identity validation. Producer directories without that final file
+are incomplete publications. Missing references may resolve on a later observation.
+Parentage and ordered membership come from declarations, independent of directory order.
+Exact semantic repetitions ignore only the generated event ID; conflicting declarations
+or outcomes are diagnosed. Repeated interrupt/resume transitions use their timestamps as
+observations within the identified execution, not as new attempt identities. Equal clocks
+permit a logically ordered interrupt/resume/end sequence. Indistinguishable repetitions
+within one second cannot establish an additional cycle.
+
+The report is deterministic TSV, sorted with the C locale. `-` means unavailable or absent.
+Consumers select the first column, then its identity/key; rows are not positional records
+in scan order. The bounded data interface is version 1, reported as
+`metric<TAB>report_version<TAB>1`. These row shapes are available to downstream accounting:
+
+| First column | Remaining columns, in order |
+|---|---|
+| `metric` | unique key, value |
+| `attempt` | attempt ID, wave ID, parent kind, parent ID, ordered comma-separated members, retry origin or `-`, explicit work class, start epoch, end epoch or `-`, envelope seconds or `-`, completed/incomplete/invalid, terminal outcome or `-`, actor, actor ID or `-`, external ID or `-`, last active/interrupted lifecycle state |
+| `span` | span ID, attempt ID, completed/incomplete, start, end or `-`, seconds or `-`, span-start/wait-start, activity or wait reason, wait class or `-` |
+| `wave` | wave ID, numeric ticket wave, start, end or `-`, outcome or incomplete |
+| `wave-metric` | wave ID, unique key within that wave, value |
+| `wave-ticket` | wave ID, unique member ticket ID within that wave, work class, development-verified or `-`, fully-verified or `-` |
+| `sitting` | sitting ID, wave ID, original ordered members, explicit work class or unknown, declaration epoch, declared/invalid |
+| `gate` | gate ID, wave ID, completed/incomplete, explicit work class or unknown, declaration epoch |
+| `transition` | run/attempt interrupt/resume kind, subject ID, epoch, reason or `-` |
+| `member` | ticket ID, attempt ID, wave ID, work class |
+| `ticket-event` | ticket ID, attempt ID, wave ID, kind, outcome or `-`, epoch, evidence reference or `-` |
+| `ticket` | ticket ID, live status, work class, returned-done or `-`, landed or `-`, development-verified or `-`, fully-verified or `-`, non-delivery-outcome or `-` |
+| `check` | event ID, attempt ID, wave ID, gate ID or `-`, check ID, stage, outcome, epoch, evidence reference, reason or `-` |
+| `obligation` | wave ID, expected check ID, stage, scope, passed/outstanding/authorized-deferral |
+| `evidence` | expected check ID, stage, scope, evidence reference, true/false, validator reason |
+| `link` | follow-up/repair, ticket ID, origin attempt or `-`, origin gate or `-`, root cause or `-` |
+| `wait` | controlled reason, external/actionable, elapsed union seconds |
+| `activity` | activity, elapsed union seconds |
+| `diagnostic` | code, affected identity or reference |
+
+`window_start`, `window_end`, `window_seconds` and `window_basis` identify the denominator:
+run start through a valid run end, otherwise through the observation clock. Completed
+attempt durations are start-to-end envelopes, including interruption/wait time, with
+`completed_attempts` as their denominator. Min, lower-median p50 and max are provided; the
+attempt rows retain every sample. An incomplete attempt has no duration sample. Its observed
+envelope age contributes only to `incomplete_attempt_elapsed_lower_bound_seconds`, never
+to effort or a fabricated zero-cost completion. Invalid attempts are counted separately.
+Retry count/rate use all observed attempt declarations as the explicit denominator; resumes
+are separate transitions. Inspect invalid rows before selecting a comparable cohort.
+
+Each wave has additive `wave-metric` rows for `window_start`, `window_end`,
+`window_seconds`, `window_basis`, `throughput_numerator_tickets`,
+`throughput_denominator_seconds` and `fully_verified_product_per_hour`. A valid closed
+wave uses `wave-start/wave-end`; a wave without a terminal uses
+`wave-start/observation` through the report's `observation_epoch`. The latter is elapsed
+observed activity, not a completed-wave duration. An invalid declaration or terminal
+makes the window unavailable (`-`, with basis `unavailable`). The denominator is that
+wave's elapsed window; zero or unavailable denominators have no rate (`-`).
+The numerator counts unique fully verified product tickets within that wave, with
+`wave-ticket` rows exposing each member's contribution. A wave with outstanding closure
+has zero fully verified tickets even when its development checks pass. Join `ticket-event`,
+`attempt`, `obligation`, `evidence` and `gate` rows for the underlying provenance.
+Wave scopes may overlap in time and membership: their windows, numerators and rates are
+not additive. A ticket delivered in two waves contributes once to each wave and once to
+the run's unique-ticket total. Run throughput uses the run window, not summed wave windows.
+These rows do not allocate or multiply shared checks, gate costs or effort per ticket.
+They extend report version 1 without changing existing row shapes or stored records;
+no migration is needed.
+
+`effort_seconds` sums each attempt's union of completed non-wait spans. Nested verification
+and implementation spans within that attempt count once; concurrency between attempts remains
+summed effort. `occupied_seconds` unions all completed work/wait spans across the run.
+`waiting_seconds`, `external_wait_seconds`, `actionable_wait_seconds`, activity and reason
+rows are separate unions, so overlapping subdivisions must not be added. Gate occupied time
+and completed gate envelopes are also separate unions, never a charge per member ticket.
+`unattributed_seconds` is the elapsed window minus occupied time, not proof of idleness.
+Open/invalid spans and missing publications are counted and excluded from measured cost.
+Later reuse of clock-gap check evidence never supplies an original missing span terminal.
+
+Ticket counters cover unique members of reconstructed attempts. Live front-matter determines
+authoritative done and backlog resolution. Worker returns, landing, development verification,
+full verification and non-delivery outcomes remain separate. A missing/ambiguous ticket state
+cannot establish delivery. Wontfix, superseded and cancelled observations do not themselves
+establish delivery. Their historical `ticket-event` provenance, `non-delivery-outcome` flag
+and unique-ticket `non_delivery` count remain visible even after a successful linked retry.
+Eligibility requires current done state and a done ticket outcome paired with landing in
+the same attempt; a cancelled/wontfix/superseded attempt terminal cannot qualify. Historical
+non-delivery does not veto a later eligible attempt, while current wontfix/superseded state
+still prevents delivery. Classification comes from explicit ticket-outcome metadata, otherwise its attempt,
+otherwise its sitting/gate, otherwise unknown. Conflicting classifications stay unknown;
+category names never supply a class. Product, infrastructure and unknown verification counts
+are separate. Gate-only infrastructure work appears in attempt/gate costs and creates no
+delivered ticket.
+
+Required checks come from the current verification mapping, across every declared stage and
+scope. A complete required development set is necessary for development verification. For
+each wave, only its gate attempts' latest result observations can satisfy these obligations;
+simultaneous conflicting results stay outstanding. Each current gate candidate pass/reuse is checked with
+the actual `check-evidence.sh validate-declared` API against `WORKTREE`, expected check ID,
+stage and scope. Identical evidence/obligation requests are validated once per observation,
+not once per member. A failed validator or absent, incomplete, malformed or uncertain
+declaration fails closed. No passing event substitutes for applicable evidence.
+
+Full verification additionally requires a passing wave end and completed successful heads of
+every gate's retry chains. Gates and their evidence must precede the wave end. Delivery
+requires that eligible implementation/landing pair in the verified wave. A graph integrity gap conservatively
+withholds verified delivery for the observed run; missing span terminals alone remain timing
+gaps and do not negate independently applicable content evidence. Throughput reports unique
+fully verified product tickets over the explicit elapsed window, plus tickets/hour. A zero or
+unknown window has no rate. Reports require quiescent integrated inputs and honest declarations;
+they do not provide a filesystem transaction or infer omitted obligations.
+
+### Recorded compatibility deferral
+
+A deferred check event is not authorization. To report an authorized outstanding compatibility
+obligation, its `reason` must be `authorized-deferral` and `evidence_ref` must name an existing
+regular, non-symlink authorization record. Preserve this record with the diagnostic evidence;
+the reporter only reads it. It starts with `# Compatibility deferral v1`, a blank line, then
+exactly ten unique `key<TAB>value` rows in any order. Values are nonempty printable ASCII.
+The fields are `run_id`, `wave_id`, `check_id`, `stage`, `scope`, `authorization_ref`,
+`authorization`, `reason`, `outstanding_obligation` and `config_cksum`.
+
+`stage` must be compatibility. Run, wave, check and scope must match the current obligation;
+`config_cksum` is the exact output of `cksum < .ai/sift/config/config.yaml`, binding the grant
+to the current declarations. `authorization_ref` identifies the actual user directive or
+explicit project policy, and `authorization` retains its relevant text. `reason` explains the
+deferral and `outstanding_obligation` states the required remaining work. These are recorded
+authority and scope, not permission invented by the helper. The reporter does not fetch or
+authenticate the authority reference. Missing or changed scope/authorization remains outstanding.
+
+The report emits `deferral` rows containing wave, check, stage, scope, evidence reference,
+authorization reference, authorization text, reason and outstanding obligation. It counts
+authorized compatibility deferrals once per shared obligation, separately from full pass.
+Development may be verified while compatibility remains deferred; full delivery stays unverified.
+This report/data interface is additive: update Drain and refresh the README mirror. No existing
+file, ticket key, event grammar or legacy byte is renamed or converted.
+
+### Recorded graph estimates
+
+`drain-log.sh estimate RUN WORKTREE DECLARATION AS_OF [REASON]` explicitly records an
+estimate. `drain-log.sh report-estimate RUN [AS_OF]` renders the recorded head without
+changing it or executing checks. `--` belongs before the subcommand. RUN is an existing
+run identity, WORKTREE is the final integrated tree, and AS_OF is a canonical event epoch.
+An estimate request must follow every recorded event; an earlier observation is rejected
+before publication, so clock passage alone cannot repair its input history and revise it.
+Only rendering defaults AS_OF to one clock reading. A request returns the absolute
+`estimate.md` receipt; rendering returns TSV. Usage, malformed declarations, damaged
+records and ambiguous history exit 2. An unavailable estimate is data and exits 0.
+These commands do not dispatch work, alter ticket state or change `report-events`.
+
+The coordinator supplies a complete remaining graph, including ownership edges it already
+derives from write scopes. Sift does not infer missing edges from timings. DECLARATION is
+a regular text file of tab-separated rows, with no header, comments, escaping or empty
+fields. Values are printable ASCII; tabs separate fields and newlines separate rows.
+Identities use the event identity grammar. Row order is immaterial; member order is retained.
+The limits are 128 nodes, 4096 edges, 2048 candidate sample assumptions, 10000 lines and
+8192 bytes per line. Unknown rows, duplicate declarations, missing graph references and cycles
+are errors before publication. Missing evidence yields labelled unavailability.
+
+| Row | Remaining columns |
+|---|---|
+| `meta` | unique key, value |
+| `scope-wave` | run-local wave ID included in the remaining scope |
+| `node` | entity ID, `sitting` or `gate`, `product`/`infrastructure`/`unknown`, member count, stage, environment identity, ordered comma-separated ticket IDs or `-`, `work` or `known-repair` |
+| `edge` | predecessor entity ID, successor entity ID, `dependency` or `ownership` |
+| `obligation` | gate entity ID, scoped wave ID, check ID, development/compatibility stage, scope identity |
+| `sample` | observed attempt ID, assumed stage, assumed environment identity |
+| `external` | blocked entity ID, blocker identity, explanation without an invented release date |
+
+Every declaration requires exactly these `meta` keys:
+
+- `version`: `1`; `scope`: identity naming the remaining scope.
+- `graph`, `ownership`, `obligations`: each `complete` or `unknown`. Complete means the
+  coordinator has reconciled all remaining work, edges and shared obligations in scope.
+- `capacity`: an explicitly admitted available slot count from 0 through 128, or `unknown`;
+  `capacity_epoch`: the observation epoch, no later than AS_OF; `admission_ref`: the actual
+  admission observation/reference, or `unknown`. Keep this epoch fixed until admission
+  evidence changes. Used concurrency or maximum observed overlap is never slot evidence.
+- `environment`: the expected environment identity, or `unknown`.
+- `retry_policy`: `separate-allowance`; `retry_low` and `retry_high`: nonnegative canonical
+  seconds with low no greater than high; `retry_reason`: the basis for that scenario.
+  Zero explicitly assumes no future retry. This allowance has no inferred probability.
+
+A node is one whole remaining cost entity. A grouped sitting lists its distinct members
+once, with an exact positive count. No ticket belongs to two nodes. A gate has count 0 and
+members `-`; each shared check/stage/scope obligation belongs to one gate, regardless of
+the number of affected tickets. Stages are `development`, `compatibility` or `mixed` for
+an envelope covering both. Multiple obligations may share that mixed gate. Known repairs
+are explicit `known-repair` entities with their dependencies; they are not folded into
+the uncertain future retry allowance. Include landing, cleanup and other remaining work
+in these whole-entity assumptions; the estimator does not extrapolate partial progress.
+
+The estimator calls the actual `report-events RUN WORKTREE AS_OF` helper and consumes its
+attempt/span identity and interval rows, wave membership, current delivery and obligations.
+It checks scoped outstanding obligations against the declaration and refuses already fully
+delivered members. It cannot discover omitted future work or independently prove the
+coordinator's completeness assertion. Unknown graph, ownership, environment or capacity,
+zero admitted slots, absent cohorts, invalid report integrity or unavailable verification
+declarations prevent numeric bounds. Missing timing is never a zero-duration sample.
+
+Each sample row asserts that the observed attempt is comparable to the declared work and
+obligation scope, with the stated stage and environment. The timing report cannot establish
+that comparability. Keep those assertions with the snapshot; do not guess them from a
+category, provider or checkout path. Eligible
+samples are completed successful attempt envelopes of the same parent kind, explicit work
+class, exact group size, stage and environment. Retry attempts and their retried origins,
+incomplete spans and attempts with external waits are excluded. A duration is the parent
+envelope only: child implementation/check spans are never added to it. Sitting and gate
+cohorts are separate. Thus gates occur once as graph entities and uncertain future retries
+occur once as the declared allowance; retry-inclusive samples are not also charged.
+
+For each node, select at most the 20 most recently completed eligible candidates, breaking
+equal-clock ties by attempt ID. Recency is a bounded rank, not a sliding observation-age
+window. The report retains each selected sample ID, duration, classification, group size,
+stage, environment and end epoch. Fewer than three samples are labelled `sparse`; larger
+cohorts remain observed ranges with no confidence claim. Selection is limited to this run
+and the declared comparable candidates. Neither sample counts nor fixture timings establish
+production throughput or a completion guarantee.
+
+For node minima, the actionable lower scenario is the larger of the dependency/ownership
+critical-path sum and the ceiling of total work divided by admitted slots. For node maxima,
+the upper scenario groups the DAG into topological levels and charges each level's largest
+duration times the ceiling of its entity count divided by admitted slots. These hypothetical
+level barriers give a conservative upper scenario without choosing or dispatching workers.
+Add the respective future retry allowance once, then add the recorded origin epoch. Slots,
+scope and environment are assumed fixed for these scenarios. Unreported costs and future
+performance outside the observed range remain uncertain.
+
+External blockers stay separate. `status=conditional-external-blockers` labels otherwise
+available actionable bounds and `full_completion_upper_epoch=-` withholds a finite full
+completion bound. No release/unblock date is inferred. Without external blockers, status
+is `scenario`, still conditional on the recorded assumptions; missing evidence gives
+`unavailable` and `-` bounds. Rendering labels `lower_bound_state=passed` after the saved
+lower epoch passes, while retaining the original origin and bounds.
+
+Each changed explicit request reserves an exclusive
+`runs/<run-id>/estimates/estimate.XXXXXXXXXX/` directory with `mktemp -d`. It copies the
+canonical sorted declaration to `snapshot.tsv` and stable report rows to `observations.tsv`,
+writes and validates `estimate.pending`, then renames it to `estimate.md` in that private
+directory. The final name is the publication marker. No producer reuses a directory or
+rewrites a published file. Incomplete directories remain observable on stderr. There is no
+mutable current-estimate file, sequence or service. Keep each bundle with its history.
+
+`estimate.md` begins with `# Execution estimate v1`, one blank line and TSV rows. Unique
+`estimate KEY VALUE` rows record `id`, `run_id`, `origin_epoch`, `previous`, `revision_reason`,
+`graph_fingerprint`, `input_fingerprint`, `scope`, `capacity`, `retry_policy`,
+`retry_allowance_low`, `retry_allowance_high`, `retry_reason`, `scenario`, `assumptions`,
+`status`, `lower_epoch`, `upper_epoch`, `full_completion_upper_epoch` and `external_blockers`.
+Rendering adds only `lower_bound_state`. `cohort` rows give entity, count, sparse/range label,
+kind, class, group size, stage and environment. `sample` rows give entity, attempt, duration,
+kind, class, group size, stage, environment and end epoch. `entity` rows give entity, purpose,
+members, sampled minimum and maximum seconds or `-`. `diagnostic` rows give code and subject;
+`external` rows retain the declaration. The complete assumptions and graph remain in the
+fingerprinted snapshot beside the record.
+
+Fingerprints use portable `cksum` as `CRC:bytes`, for accidental-change detection rather
+than adversarial authentication. The input fingerprint covers stable report rows, including
+current delivery/evidence decisions. It excludes all observation-clock metrics except the
+stable report version/integrity count, and all wave metrics except the stable delivered
+numerator. Estimate/snapshot records never enter that event observation. The separate graph
+fingerprint covers the declaration, including explicit admission and scope assumptions.
+An unchanged request returns the original receipt without writing, even after its lower
+bound passes. Changing only AS_OF or REASON cannot create a revision. Actual changed report
+evidence or scope/declaration creates a linked record with the supplied reason; the first
+record uses `initial-observation` and `previous=-`.
+
+History heads follow `previous` identities, not timestamps. Requests belong to one
+coordinator. Concurrent publications preserve complete records but may fork the history;
+multiple heads cause a diagnostic and exit 2, never an arbitrary latest selection. Inspect
+such a run before continuing. Reports validate bundle fingerprints and leave all bytes
+unchanged. Observations need quiescent inputs; no filesystem transaction, clock monotonicity
+or power-loss durability beyond the filesystem is promised.
+
+Upgrade is additive: update Drain and refresh the README mirror. Existing events, reports,
+RUNLOG, ticket keys and configuration remain valid without conversion. The estimate tree
+is lazy and is not created by initialization. No event grammar or existing layout is renamed.
 
 ## Rules for agents
 
@@ -324,18 +954,31 @@ milestone front-matter reports the moved path for manual repair.
 
 ## Updating installed copies
 
-Update the Sift skills, then run sift-init to add missing shipped files. It preserves existing
-files and reports drift. Review local annotations before applying its resolved refresh
-commands. Only the specification, schemas and operation script are shipped assets:
+Update the Drain and sift-init skills together, then run the current sift-init helper. It
+adds missing files, preserves every existing file and reports drift. When an installed
+README is old, the current helper still prints the fully resolved refresh commands; the
+remedy does not depend on instructions inside that old README. Review local annotations
+before running those commands. Only the specification, schemas and operation script are
+shipped assets:
 
+<!-- @REFRESH-COMMANDS: begin -->
 ```sh
 cp "$SKILL/assets/README.md" .ai/sift/README.md
 cp "$SKILL"/assets/schemas/*.xsd "$SKILL"/assets/schemas/*.xml .ai/sift/schemas/
 cp "$SKILL/assets/scripts/sift.sh" .ai/sift/scripts/sift.sh
 ```
+<!-- @REFRESH-COMMANDS: end -->
 
 `SKILL` is the installed sift-init directory. Refresh never changes tickets, milestones,
-config, logs or reservation marks. Orphan schemas remain until the owner removes them.
+config, legacy RUNLOG bytes, correlated run/estimate history or reservation marks. Check
+evidence remains in its external store. Orphan schemas remain until the owner removes them.
+
+The observability upgrade is additive. It introduces no ticket key, status, allocator or
+existing path rename, so no `find`/`sed` migration is required. Existing six-column history
+stays byte-for-byte unchanged and remains available through `drain-log.sh report` with its
+documented attribution limits. Existing configuration remains valid; add `verification`
+only when its input, environment and platform declarations are complete enough to support
+reuse. New events and estimates appear lazily when the upgraded Drain helpers publish them.
 
 Migration is additive: sift-init installs `scripts/sift.sh`; no ticket path or key changes.
 Folders emptied before the prune rule existed stay until removed once:

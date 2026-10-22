@@ -28,6 +28,7 @@ GATE="$SKILL/sift-gate.sh"
 CHECK="$REPO_ROOT/src/skills/sift-drain/scripts/ticket-check.sh"
 DRAIN_LIB="$REPO_ROOT/src/skills/sift-drain/scripts/lib.sh"
 PRIME_LIB="$REPO_ROOT/src/skills/sift-prime/scripts/lib.sh"
+DRAINLOG="$REPO_ROOT/src/skills/sift-drain/scripts/drain-log.sh"
 
 init() {  # init <root> [extra args…]
   local root="$1"; shift
@@ -53,6 +54,13 @@ MS=v1-2
 # <documented entry>|<why a freshly initialised tree does not carry it>
 LAYOUT_EXCUSED=".id-sequence/|created lazily by the first reservation, not by initialization
 RUNLOG.md|the spec says so itself: the first dispatch of a drain creates it, so a freshly initialized tree has none
+runs/|created lazily by the first correlated event, not by initialization
+runs/<run-id>/|created with the first event for that run, not by initialization
+runs/<run-id>/events/<event-id>/event.md|shape instantiated by an event publication; a freshly initialized tree has no run or event records
+runs/<run-id>/estimates/<estimate-id>/|reserved by an explicit estimate request; initialization creates no estimate bundle
+runs/<run-id>/estimates/<estimate-id>/snapshot.tsv|published only inside an estimate bundle
+runs/<run-id>/estimates/<estimate-id>/observations.tsv|published only inside an estimate bundle
+runs/<run-id>/estimates/<estimate-id>/estimate.md|final publication marker for an estimate bundle
 open/$MS/<category>/|shape, not a path: <category> is the closed type set, and a category folder appears with the first ticket filed under it
 open/$MS/<category>/<PREFIX>-0001--short-slug.md|shape, not a path: an initialised tree holds no tickets
 archive/$MS/<category>/<PREFIX>-0001--short-slug.md|shape, not a path: the archive mirrors open/ and starts empty"
@@ -117,6 +125,13 @@ list_mismatches() {
   while IFS= read -r entry; do
     [ -n "$entry" ] && printf '%s excuse no longer needed: %s\n' "$label" "$entry"
   done <<< "$(set_diff "$expected" "$actual")"
+}
+
+# layout_missing_differences <root> <documented> <excused> — excuses must
+# describe exactly the drawn paths missing at init, including lazy directories.
+layout_missing_differences() {
+  list_mismatches "layout-missing" \
+    "$(set_diff "$2" "$(materialised "$1")")" "$(excused_entries "$3")"
 }
 
 # tree_pair_differences <init-root> <fixture-root> — every disagreement not
@@ -260,11 +275,15 @@ assert_eq "$(excused_entries "$LAYOUT_UNDOCUMENTED")" \
   "$(set_diff "$(materialised "$root")" "$DOCUMENTED")" \
   "every extra path is one the undocumented list names, and every named one is still there"
 
-test_case "every excused entry is still an entry the layout block draws"
+test_case "every excused entry is still drawn and absent at initialization"
 # Without this the excused list is a place for a withdrawn path to hide: an entry
 # deleted from README would leave the subset check green and the excuse standing.
+# The exact missing-set comparison also catches an excuse made stale by an eager
+# initializer write, including an empty directory that tree_digest cannot see.
 assert_eq "" "$(set_diff "$(excused_entries "$LAYOUT_EXCUSED")" "$DOCUMENTED")" \
   "nothing is excused that the spec no longer documents"
+assert_eq "" "$(layout_missing_differences "$root" "$DOCUMENTED" "$LAYOUT_EXCUSED")" \
+  "every excuse names a documented path that is still absent at initialization"
 
 test_case "the fresh tree is reported as created, and verified by the gate"
 assert_contains "$R_OUT" "sift tree at $root/.ai/sift" "the report names the absolute location"
@@ -297,6 +316,77 @@ test_case "a fresh tree is already consistent"
 run_cmd "$root" env SIFT_ROOT="$root" "$CHECK"
 assert_eq 0 "$R_STATUS" "ticket-check.sh exits 0 on a freshly initialised tree"
 assert_contains "$R_OUT" 'OK: 0 ticket file(s) are consistent' "counting nothing at all"
+
+test_case "lazy layout excuses remain exact and necessary"
+# Work on copied trees and extracted lists. The clean tree above is the positive
+# control for these comparisons; no repository document or script is mutated.
+for entry in \
+  'runs/' \
+  'runs/<run-id>/' \
+  'runs/<run-id>/events/<event-id>/event.md' \
+  'runs/<run-id>/estimates/<estimate-id>/' \
+  'runs/<run-id>/estimates/<estimate-id>/snapshot.tsv' \
+  'runs/<run-id>/estimates/<estimate-id>/observations.tsv' \
+  'runs/<run-id>/estimates/<estimate-id>/estimate.md'
+do
+  withdrawn="$(set_diff "$DOCUMENTED" "$entry")"
+  assert_contains "$(layout_missing_differences "$root" "$withdrawn" "$LAYOUT_EXCUSED")" \
+    "layout-missing excuse no longer needed: $entry" \
+    "withdrawing $entry from the layout invalidates its excuse"
+done
+
+broadened="$(printf '%s\n' "$LAYOUT_EXCUSED" | sed 's#^runs/.*#runs/*|overbroad lazy subtree#')"
+assert_contains "$(layout_missing_differences "$root" "$DOCUMENTED" "$broadened")" \
+  'layout-missing unexpected: runs/<run-id>/events/<event-id>/event.md' \
+  "a subtree wildcard cannot excuse the concrete documented event path"
+
+eager="$(newdir)"
+cp -R "$root/.ai" "$eager/"
+mkdir "$eager/.ai/sift/runs"
+assert_contains "$(layout_missing_differences "$eager" "$DOCUMENTED" "$LAYOUT_EXCUSED")" \
+  'layout-missing excuse no longer needed: runs/' \
+  "even an empty eager runs directory invalidates its lazy excuse"
+
+# Public estimate fixtures in drain-log.test.sh materialize and validate all
+# four estimate entries. This file owns the fresh-init side of that contract:
+# no eager estimate directory or half-bundle is created by initialization.
+
+missing="$(newdir)"
+cp -R "$root/.ai" "$missing/"
+rm "$missing/.ai/sift/config/config.yaml"
+assert_contains "$(layout_missing_differences "$missing" "$DOCUMENTED" "$LAYOUT_EXCUSED")" \
+  'layout-missing unexpected: config/config.yaml' \
+  "lazy event exceptions do not hide a missing initialization-required file"
+
+test_case "the first real event materialises the lazy diagnostic layout"
+events_root="$(newdir)"
+init "$events_root"
+assert_eq 0 "$R_STATUS" "the event fixture starts with a successful real init"
+assert_no_dir "$events_root/.ai/sift/runs" "initialization leaves the entire event tree absent"
+run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" \
+  event run-start actor=coordinator timestamp=1000
+assert_eq 0 "$R_STATUS" "the real event writer publishes successfully"
+published="$R_OUT"
+assert_file "$published" "the publication receipt names a final record"
+run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" event-fields "$published"
+assert_eq 0 "$R_STATUS" "the published record validates and decodes"
+run_id="$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1 == "run_id" {print $2}')"
+event_id="$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1 == "event_id" {print $2}')"
+assert_ne "" "$run_id" "publication supplies a run identity"
+assert_ne "" "$event_id" "publication supplies an event identity"
+event_layout='runs/<run-id>/events/<event-id>/event.md'
+assert_eq "" "$(set_diff "runs/
+$event_layout" "$DOCUMENTED")" "both lazy event paths are drawn in the normative layout"
+resolved="$(printf '%s\n' "$event_layout" | sed "s|<run-id>|$run_id|; s|<event-id>|$event_id|")"
+assert_eq "$events_root/.ai/sift/$resolved" "$published" \
+  "the final record occupies the documented path with its own identities substituted"
+if [ -d "$events_root/.ai/sift/runs" ]; then
+  t_ok 'publication creates the documented runs directory'
+else
+  t_fail 'publication creates the documented runs directory' \
+    "missing: $events_root/.ai/sift/runs"
+fi
+assert_file "$events_root/.ai/sift/$resolved" "publication creates the documented event file"
 
 test_case "--root, not \$PWD, decides where the tree lands"
 elsewhere="$(newdir)"

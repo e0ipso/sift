@@ -18,12 +18,6 @@ summaries:
     collated-range scans do and do not flag, and the rule that a detector prints
     its own remedy; read when adding a check under tests/static/ or working
     around a scan finding
-  kenkeep: >-
-    Kenkeep prompt ownership and knowledge lifecycle contracts; read before
-    changing capture, curation, or admission rules
-  knowledge-base: >-
-    Kenkeep admission and curation ownership; read before changing capture or
-    knowledge rules
   portability: >-
     GNU/BSD recipe portability and no-installable-binary rules; read when
     writing cookbook recipes or shell helpers that must run on macOS and Linux
@@ -78,10 +72,6 @@ summaries:
     how many cases a behaviour needs and which ones may go — sweeps and their
     narrowing lists, prose that overstates coverage, redundant per-item cases
     and non-interacting cross products; read when adding or deleting a case
-  testing/coverage: >-
-    how many cases a behaviour needs and which ones may go — sweeps and their
-    narrowing lists, prose that overstates coverage, redundant per-item cases
-    and non-interacting cross products; read when adding or deleting a case
   testing/suite: >-
     the shared harness and the rules for a run as a whole — what each library
     under tests/lib owns, what may enter the suite's verdict, and the no-write
@@ -97,8 +87,6 @@ summaries:
 - `convention`: cross-cutting project conventions including the file-based tracker premise and commit-message rules; read when changing standing repo conventions outside a single skill
 - `cross-skill`: the rules sift-drain and sift-prime must classify alike — what a roadmap row is and what a ticket ID is — and how every copy is inventoried and guarded; read when touching either skill's row reader or ID check
 - `drift-detection`: the repo's own static scanners and drift detectors — what the shellcheck and collated-range scans do and do not flag, and the rule that a detector prints its own remedy; read when adding a check under tests/static/ or working around a scan finding
-- `kenkeep`: Kenkeep prompt ownership and knowledge lifecycle contracts; read before changing capture, curation, or admission rules
-- `knowledge-base`: Kenkeep admission and curation ownership; read before changing capture or knowledge rules
 - `portability`: GNU/BSD recipe portability and no-installable-binary rules; read when writing cookbook recipes or shell helpers that must run on macOS and Linux
 - `shell`: portable shell and awk recipe rules — quoting, globs, grep exit codes, fence-scoped rewrites and atomic publication; read when writing or editing a shell helper or a cookbook recipe
 - `shell/awk`: awk-specific rules — embedded-program quoting, ENVIRON hand-off, field splitting and fence walking; read when writing or editing an embedded awk program
@@ -114,6 +102,5 @@ summaries:
 - `testing`: test-design rules for this suite — positive controls, interleaving-invariant assertions, diff-based proofs and document pins; read when adding or changing a case under tests/
 - `testing/assertions`: what an assertion can and cannot see — the blind spots that make a case permanently green, and the positive controls, mutation probes and fixtures that prove a case can still fail; read before trusting or writing an assertion
 - `testing/case-set`: how many cases a behaviour needs and which ones may go — sweeps and their narrowing lists, prose that overstates coverage, redundant per-item cases and non-interacting cross products; read when adding or deleting a case
-- `testing/coverage`: how many cases a behaviour needs and which ones may go — sweeps and their narrowing lists, prose that overstates coverage, redundant per-item cases and non-interacting cross products; read when adding or deleting a case
 - `testing/suite`: the shared harness and the rules for a run as a whole — what each library under tests/lib owns, what may enter the suite's verdict, and the no-write and concurrency constraints on a run; read before adding a helper or a test file
 - `tickets`: ticket shape, lifecycle, and bookkeeping rules; read when creating, moving, archiving, or drafting tickets or changing front-matter/body schemas

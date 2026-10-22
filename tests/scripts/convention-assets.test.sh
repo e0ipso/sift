@@ -13,6 +13,7 @@ DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 SKILL="$REPO_ROOT/src/skills/sift-init"
 INIT="$SKILL/scripts/sift-init.sh"
+DRAINLOG="$REPO_ROOT/src/skills/sift-drain/scripts/drain-log.sh"
 
 test_case "the skill's assets match the normative spec"
 assert_same "$REPO_ROOT/README.md" "$SKILL/assets/README.md" \
@@ -216,11 +217,49 @@ assert_ne "" "$(readme_refresh_resolved "$SKILL" "$root")" \
   "and the real README still extracts, so the case put it back"
 
 
-test_case "refresh keeps script and XML in sync in a spaced project path"
+test_case "printed refresh commands preserve an existing tree in a spaced project path"
 root="$(newdir)/project with spaces"
 mkdir -p "$root"
 run_cmd "$root" "$INIT" --root "$root" --prefix SFT
 assert_eq 0 "$R_STATUS" "install succeeds"
+
+# Model an existing consumer rather than a fresh empty tree. These bytes belong
+# to the repository, not to sift-init, and the refresh must not infer that any of
+# them are safe to rewrite while replacing the three shipped asset classes.
+printf 'prefix: SFT\nlocal_policy: keep-this-byte-for-byte\n' > "$root/.ai/sift/config/config.yaml"
+mkdir -p "$root/.ai/sift/open/foundation/feature" \
+  "$root/.ai/sift/archive/foundation/bug" "$root/.ai/sift/.id-sequence"
+printf 'open ticket sentinel: local edits stay\n' \
+  > "$root/.ai/sift/open/foundation/feature/SFT-0001--open-sentinel.md"
+printf 'archived ticket sentinel: history stays\n' \
+  > "$root/.ai/sift/archive/foundation/bug/SFT-0002--archive-sentinel.md"
+printf '19\n' > "$root/.ai/sift/.id-sequence/SFT"
+printf '%s\n' \
+  '# Run log' '' 'Append-only. One row per drain event; rows are never rewritten.' '' \
+  '| event | ticket | phase | utc | epoch | status |' \
+  '|---|---|---|---|---|---|' \
+  '| dispatch | SFT-0001 | - | 2026-01-02T03:04:05Z | 1767323045 | - |' \
+  '| return | SFT-0001 | - | 2026-01-02T03:04:10Z | 1767323050 | done |' \
+  > "$root/.ai/sift/RUNLOG.md"
+run_cmd "$root" env SIFT_ROOT="$root" bash "$DRAINLOG" event run-start \
+  actor=coordinator timestamp=1000
+assert_eq 0 "$R_STATUS" 'the existing tree has real correlated diagnostic history'
+history_record="$R_OUT"
+assert_file "$history_record" 'the diagnostic sentinel is a published event record'
+
+preserved="$(newdir)"
+cp "$root/.ai/sift/config/config.yaml" "$preserved/config.yaml"
+cp "$root/.ai/sift/MILESTONES.md" "$preserved/MILESTONES.md"
+cp "$root/.ai/sift/open/foundation/feature/SFT-0001--open-sentinel.md" "$preserved/open.md"
+cp "$root/.ai/sift/archive/foundation/bug/SFT-0002--archive-sentinel.md" "$preserved/archive.md"
+cp "$root/.ai/sift/.id-sequence/SFT" "$preserved/id-sequence"
+cp "$root/.ai/sift/RUNLOG.md" "$preserved/RUNLOG.md"
+cp "$history_record" "$preserved/event.md"
+
+# Damage every shipped asset class, including an installed README too old to
+# contain the current refresh instructions. The current helper must carry the
+# remedy itself and quote the real paths it prints.
+printf '# old installed specification\n' > "$root/.ai/sift/README.md"
 printf '# local script annotation\n' >> "$root/.ai/sift/scripts/sift.sh"
 printf '<!-- local XML annotation -->\n' >> "$root/.ai/sift/schemas/bug-ticket.example.xml"
 before="$(tree_digest "$root")"
@@ -230,11 +269,27 @@ assert_contains "$R_OUT" 'stale    .ai/sift/scripts/sift.sh' "script drift is re
 assert_contains "$R_OUT" 'stale    .ai/sift/schemas/bug-ticket.example.xml' "XML drift is reported"
 commands="$(printf '%s\n' "$R_OUT" | grep '^  cp ')"
 assert_eq 3 "$(printf '%s\n' "$commands" | grep -c .)" "all three refresh commands are present"
-state_before="$(cat "$root/.ai/sift/config/config.yaml" "$root/.ai/sift/MILESTONES.md")"
 run_recipe "$root" "$commands"
 assert_eq 0 "$R_STATUS" "printed commands run with escaped paths"
+assert_same "$REPO_ROOT/README.md" "$root/.ai/sift/README.md" \
+  'the old installed spec is replaced by the current normative bytes'
 assert_same "$REPO_ROOT/src/operations/sift.sh" "$root/.ai/sift/scripts/sift.sh" "refresh copies the current script"
 assert_same "$REPO_ROOT/schemas/bug-ticket.example.xml" "$root/.ai/sift/schemas/bug-ticket.example.xml" "refresh copies the current XML"
-assert_eq "$state_before" "$(cat "$root/.ai/sift/config/config.yaml" "$root/.ai/sift/MILESTONES.md")" "refresh preserves repository configuration"
+assert_same "$preserved/config.yaml" "$root/.ai/sift/config/config.yaml" \
+  'refresh does not overwrite custom configuration'
+assert_same "$preserved/MILESTONES.md" "$root/.ai/sift/MILESTONES.md" \
+  'refresh preserves the existing milestone definitions'
+assert_same "$preserved/open.md" \
+  "$root/.ai/sift/open/foundation/feature/SFT-0001--open-sentinel.md" \
+  'refresh preserves open ticket bytes'
+assert_same "$preserved/archive.md" \
+  "$root/.ai/sift/archive/foundation/bug/SFT-0002--archive-sentinel.md" \
+  'refresh preserves archived ticket bytes'
+assert_same "$preserved/id-sequence" "$root/.ai/sift/.id-sequence/SFT" \
+  'refresh preserves the reservation high-water mark'
+assert_same "$preserved/RUNLOG.md" "$root/.ai/sift/RUNLOG.md" \
+  'refresh preserves six-column legacy history byte for byte'
+assert_same "$preserved/event.md" "$history_record" \
+  'refresh preserves pre-existing correlated diagnostic history byte for byte'
 
 summary

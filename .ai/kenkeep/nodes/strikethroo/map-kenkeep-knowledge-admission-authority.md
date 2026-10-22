@@ -21,5 +21,5 @@ kk_confidence: medium
 <!-- kk:citations:start -->
 # Citations
 
-[1] [4039a28c-82f8-4772-9667-404c8aec09cb:map:1](4039a28c-82f8-4772-9667-404c8aec09cb:map:1)
+[1] 4039a28c-82f8-4772-9667-404c8aec09cb:map:1
 <!-- kk:citations:end -->

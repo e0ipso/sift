@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# drain-log.sh — stamp one row per drain event into .ai/sift/RUNLOG.md.
+# drain-log.sh — legacy RUNLOG rows and immutable correlated execution events.
 #
 # Usage:
 #   scripts/drain-log.sh dispatch <TICKET>...
 #   scripts/drain-log.sh phase orient|implement|verify|bookkeep
 #   scripts/drain-log.sh return <TICKET> <STATUS>...
 #   scripts/drain-log.sh report
+#   scripts/drain-log.sh event <KIND> <key=value>...
+#   scripts/drain-log.sh event-validate <FILE>
+#   scripts/drain-log.sh event-fields <FILE>
 #   scripts/drain-log.sh -- dispatch <TICKET>...   # -- ends the options
 #
 # The append-only log records a shared timestamp for every row emitted by one
@@ -15,6 +18,8 @@
 #
 # `--` is accepted only before the subcommand. Everything after the subcommand is
 # an operand, and ticket operands must match the configured ticket-ID shape.
+# New event mode never writes RUNLOG. See README.md, Run log, for the versioned
+# record grammar and command contract. event-fields emits validated decoded TSV.
 #
 # Exit codes: 0 success | 2 setup/usage error.
 
@@ -27,6 +32,12 @@ usage() {
   echo "       drain-log.sh phase orient|implement|verify|bookkeep" >&2
   echo "       drain-log.sh return <TICKET> <STATUS>..." >&2
   echo "       drain-log.sh report" >&2
+  echo "       drain-log.sh report-events RUN [WORKTREE [AS_OF]]" >&2
+  echo "       drain-log.sh estimate RUN WORKTREE DECLARATION AS_OF [REASON]" >&2
+  echo "       drain-log.sh report-estimate RUN [AS_OF]" >&2
+  echo "       drain-log.sh event <KIND> <key=value>..." >&2
+  echo "       drain-log.sh event-validate <FILE>" >&2
+  echo "       drain-log.sh event-fields <FILE>" >&2
   echo "note: -- ends the options; it may stand in front of the subcommand" >&2
   exit 2
 }
@@ -270,6 +281,10 @@ report() {
         print "minutes per ticket resolved: - (no tickets resolved)"
       print "note: runtime is stamped by the orchestrator around the dispatch, so it"
       print "      includes a few seconds of dispatch overhead and is an upper bound."
+      print "legacy grouping and timing: inferred"
+      print "worker/attempt/gate/phase attribution: unavailable"
+      print "verified delivery: unavailable; done rows are reported outcomes"
+      print "same-second and overlapping dispatches: ambiguous; identities cannot be recovered"
     }
   ' "$LOG"
 }
@@ -290,6 +305,33 @@ MODE="${1:-}"
 
 # Validate the entire command before creating the header or appending a row.
 case "$MODE" in
+  estimate|report-estimate)
+    # shellcheck source=execution-events.sh
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-events.sh"
+    # shellcheck source=execution-report.sh
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-report.sh"
+    # shellcheck source=execution-estimate.sh
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-estimate.sh"
+    estimate_main "$MODE" "$@"
+    ;;
+  report-events)
+    # shellcheck source=execution-events.sh
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-events.sh"
+    # shellcheck source=execution-report.sh
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-report.sh"
+    report_events "$@"
+    ;;
+  event|event-validate|event-fields)
+    # shellcheck source=execution-events.sh
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-events.sh"
+    if [ "$MODE" = event ]; then event_write "$@"
+    else
+      [ $# -eq 1 ] || usage
+      if [ "$MODE" = event-fields ]; then event_validate "$1" fields
+      else event_validate "$1"
+      fi
+    fi
+    ;;
   dispatch)
     [ $# -ge 1 ] || usage
     for arg in "$@"; do require_ticket_id "$arg"; done

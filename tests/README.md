@@ -29,6 +29,16 @@ Python and Codex are optional experiment tools, not installed Sift dependencies.
 The normal suite checks prefix equality and usage-accounting fixtures without contacting a provider.
 See [the measurement notes](../docs/drain-context-measurement.md) for scope and results.
 
+`tests/benchmarks/drain-execution-observability.sh` drives the public preparation, event,
+check-evidence and report interfaces in disposable Git/Sift trees. It retains immutable
+events, evidence, handoff receipts and deterministic operation counts when
+`SIFT_TEST_KEEP=1` is set. The fixture covers mixed outcomes, a narrowed retry, gate-only
+repair, final-input invalidation, reuse and authorized compatibility deferral. Its counts
+measure scripted helper calls and publications. They do not measure model adherence,
+provider scheduling, tokens, production throughput or latency. The exact reproduction and
+current measurements are in
+[`docs/drain-execution-observability.md`](../docs/drain-execution-observability.md).
+
 ## Groups
 
 | Group | Contract |

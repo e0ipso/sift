@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:3de9c4b19578f5f91103294336ffd50604514461572407b2392ac74882ffc79b'
+nodes_hash: 'sha256:4147447674b737ebf03020f27102442eae95edfa33bbb0b3e178148deaf277a1'
 node_count: 97
 ---
 # kenkeep Graph
@@ -11,7 +11,7 @@ Total nodes: 97
 
 - **kind:** map
 - **title:** Kenkeep knowledge-admission authority
-- **path:** map-kenkeep-knowledge-admission-authority.md
+- **path:** strikethroo/map-kenkeep-knowledge-admission-authority.md
 - **tags:** kenkeep, prompts, ownership
 - **derived_from:** 4039a28c-82f8-4772-9667-404c8aec09cb:map:1
 

@@ -18,7 +18,87 @@
 #   3  the hook failed; the worktree and branch are kept for inspection and
 #      stderr names both and the hook's status
 #   other non-zero statuses come from git unchanged
+#
+# Optional preparation telemetry is enabled only when both
+# SIFT_PREPARE_RUN_ID and SIFT_PREPARE_ATTEMPT_ID are set. SIFT_ROOT keeps its
+# existing meaning as the project whose immutable event tree receives records.
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DRAIN_LOG="$SCRIPT_DIR/drain-log.sh"
+PREPARE_EVENT_RUN_ID="${SIFT_PREPARE_RUN_ID:-}"
+PREPARE_EVENT_ATTEMPT_ID="${SIFT_PREPARE_ATTEMPT_ID:-}"
+PREPARE_EVENT_SPAN_ID=''
+PREPARE_EVENT_STARTED_AT=''
+PREPARE_FAILURE_REASON='command-failure'
+PREPARE_FAILURE_DETAIL=''
+
+finish_with_preparation_clock_gap() {
+  local command_status="$1" detail="$2"
+  printf 'prepare-worktree: preparation instrumentation gap: %s; span %s remains incomplete\n' \
+    "$detail" "$PREPARE_EVENT_SPAN_ID" >&2
+  if [ "$command_status" -eq 0 ]; then
+    exit 2
+  fi
+  exit "$command_status"
+}
+
+finish_preparation_event() {
+  local command_status=$? ended_at duration event_status
+  local fields
+  trap - EXIT
+
+  if ! ended_at="$(date +%s 2>/dev/null)"; then
+    finish_with_preparation_clock_gap "$command_status" 'end clock unavailable'
+  fi
+  case "$ended_at" in
+    ''|*[!0-9]*)
+      finish_with_preparation_clock_gap "$command_status" 'end clock unavailable'
+      ;;
+  esac
+  if [ "$ended_at" -lt "$PREPARE_EVENT_STARTED_AT" ]; then
+    finish_with_preparation_clock_gap "$command_status" \
+      "end clock moved backwards (start=$PREPARE_EVENT_STARTED_AT end=$ended_at)"
+  fi
+  duration=$((ended_at - PREPARE_EVENT_STARTED_AT))
+
+  fields=(event span-end "run_id=$PREPARE_EVENT_RUN_ID"
+    "attempt_id=$PREPARE_EVENT_ATTEMPT_ID" "span_id=$PREPARE_EVENT_SPAN_ID"
+    actor=helper activity=preparation "timestamp=$ended_at" "duration=$duration"
+    "exit_status=$command_status")
+  if [ "$command_status" -ne 0 ]; then
+    fields+=(outcome=failed "reason=$PREPARE_FAILURE_REASON")
+    [ -z "$PREPARE_FAILURE_DETAIL" ] || fields+=("reason_detail=$PREPARE_FAILURE_DETAIL")
+  else
+    fields+=(outcome=done)
+  fi
+
+  if "$DRAIN_LOG" "${fields[@]}" >/dev/null; then event_status=0
+  else event_status=$?
+  fi
+  if [ "$command_status" -eq 0 ] && [ "$event_status" -ne 0 ]; then
+    exit "$event_status"
+  fi
+  exit "$command_status"
+}
+
+case "$PREPARE_EVENT_RUN_ID:$PREPARE_EVENT_ATTEMPT_ID" in
+  :) ;;
+  *:|:*)
+    echo 'prepare-worktree telemetry requires both SIFT_PREPARE_RUN_ID and SIFT_PREPARE_ATTEMPT_ID' >&2
+    exit 2
+    ;;
+  *)
+    PREPARE_EVENT_STARTED_AT="$(date +%s)"
+    record="$("$DRAIN_LOG" event span-start "run_id=$PREPARE_EVENT_RUN_ID" \
+      "attempt_id=$PREPARE_EVENT_ATTEMPT_ID" actor=helper activity=preparation \
+      "timestamp=$PREPARE_EVENT_STARTED_AT")"
+    span_dir=${record%/*}
+    PREPARE_EVENT_SPAN_ID=${span_dir##*/}
+    trap finish_preparation_event EXIT
+    ;;
+esac
+
 if [ "$#" -ne 3 ]; then
   echo 'usage: prepare-worktree.sh <base-branch> <new-branch> <absolute-new-path>' >&2
   exit 1
@@ -52,6 +132,8 @@ if [ -n "$HOOK" ]; then
     :
   else
     status=$?
+    PREPARE_FAILURE_REASON='setup-failure'
+    PREPARE_FAILURE_DETAIL="hook-exit-$status"
     printf 'worktree setup failed (hook exit %s); worktree kept for inspection\nworktree: %s\nbranch: %s\n' \
       "$status" "$WORKTREE" "$BRANCH" >&2
     exit 3

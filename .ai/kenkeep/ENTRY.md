@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:3de9c4b19578f5f91103294336ffd50604514461572407b2392ac74882ffc79b'
+nodes_hash: 'sha256:4147447674b737ebf03020f27102442eae95edfa33bbb0b3e178148deaf277a1'
 node_count: 97
 ---
 # kenkeep
@@ -21,6 +21,3 @@ node_count: 97
 - Load [`strikethroo/`](nodes/strikethroo/index.md) for more information on Strikethroo plan and task layout contracts; read before changing IDs, paths, or lifecycle rules.
 - Load [`testing/`](nodes/testing/index.md) for more information on test-design rules for this suite — positive controls, interleaving-invariant assertions, diff-based proofs and document pins; read when adding or changing a case under tests/.
 - Load [`tickets/`](nodes/tickets/index.md) for more information on ticket shape, lifecycle, and bookkeeping rules; read when creating, moving, archiving, or drafting tickets or changing front-matter/body schemas.
-
-## Components (what exists)
-- Open [**Kenkeep knowledge-admission authority**](nodes/map-kenkeep-knowledge-admission-authority.md) to learn about: knowledge-admission.md is the single admission and modification-restraint authority used by Kenkeep capture and curation skills. #kenkeep #prompts #ownership

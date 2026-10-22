@@ -1431,4 +1431,625 @@ invalid_event ticket-outcome attempt_id=attempt-1 ticket_id=SFT-001 outcome=done
 invalid_event check attempt_id=attempt-1 check_id=check-1 stage=development outcome=passed exit_status=1 evidence_ref=/tmp/check
 assert_no_dir "$events_root/.ai/sift/runs" "bad relationships create no event tree"
 
+# --- Identity report: public producers and controlled timestamps -------------
+report_event() {
+  local kind=$1 at=$2
+  shift 2
+  event_call "$kind" run_id=report-run actor=coordinator "timestamp=$at" "$@"
+}
+report_fixture() {
+  events_root=$(newdir); make_tree "$events_root" SFT
+  report_event run-start 1000
+  report_event wave-start 1000 wave_id=w wave=1
+}
+report_metric() {
+  printf '%s\n' "$R_OUT" | REPORT_KEY="$1" awk -F '\t' '$1=="metric" && $2==ENVIRON["REPORT_KEY"] {print $3}'
+}
+report_read() {
+  run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" report-events report-run "$events_root" "${1:-1100}"
+}
+
+test_case "identity reconstruction separates same-second overlap and unions child intervals"
+report_fixture
+report_event sitting 1000 wave_id=w sitting_id=s1 members=SFT-0002,SFT-0001 work_class=product
+report_event sitting 1000 wave_id=w sitting_id=s2 members=SFT-0003 work_class=infrastructure
+report_event attempt-start 1000 wave_id=w sitting_id=s1 attempt_id=a members=SFT-0002,SFT-0001
+report_event attempt-start 1000 wave_id=w sitting_id=s2 attempt_id=b members=SFT-0003
+# Publish terminals before their starts to prove scan/publication order is irrelevant.
+report_event span-end 1030 attempt_id=a span_id=sa duration=30 outcome=done
+report_event span-start 1000 attempt_id=a span_id=sa activity=implementation
+report_event span-start 1010 attempt_id=a span_id=check activity=verification
+report_event span-end 1020 attempt_id=a span_id=check duration=10 outcome=passed
+report_event span-start 1010 attempt_id=b span_id=sb activity=implementation
+report_event span-end 1040 attempt_id=b span_id=sb duration=30 outcome=done
+report_event wait-start 1030 attempt_id=a span_id=wait reason=provider-limits wait_class=external
+report_event wait-end 1040 attempt_id=a span_id=wait duration=10
+report_event attempt-end 1040 attempt_id=a outcome=done
+report_event attempt-end 1050 attempt_id=b outcome=done
+report_event wave-end 1060 wave_id=w outcome=done
+report_event run-end 1060 outcome=done
+before=$(tree_digest "$events_root")
+report_read
+assert_eq 0 "$R_STATUS" 'explicit report route succeeds'
+assert_eq 2 "$(report_metric attempts)" 'same timestamp retains both identities'
+assert_eq 60 "$(report_metric window_seconds)" 'window is run start through observed run end'
+assert_eq 60 "$(report_metric effort_seconds)" 'nested verification is unioned within a, concurrent b stays separate'
+assert_eq 40 "$(report_metric occupied_seconds)" 'elapsed occupied union includes wait without adding concurrent effort'
+assert_eq 20 "$(report_metric unattributed_seconds)" 'envelopes are not claimed as instrumented work'
+assert_eq 2 "$(report_metric completed_attempts)" 'completed denominator counts groups once'
+assert_eq 40 "$(report_metric attempt_duration_p50_seconds)" 'lower median of envelopes 40 and 50'
+assert_contains "$R_OUT" $'wait\tprovider-limits\texternal\t10' 'controlled reason and class remain visible'
+assert_eq 0 "$(report_metric integrity_errors)" 'legitimate overlap is not corruption; absent verification declarations are separate'
+assert_contains "$R_OUT" $'attempt\ta\tw\tsitting\ts1\tSFT-0002,SFT-0001' 'original ordered membership is preserved'
+assert_contains "$R_OUT" $'sitting\ts1\tw\tSFT-0002,SFT-0001\tproduct\t1000\tdeclared' 'bounded data retains the original parent declaration'
+assert_eq "$before" "$(tree_digest "$events_root")" 'report changes no tracker or evidence bytes'
+
+test_case "narrow retries preserve mixed-group success and recurring resumes retain identity"
+report_fixture
+report_event sitting 1000 wave_id=w sitting_id=s members=SFT-0001,SFT-0002 work_class=product
+report_event attempt-start 1000 wave_id=w sitting_id=s attempt_id=a members=SFT-0001,SFT-0002
+report_event ticket-outcome 1010 attempt_id=a ticket_id=SFT-0001 outcome=done
+report_event landed 1011 attempt_id=a ticket_id=SFT-0001 evidence_ref=commit:one
+report_event ticket-outcome 1012 attempt_id=a ticket_id=SFT-0002 outcome=failed
+report_event attempt-end 1012 attempt_id=a outcome=failed
+report_event attempt-start 1013 wave_id=w sitting_id=s attempt_id=b retry_of=a members=SFT-0002
+report_event attempt-interrupt 1015 attempt_id=b reason=interrupted
+report_event attempt-resume 1017 attempt_id=b
+report_event attempt-interrupt 1019 attempt_id=b reason=interrupted
+report_event attempt-resume 1021 attempt_id=b
+report_event run-interrupt 1015 reason=interrupted
+report_event run-resume 1017
+report_event run-interrupt 1019 reason=interrupted
+report_event run-resume 1021
+report_event ticket-outcome 1025 attempt_id=b ticket_id=SFT-0002 outcome=done
+report_event attempt-end 1025 attempt_id=b outcome=done
+report_event attempt-end 1025 attempt_id=b outcome=done
+report_event gate 1026 wave_id=w gate_id=g work_class=infrastructure
+report_event attempt-start 1026 wave_id=w gate_id=g attempt_id=ga members=-
+report_event span-start 1026 attempt_id=ga span_id=repair activity=implementation
+report_event span-end 1030 attempt_id=ga span_id=repair duration=4 outcome=done
+report_event link 1030 origin_attempt_id=ga origin_gate_id=g ticket_id=SFT-0003 relation=follow-up root_cause=fixture
+report_event attempt-end 1030 attempt_id=ga outcome=done
+report_event wave-end 1030 wave_id=w outcome=done
+report_event run-end 1030 outcome=done
+report_read
+assert_eq 0 "$R_STATUS" 'linked graph renders'
+assert_eq 3 "$(report_metric attempts)" 'gate-only repair is an attempt without invented members'
+assert_eq 1 "$(report_metric retry_attempts)" 'resumes do not become retries'
+assert_eq 0.333333 "$(report_metric retry_rate)" 'retry denominator is all three declared attempts'
+assert_eq 4 "$(report_metric gate_occupied_seconds)" 'shared gate cost appears once'
+assert_eq 1 "$(report_metric semantic_duplicates)" 'identical terminal publication is deduplicated'
+assert_eq 4 "$(report_metric resume_transitions)" 'two run and two attempt resumes remain observations'
+assert_contains "$R_OUT" $'link\tfollow-up\tSFT-0003\tga\tg\tfixture' 'follow-up provenance survives'
+assert_eq 0 "$(report_metric integrity_errors)" 'recurring lifecycle transitions are valid'
+
+test_case "publication gaps, invalid intervals, conflicts and unknown parents cannot create samples"
+report_fixture
+report_event sitting 1000 wave_id=w sitting_id=s members=SFT-0001,SFT-0002
+report_event attempt-start 1000 wave_id=w sitting_id=s attempt_id=a members=SFT-0001,SFT-0002
+report_event span-start 1001 attempt_id=a span_id=open activity=verification
+report_event span-start 1002 attempt_id=a span_id=bad activity=implementation
+report_event span-end 1003 attempt_id=a span_id=bad duration=99 outcome=done
+report_event ticket-outcome 1004 attempt_id=a ticket_id=SFT-0001 outcome=done
+report_event ticket-outcome 1004 attempt_id=a ticket_id=SFT-0001 outcome=failed
+report_event attempt-start 1005 wave_id=w sitting_id=s attempt_id=b retry_of=a members=SFT-0002,SFT-0001
+report_event span-end 1006 attempt_id=not-yet-published span_id=orphan duration=0 outcome=done
+mkdir "$events_root/.ai/sift/runs/report-run/events/pending"
+cp "$event_path" "$events_root/.ai/sift/runs/report-run/events/pending/event.pending"
+mkdir "$events_root/.ai/sift/runs/report-run/events/wrong-identity"
+cp "$event_path" "$events_root/.ai/sift/runs/report-run/events/wrong-identity/event.md"
+mkdir "$events_root/.ai/sift/runs/report-run/events/malformed"
+printf 'broken\n' > "$events_root/.ai/sift/runs/report-run/events/malformed/event.md"
+report_read 1010
+assert_eq 0 "$R_STATUS" 'diagnostics are report data rather than a usage failure'
+assert_eq 0 "$(report_metric completed_attempts)" 'no fabricated completed samples'
+assert_eq - "$(report_metric attempt_duration_p50_seconds)" 'missing terminals never become zero duration'
+assert_eq 0 "$(report_metric effort_seconds)" 'invalid and incomplete spans add no measured effort'
+assert_eq 1 "$(report_metric missing_span_terminals)" 'original check start stays incomplete'
+assert_contains "$R_OUT" $'diagnostic\tincomplete-publication' 'pending final publication remains observable'
+assert_contains "$R_OUT" $'diagnostic\tidentity-path-mismatch' 'enclosing identity is validated'
+assert_contains "$R_OUT" $'diagnostic\tmalformed-record' 'grammar validation is used'
+assert_contains "$R_OUT" $'diagnostic\tconflicting-event' 'contradictory outcomes cannot establish success'
+assert_contains "$R_OUT" $'diagnostic\tinvalid-interval' 'duration mismatch is not silently clamped'
+assert_contains "$R_OUT" $'diagnostic\tunresolved-reference' 'unknown references may resolve on a later observation'
+assert_contains "$R_OUT" $'diagnostic\tinvalid-ordered-membership' 'retry cannot reorder original members'
+assert_contains "$R_OUT" $'span\topen\ta\tincomplete\t1001\t-\t-' 'incomplete sample has no end or duration'
+
+test_case "retry and resume graph checks reject preserved members and terminal resumes"
+report_fixture
+report_event sitting 1000 wave_id=w sitting_id=s members=SFT-0001,SFT-0002
+report_event attempt-start 1000 wave_id=w sitting_id=s attempt_id=a members=SFT-0001,SFT-0002
+report_event ticket-outcome 1001 attempt_id=a ticket_id=SFT-0001 outcome=done
+report_event attempt-end 1002 attempt_id=a outcome=failed
+report_event attempt-start 1003 wave_id=w sitting_id=s attempt_id=b retry_of=a members=SFT-0001
+report_event attempt-resume 1004 attempt_id=a
+report_read
+assert_contains "$R_OUT" $'diagnostic\tretry-preserved-member' 'retry excludes successful original members'
+assert_contains "$R_OUT" $'diagnostic\tresume-after-terminal' 'terminal attempt cannot silently resume'
+
+# These commands create real manifests with controlled public-helper clocks.
+report_checks_fixture() {
+  report_fixture
+  report_tools=$(newdir)
+  mkdir -p "$report_tools/bin" "$report_tools/evidence" "$events_root/src" "$events_root/tests"
+  cat > "$report_tools/bin/date" <<'SH'
+#!/usr/bin/env bash
+[ "$#" -eq 1 ] && [ "$1" = +%s ] || exit 1
+printf '%s\n' "$REPORT_CLOCK"
+SH
+  chmod +x "$report_tools/bin/date"
+  cat > "$events_root/tests/check.sh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$1" >> "$REPORT_COUNTER"
+SH
+  printf 'source\n' > "$events_root/src/code"
+  for spec in suite:development lint:development compat:compatibility; do
+    check_id=${spec%:*}; stage=${spec#*:}
+    if [ "$check_id" = suite ]; then printf 'verification:\n' >> "$events_root/.ai/sift/config/config.yaml"; fi
+    cat >> "$events_root/.ai/sift/config/config.yaml" <<EOF
+  $check_id:
+    complete: true
+    required: true
+    stage: $stage
+    scope: integrated
+    cwd: .
+    command: [bash, tests/check.sh, $check_id]
+    inputs: [src, tests]
+    environment: [REPORT_ENV, REPORT_COUNTER]
+    platform: REPORT_PLATFORM
+EOF
+  done
+  export REPORT_ENV=fixture-v1 REPORT_PLATFORM=fixture-platform REPORT_COUNTER="$report_tools/counter"
+  report_event sitting 1000 wave_id=w sitting_id=s members=SFT-0001,SFT-0002 work_class=product
+  if [ "${1:-}" = cancelled-retry ]; then
+    report_event attempt-start 1000 wave_id=w sitting_id=s attempt_id=cancelled members=SFT-0001,SFT-0002
+    report_event ticket-outcome 1002 attempt_id=cancelled ticket_id=SFT-0001 outcome=cancelled
+    report_event attempt-end 1003 attempt_id=cancelled outcome=cancelled
+    report_event attempt-start 1006 wave_id=w sitting_id=s attempt_id=a retry_of=cancelled members=SFT-0001,SFT-0002
+  else
+    report_event attempt-start 1000 wave_id=w sitting_id=s attempt_id=a members=SFT-0001,SFT-0002
+  fi
+  for id in SFT-0001 SFT-0002; do
+    ticket "$events_root" archive foundation/feature "$id" delivered 'Delivered' 'status: done' 'resolution: implemented'
+    report_event ticket-outcome 1010 attempt_id=a "ticket_id=$id" outcome=done
+    report_event landed 1011 attempt_id=a "ticket_id=$id" "evidence_ref=commit:$id"
+  done
+  if [ "${1:-}" = cancelled ]; then
+    report_event attempt-end 1012 attempt_id=a outcome=cancelled
+  else
+    report_event attempt-end 1012 attempt_id=a outcome=done
+  fi
+  report_event gate 1020 wave_id=w gate_id=g
+  report_event attempt-start 1020 wave_id=w gate_id=g attempt_id=ga members=- work_class=infrastructure
+}
+report_check() {
+  local id=$1 stage=$2 clock=${3:-1030} attempt=${4:-ga}
+  run_cmd "$events_root" env SIFT_ROOT="$events_root" SIFT_EVIDENCE_DIR="$report_tools/evidence" \
+    PATH="$report_tools/bin:$PATH" REPORT_CLOCK="$clock" \
+    bash "${DRAINLOG%/*}/check-evidence.sh" run report-run "$attempt" "$id" "$stage" integrated "$events_root" . -- bash tests/check.sh "$id"
+  assert_eq 0 "$R_STATUS" 'actual check helper publishes eligible evidence'
+  checked_evidence=$R_OUT
+}
+
+test_case "verified delivery requires every current obligation, landing and completed integrated gate"
+report_checks_fixture
+report_check suite development
+suite_evidence=$checked_evidence
+report_read
+assert_eq 2 "$(report_metric authoritative_done)" 'front matter remains authoritative'
+assert_eq 2 "$(report_metric returned_done)" 'worker return is separate'
+assert_eq 2 "$(report_metric landed)" 'landing is separate'
+assert_eq 0 "$(report_metric development_verified_product)" 'one valid check is not all development obligations'
+assert_eq 0 "$(report_metric fully_verified_product)" 'a single pass never closes the wave'
+report_check lint development
+report_read
+assert_eq 2 "$(report_metric development_verified_product)" 'all development obligations validate against integrated tree'
+assert_eq 0 "$(report_metric fully_verified_product)" 'compatibility and wave completion remain outstanding'
+report_check compat compatibility 1040
+report_event attempt-end 1050 attempt_id=ga outcome=done
+report_read
+assert_eq 0 "$(report_metric fully_verified_product)" 'passing gate attempt alone does not close wave'
+report_event wave-end 1060 wave_id=w outcome=done
+report_event run-end 1060 outcome=done
+before=$(tree_digest "$events_root")
+evidence_before=$(tree_digest "$report_tools/evidence")
+report_read
+assert_eq 2 "$(report_metric fully_verified_product)" 'both members delivered after full integrated pass'
+assert_eq 1 "$(report_metric fully_verified_waves)" 'shared wave counted once'
+assert_eq 3 "$(report_metric evidence_validations)" 'three obligations validated once each, not per member'
+assert_eq 60 "$(report_metric throughput_denominator_seconds)" 'throughput uses elapsed run window'
+assert_eq 2 "$(report_metric throughput_numerator_tickets)" 'throughput counts unique product deliveries'
+assert_eq 120.000000 "$(report_metric fully_verified_product_per_hour)" 'two tickets over sixty elapsed seconds'
+assert_eq "$before" "$(tree_digest "$events_root")" 'report writes neither tickets nor events'
+assert_eq "$evidence_before" "$(tree_digest "$report_tools/evidence")" 'report writes no evidence'
+assert_eq 3 "$(wc -l < "$REPORT_COUNTER" | tr -d ' ')" 'reports execute no project command'
+printf 'changed integration\n' >> "$events_root/src/code"
+report_read
+assert_eq 0 "$(report_metric fully_verified_product)" 'current integrated changes invalidate past evidence'
+assert_contains "$R_OUT" 'changed-inputs' 'actual validator reason remains visible'
+assert_eq 2 "$(report_metric landed)" 'invalidated verification does not erase landing'
+
+test_case "authoritative non-delivery and explicit classifications stay separate across repeated work"
+report_checks_fixture
+report_event sitting 1000 wave_id=w sitting_id=extra members=SFT-0001,SFT-0003,SFT-0004,SFT-0005,SFT-0006,SFT-0007,SFT-0008
+report_event attempt-start 1000 wave_id=w sitting_id=extra attempt_id=extra members=SFT-0001,SFT-0003,SFT-0004,SFT-0005,SFT-0006,SFT-0007,SFT-0008
+for row in SFT-0001:done:product SFT-0003:done:product SFT-0004:wontfix:product SFT-0005:superseded:product SFT-0006:cancelled:product SFT-0007:done:unknown SFT-0008:done:infrastructure; do
+  id=${row%%:*}; rest=${row#*:}; outcome=${rest%%:*}; class=${rest#*:}
+  if [ "$id" != SFT-0001 ]; then
+    status=$outcome; bucket=archive
+    if [ "$outcome" = cancelled ]; then status=open; bucket=open; fi
+    ticket "$events_root" "$bucket" foundation/feature "$id" fixture 'Fixture' "status: $status" 'resolution: recorded'
+  fi
+  report_event ticket-outcome 1010 attempt_id=extra "ticket_id=$id" "outcome=$outcome" "work_class=$class"
+  if [ "$id" != SFT-0003 ]; then report_event landed 1011 attempt_id=extra "ticket_id=$id" evidence_ref=commit:extra; fi
+done
+report_event attempt-end 1012 attempt_id=extra outcome=done
+report_check suite development
+report_check lint development
+report_check compat compatibility
+report_event attempt-end 1050 attempt_id=ga outcome=done
+report_event wave-end 1060 wave_id=w outcome=done
+report_read
+assert_eq 5 "$(report_metric authoritative_done)" 'done is read from live files'
+assert_eq 7 "$(report_metric backlog_resolved)" 'done, wontfix and superseded resolve backlog'
+assert_eq 5 "$(report_metric returned_done)" 'repeated done for one ticket is counted once'
+assert_eq 7 "$(report_metric landed)" 'landing remains a separate historical observation'
+assert_eq 3 "$(report_metric non_delivery)" 'wontfix, superseded and cancelled are not delivery'
+assert_eq 2 "$(report_metric fully_verified_product)" 'product delivery deduplicates repeated work and requires landing'
+assert_eq 1 "$(report_metric fully_verified_infrastructure)" 'explicit infrastructure work is separate'
+assert_eq 1 "$(report_metric fully_verified_unknown)" 'feature category does not guess classification'
+assert_contains "$R_OUT" $'ticket\tSFT-0003\tdone\tproduct\treturned-done\t-\t-\t-' 'authoritative done and return alone do not verify delivery'
+
+test_case "a cancelled historical attempt does not veto a successful linked retry"
+report_checks_fixture cancelled-retry
+report_check suite development
+report_check lint development
+report_check compat compatibility
+report_event attempt-end 1050 attempt_id=ga outcome=done
+report_event wave-end 1060 wave_id=w outcome=done
+report_read
+assert_eq 0 "$(report_metric integrity_errors)" 'linked cancellation and retry form a valid graph'
+assert_eq 1 "$(report_metric retry_attempts)" 'retry retains explicit ancestry'
+assert_eq 2 "$(report_metric fully_verified_product)" 'successful retry delivers both live done tickets'
+assert_eq 1 "$(report_metric non_delivery)" 'historical cancellation remains counted separately'
+assert_contains "$R_OUT" $'ticket-event\tSFT-0001\tcancelled\tw\tticket-outcome\tcancelled\t1002' 'original cancellation provenance survives'
+assert_contains "$R_OUT" $'ticket\tSFT-0001\tdone\tproduct\treturned-done\tlanded\tdevelopment-verified\tfully-verified\tnon-delivery-outcome' 'history and current delivery coexist'
+
+test_case "a cancelled attempt alone cannot deliver live done members despite landing and a passing gate"
+report_checks_fixture cancelled
+report_check suite development
+report_check lint development
+report_check compat compatibility
+report_event attempt-end 1050 attempt_id=ga outcome=done
+report_event wave-end 1060 wave_id=w outcome=done
+report_read
+assert_eq 0 "$(report_metric integrity_errors)" 'cancellation itself is a valid execution outcome'
+assert_eq 2 "$(report_metric authoritative_done)" 'current done state alone does not establish delivery'
+assert_eq 2 "$(report_metric landed)" 'cancelled attempt landing remains observable'
+assert_eq 0 "$(report_metric development_verified_product)" 'cancelled attempt cannot establish development delivery'
+assert_eq 0 "$(report_metric fully_verified_product)" 'cancelled attempt cannot establish full delivery'
+
+test_case "compatibility deferral retains actual authority and outstanding scope without becoming a pass"
+report_checks_fixture
+report_check suite development
+report_check lint development
+deferral="$report_tools/deferral.tsv"
+cat > "$deferral" <<'EOF'
+# Compatibility deferral v1
+
+run_id	report-run
+wave_id	w
+check_id	compat
+stage	compatibility
+scope	integrated
+authorization_ref	session:fixture-directive
+authorization	User directive in fixture: defer compat on fixture-platform until release review.
+reason	Required platform is temporarily unavailable.
+outstanding_obligation	Run compat on fixture-platform before release.
+EOF
+printf 'config_cksum\t%s\n' "$(cksum < "$events_root/.ai/sift/config/config.yaml")" >> "$deferral"
+report_event check 1040 attempt_id=ga check_id=compat stage=compatibility outcome=deferred reason=authorized-deferral "evidence_ref=$deferral"
+report_event attempt-end 1050 attempt_id=ga outcome=done
+report_event wave-end 1060 wave_id=w outcome=done
+report_read
+assert_eq 2 "$(report_metric development_verified_product)" 'development remains verified'
+assert_eq 0 "$(report_metric fully_verified_product)" 'authorized deferral never becomes full pass'
+assert_eq 1 "$(report_metric authorized_compatibility_deferrals)" 'shared obligation is deferred once'
+assert_contains "$R_OUT" 'User directive in fixture: defer compat on fixture-platform until release review.' 'actual authority is retained'
+assert_contains "$R_OUT" 'Run compat on fixture-platform before release.' 'outstanding obligation is retained'
+sed '/^authorization/d' "$deferral" > "$report_tools/changed"
+mv "$report_tools/changed" "$deferral"
+report_read
+assert_eq 0 "$(report_metric authorized_compatibility_deferrals)" 'missing authorization fails closed'
+assert_contains "$R_OUT" 'unauthorized-deferral' 'event reason alone cannot authorize a deferral'
+
+test_case "clock-gap evidence can be reused without closing the original missing span"
+report_checks_fixture
+cat > "$report_tools/bin/date" <<'SH'
+#!/usr/bin/env bash
+[ "$#" -eq 1 ] && [ "$1" = +%s ] || exit 1
+if [ -f "$REPORT_COUNTER" ]; then printf '1029\n'; else printf '1030\n'; fi
+SH
+run_cmd "$events_root" env SIFT_ROOT="$events_root" SIFT_EVIDENCE_DIR="$report_tools/evidence" \
+  PATH="$report_tools/bin:$PATH" bash "${DRAINLOG%/*}/check-evidence.sh" run report-run ga suite development integrated "$events_root" . -- bash tests/check.sh suite
+assert_eq 2 "$R_STATUS" 'real check succeeds with an incomplete timing publication'
+assert_contains "$R_ERR" 'remains incomplete' 'clock gap is explicit'
+report_read
+assert_eq 1 "$(report_metric missing_span_terminals)" 'original span has no terminal'
+assert_eq 0 "$(report_metric development_verified_product)" 'retained artifact alone is not a result observation'
+cat > "$report_tools/bin/date" <<'SH'
+#!/usr/bin/env bash
+[ "$#" -eq 1 ] && [ "$1" = +%s ] || exit 1
+printf '%s\n' "$REPORT_CLOCK"
+SH
+report_check suite development 1040
+assert_eq 1 "$(wc -l < "$REPORT_COUNTER" | tr -d ' ')" 'later request reuses real retained content'
+report_check lint development 1041
+report_read
+assert_eq 2 "$(report_metric development_verified_product)" 'content reuse can satisfy current development obligations'
+assert_eq 1 "$(report_metric missing_span_terminals)" 'later reuse never repairs original missing timestamp'
+assert_eq 0 "$(report_metric effort_seconds)" 'only real equal-clock closed spans have zero duration'
+assert_contains "$R_OUT" $'incomplete\t1030\t-\t-' 'original span has unavailable duration'
+
+test_case "legacy report labels inferred history and preserves every six-column byte"
+root=$(newdir); make_tree "$root" SFT; log_new "$root"
+log_row "$root" dispatch SFT-0001 1000 -
+log_row "$root" dispatch SFT-0002 1000 -
+log_row "$root" dispatch SFT-0003 1010 -
+log_row "$root" return SFT-0001 1020 done
+log_row "$root" return SFT-0002 1030 done
+log_row "$root" return SFT-0003 1040 done
+legacy_before="$TMPROOT/legacy-before.md"
+cp "$root/.ai/sift/RUNLOG.md" "$legacy_before"
+run_cmd "$root" env SIFT_ROOT="$root" "$DRAINLOG" report
+assert_eq 0 "$R_STATUS" 'legacy invocation remains usable'
+assert_contains "$R_OUT" 'legacy grouping and timing: inferred' 'historical timing is labelled inferred'
+assert_contains "$R_OUT" 'worker/attempt/gate/phase attribution: unavailable' 'no invented identities'
+assert_contains "$R_OUT" 'verified delivery: unavailable' 'legacy done is not delivered'
+assert_contains "$R_OUT" 'same-second and overlapping dispatches: ambiguous' 'known ambiguity is explicit'
+if cmp -s "$legacy_before" "$root/.ai/sift/RUNLOG.md"; then t_ok 'legacy bytes are unchanged'; else t_fail 'legacy bytes are unchanged'; fi
+
+test_case "equal-clock lifecycle, gate retry and all wait classes have exact elapsed unions"
+report_fixture
+report_event gate 1000 wave_id=w gate_id=g work_class=infrastructure
+report_event attempt-start 1000 wave_id=w gate_id=g attempt_id=first members=-
+report_event attempt-interrupt 1000 attempt_id=first reason=interrupted
+report_event attempt-resume 1000 attempt_id=first
+report_event attempt-end 1000 attempt_id=first outcome=failed
+report_event attempt-start 1000 wave_id=w gate_id=g attempt_id=retry retry_of=first members=-
+for row in dependencies:external:1000:1010 write-ownership:actionable:1005:1015 resource-admission:actionable:1015:1020 provider-limits:external:1020:1030 user-input:external:1030:1035; do
+  IFS=: read -r reason class start end <<< "$row"
+  report_event wait-start "$start" attempt_id=retry "span_id=$reason" "reason=$reason" "wait_class=$class"
+  report_event wait-end "$end" attempt_id=retry "span_id=$reason" "duration=$((end - start))"
+done
+report_event span-start 1035 attempt_id=retry span_id=work activity=implementation
+report_event span-end 1040 attempt_id=retry span_id=work duration=5 outcome=done
+report_event attempt-end 1040 attempt_id=retry outcome=done
+report_event wave-end 1040 wave_id=w outcome=done
+report_event run-end 1040 outcome=done
+report_read
+assert_eq 0 "$(report_metric integrity_errors)" 'equal seconds permit logically ordered transitions'
+assert_eq 2 "$(report_metric completed_attempts)" 'real zero-length failed attempt remains a sample'
+assert_eq 0 "$(report_metric attempt_duration_min_seconds)" 'observed equal clocks are different from missing clocks'
+assert_eq 40 "$(report_metric occupied_seconds)" 'overlapping waits are unioned'
+assert_eq 5 "$(report_metric effort_seconds)" 'waits are not active work'
+assert_eq 35 "$(report_metric waiting_seconds)" 'all reasons union to thirty-five elapsed seconds'
+assert_eq 25 "$(report_metric external_wait_seconds)" 'external reasons union together'
+assert_eq 15 "$(report_metric actionable_wait_seconds)" 'actionable reasons union together'
+assert_eq 0 "$(report_metric unattributed_seconds)" 'instrumentation covers the complete window'
+assert_contains "$R_OUT" $'gate\tg\tw\tcompleted' 'linked successful repair closes failed gate attempt'
+
+test_case "report rejects CLI ambiguity and declarations, outcomes and spans fail closed"
+report_checks_fixture
+report_check suite development
+report_check lint development
+report_check compat compatibility
+report_event attempt-end 1050 attempt_id=ga outcome=done
+report_event wave-end 1060 wave_id=w outcome=done
+report_read
+assert_eq 2 "$(report_metric fully_verified_product)" 'positive control validates all obligations'
+cp "$events_root/.ai/sift/config/config.yaml" "$report_tools/config-before"
+for damage in missing uncertain duplicate; do
+  case "$damage" in
+    missing) printf 'prefix: SFT\n' > "$events_root/.ai/sift/config/config.yaml" ;;
+    uncertain) sed 's/complete: true/complete: false/' "$report_tools/config-before" > "$events_root/.ai/sift/config/config.yaml" ;;
+    duplicate) cat "$report_tools/config-before" "$report_tools/config-before" > "$events_root/.ai/sift/config/config.yaml" ;;
+  esac
+  report_read
+  assert_eq 0 "$(report_metric fully_verified_product)" "$damage declarations cannot be satisfied by old passes"
+  assert_contains "$R_OUT" 'verification-unavailable' "$damage declaration gap is explicit"
+done
+cp "$report_tools/config-before" "$events_root/.ai/sift/config/config.yaml"
+report_event check 1040 attempt_id=ga check_id=suite stage=development outcome=failed exit_status=7 evidence_ref=/absent
+report_read
+assert_eq 0 "$(report_metric development_verified_product)" 'latest failed result supersedes an earlier pass'
+report_event attempt-end 1050 attempt_id=ga outcome=failed
+report_read
+assert_eq 0 "$(report_metric fully_verified_product)" 'conflicting gate terminals fail closed'
+assert_contains "$R_OUT" 'conflicting-event' 'conflicting gate outcome is visible'
+report_event span-start 1030 attempt_id=ga span_id=wrong-parent activity=review
+report_event attempt-start 1020 wave_id=w sitting_id=s attempt_id=other members=SFT-0001
+report_event span-end 1040 attempt_id=other span_id=wrong-parent duration=10 outcome=done
+report_read
+assert_eq 0 "$(report_metric fully_verified_product)" 'cross-attempt span cannot prove work'
+assert_contains "$R_OUT" 'span-parent-mismatch' 'cross-attempt pairing is diagnosed'
+for clock in -1 01 '' 1.5 1000000000000000; do
+  run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" report-events report-run "$events_root" "$clock"
+  assert_eq 2 "$R_STATUS" "invalid explicit clock [$clock] is refused"
+done
+run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" report-events ../bad
+assert_eq 2 "$R_STATUS" 'run argument cannot escape the event tree'
+run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" report-events -- report-run
+assert_eq 2 "$R_STATUS" 'marker after subcommand remains an operand'
+
+test_case "wave closure cannot predate final gate evidence or completion"
+report_checks_fixture
+report_check suite development
+report_check lint development
+report_check compat compatibility
+report_event wave-end 1025 wave_id=w outcome=done
+report_event attempt-end 1050 attempt_id=ga outcome=done
+report_read
+assert_eq 0 "$(report_metric fully_verified_product)" 'wave end before final gate completion is not full verification'
+assert_contains "$R_OUT" 'after-wave-terminal' 'implicit attempt-to-wave relationship enforces chronology'
+
+test_case "a resumed active attempt cannot be redispatched using its old interruption"
+report_fixture
+report_event sitting 1000 wave_id=w sitting_id=s members=SFT-0001
+report_event attempt-start 1000 wave_id=w sitting_id=s attempt_id=a members=SFT-0001
+report_event attempt-interrupt 1001 attempt_id=a reason=interrupted
+report_event attempt-resume 1002 attempt_id=a
+report_event attempt-start 1003 wave_id=w sitting_id=s attempt_id=b retry_of=a members=SFT-0001
+report_read
+assert_contains "$R_OUT" 'retry-without-stop' 'old interruption is not current stop evidence'
+assert_eq 1 "$(report_metric invalid_attempts)" 'unclosed retry excluded from valid samples'
+
+test_case "cross-kind span terminals and declared envelope durations cannot fabricate cost"
+report_fixture
+report_event sitting 1000 wave_id=w sitting_id=s members=SFT-0001
+report_event attempt-start 1000 wave_id=w sitting_id=s attempt_id=a members=SFT-0001
+report_event span-start 1000 attempt_id=a span_id=sp activity=implementation
+report_event span-end 1010 attempt_id=a span_id=sp duration=10 outcome=done
+report_event wait-end 1010 attempt_id=a span_id=sp duration=10
+report_event attempt-end 1020 attempt_id=a outcome=done duration=999
+report_read
+assert_eq 0 "$(report_metric effort_seconds)" 'ambiguous work/wait terminal cannot establish measured effort'
+assert_eq 0 "$(report_metric completed_attempts)" 'inconsistent explicit attempt duration is not a sample'
+assert_contains "$R_OUT" 'conflicting-span-terminal' 'cross-kind terminal collision is diagnosed'
+assert_contains "$R_OUT" 'invalid-interval' 'declared envelope duration must match its timestamps'
+
+test_case "missing live state and changed terminal state override old event claims"
+report_checks_fixture
+report_check suite development
+report_check lint development
+report_check compat compatibility
+report_event attempt-end 1050 attempt_id=ga outcome=done
+report_event wave-end 1060 wave_id=w outcome=done
+report_read
+assert_eq 2 "$(report_metric fully_verified_product)" 'live done-state positive control'
+file=$(find "$events_root/.ai/sift/archive" -name 'SFT-0001--*.md')
+sed 's/^status: done/status: wontfix/' "$file" > "$report_tools/ticket"
+mv "$report_tools/ticket" "$file"
+file=$(find "$events_root/.ai/sift/archive" -name 'SFT-0002--*.md')
+cp "$file" "${file%/*}/SFT-0002--duplicate.md"
+report_read
+assert_eq 0 "$(report_metric fully_verified_product)" 'wontfix and duplicate live identities override events'
+assert_eq 1 "$(report_metric unknown_ticket_states)" 'ambiguous live state is unavailable'
+assert_contains "$R_OUT" $'diagnostic\tticket-state-unavailable\tSFT-0002' 'live-state ambiguity is explicit'
+saved=$R_OUT
+report_read
+assert_eq "$saved" "$R_OUT" 'fixed observation with unchanged records is deterministic'
+
+test_case "shared final obligations do not revalidate obsolete or per-member check history"
+report_checks_fixture
+run_cmd "$events_root" env SIFT_ROOT="$events_root" SIFT_EVIDENCE_DIR="$report_tools/evidence" \
+  PATH="$report_tools/bin:$PATH" REPORT_CLOCK=1005 \
+  bash "${DRAINLOG%/*}/check-evidence.sh" run report-run a suite development integrated "$events_root" . -- bash tests/check.sh suite
+assert_eq 0 "$R_STATUS" 'actual worker check produces a distinct historical artifact'
+printf 'integration change\n' >> "$events_root/src/code"
+report_check suite development 1030
+printf 'gate repair\n' >> "$events_root/src/code"
+report_check suite development 1040
+report_check lint development 1040
+report_check compat compatibility 1040
+report_event attempt-end 1050 attempt_id=ga outcome=done
+report_event wave-end 1060 wave_id=w outcome=done
+report_read
+assert_eq 2 "$(report_metric fully_verified_product)" 'final repaired state delivers both members'
+assert_eq 3 "$(report_metric evidence_validations)" 'each current shared obligation is validated once'
+assert_eq 5 "$(wc -l < "$REPORT_COUNTER" | tr -d ' ')" 'report did not execute or redo historical checks'
+
+report_wave_metric() {
+  printf '%s\n' "$R_OUT" | REPORT_WAVE="$1" REPORT_KEY="$2" awk -F '\t' \
+    '$1=="wave-metric" && $2==ENVIRON["REPORT_WAVE"] && $3==ENVIRON["REPORT_KEY"] {print $4}'
+}
+
+test_case "overlapping wave windows retain unique delivery denominators and incomplete observations"
+report_checks_fixture
+report_check suite development
+report_check lint development
+report_check compat compatibility
+report_event attempt-end 1050 attempt_id=ga outcome=done
+report_event wave-end 1060 wave_id=w outcome=done
+
+report_event wave-start 1020 wave_id=w2 wave=2
+report_event sitting 1020 wave_id=w2 sitting_id=s2 members=SFT-0001,SFT-0003,SFT-0004,SFT-0005,SFT-0006 work_class=product
+report_event attempt-start 1020 wave_id=w2 sitting_id=s2 attempt_id=b members=SFT-0001,SFT-0003,SFT-0004,SFT-0005,SFT-0006
+for row in SFT-0001:done SFT-0003:done SFT-0004:wontfix SFT-0005:superseded SFT-0006:cancelled; do
+  id=${row%:*}; outcome=${row#*:}
+  if [ "$id" != SFT-0001 ]; then
+    status=$outcome; bucket=archive
+    if [ "$outcome" = cancelled ]; then status=open; bucket=open; fi
+    ticket "$events_root" "$bucket" foundation/feature "$id" fixture 'Fixture' "status: $status" 'resolution: recorded'
+  fi
+  report_event ticket-outcome 1030 attempt_id=b "ticket_id=$id" "outcome=$outcome"
+  report_event landed 1031 attempt_id=b "ticket_id=$id" evidence_ref=commit:wave2
+done
+report_event attempt-end 1040 attempt_id=b outcome=failed
+report_event sitting 1041 wave_id=w2 sitting_id=s2-repeat members=SFT-0001 work_class=product
+report_event attempt-start 1041 wave_id=w2 sitting_id=s2-repeat attempt_id=bb members=SFT-0001
+report_event ticket-outcome 1042 attempt_id=bb ticket_id=SFT-0001 outcome=done
+report_event landed 1043 attempt_id=bb ticket_id=SFT-0001 evidence_ref=commit:retry
+report_event attempt-end 1044 attempt_id=bb outcome=done
+report_event gate 1050 wave_id=w2 gate_id=g2
+report_event attempt-start 1050 wave_id=w2 gate_id=g2 attempt_id=ga2 members=- work_class=infrastructure
+report_check suite development 1070 ga2
+report_check lint development 1070 ga2
+report_check compat compatibility 1070 ga2
+report_event attempt-end 1110 attempt_id=ga2 outcome=done
+report_event wave-end 1120 wave_id=w2 outcome=done
+
+report_event wave-start 1100 wave_id=w3 wave=3
+report_event sitting 1100 wave_id=w3 sitting_id=s3 members=SFT-0007 work_class=product
+report_event attempt-start 1100 wave_id=w3 sitting_id=s3 attempt_id=c members=SFT-0007
+ticket "$events_root" archive foundation/feature SFT-0007 fixture 'Fixture' 'status: done' 'resolution: implemented'
+report_event ticket-outcome 1110 attempt_id=c ticket_id=SFT-0007 outcome=done
+report_event landed 1120 attempt_id=c ticket_id=SFT-0007 evidence_ref=commit:wave3
+report_event attempt-end 1121 attempt_id=c outcome=done
+report_event gate 1130 wave_id=w3 gate_id=g3
+report_event attempt-start 1130 wave_id=w3 gate_id=g3 attempt_id=ga3 members=- work_class=infrastructure
+report_check suite development 1140 ga3
+report_check lint development 1140 ga3
+report_check compat compatibility 1140 ga3
+report_event attempt-end 1150 attempt_id=ga3 outcome=done
+report_read 1200
+assert_eq 0 "$(report_metric integrity_errors)" 'overlapping waves and mixed outcomes are valid'
+assert_eq 3 "$(report_metric fully_verified_product)" 'global delivery deduplicates ticket1 across both completed waves'
+assert_eq 3 "$(report_metric non_delivery)" 'non-delivery observations never inflate wave throughput'
+assert_eq 200 "$(report_metric throughput_denominator_seconds)" 'global elapsed window is not summed wave windows'
+assert_eq 54.000000 "$(report_metric fully_verified_product_per_hour)" 'three global deliveries over 200 seconds'
+assert_eq 110 "$(report_metric gate_envelope_seconds)" 'gate envelopes charged once across waves and members'
+assert_eq 3 "$(report_metric evidence_validations)" 'actual helper reuses three manifests, each validated once across waves'
+for row in w:1000:1060:60:2:120.000000 w2:1020:1120:100:2:72.000000 w3:1100:1200:100:0:0.000000; do
+  IFS=: read -r wave start end elapsed numerator rate <<< "$row"
+  assert_eq "$start" "$(report_wave_metric "$wave" window_start)" 'wave window starts at its declaration'
+  assert_eq "$end" "$(report_wave_metric "$wave" window_end)" 'wave window has explicit end'
+  assert_eq "$elapsed" "$(report_wave_metric "$wave" window_seconds)" 'wave elapsed seconds are exact'
+  assert_eq "$elapsed" "$(report_wave_metric "$wave" throughput_denominator_seconds)" 'wave throughput uses its own elapsed window'
+  assert_eq "$numerator" "$(report_wave_metric "$wave" throughput_numerator_tickets)" 'wave numerator deduplicates eligible product tickets'
+  assert_eq "$rate" "$(report_wave_metric "$wave" fully_verified_product_per_hour)" 'wave rate has exact arithmetic'
+done
+assert_eq wave-start/wave-end "$(report_wave_metric w2 window_basis)" 'completed window retains terminal provenance'
+assert_eq wave-start/observation "$(report_wave_metric w3 window_basis)" 'incomplete window explicitly uses observation clock'
+assert_contains "$R_OUT" $'wave\tw3\t3\t1100\t-\tincomplete' 'observation never fabricates a wave terminal'
+assert_contains "$R_OUT" $'wave-ticket\tw2\tSFT-0003\tproduct\tdevelopment-verified\tfully-verified' 'preserved successful member supplies wave numerator provenance'
+assert_contains "$R_OUT" $'wave-ticket\tw3\tSFT-0007\tproduct\tdevelopment-verified\t-' 'all passing checks without closure remain short of full delivery'
+assert_contains "$R_OUT" $'wave-ticket\tw2\tSFT-0006\tproduct\t-\t-' 'cancelled member landing supplies no delivery'
+report_read 1250
+assert_eq 150 "$(report_wave_metric w3 window_seconds)" 'incomplete observation grows with controlled clock'
+assert_eq 100 "$(report_wave_metric w2 window_seconds)" 'completed wave duration remains fixed'
+
+test_case "invalid and zero-length wave windows never fabricate a throughput rate"
+report_fixture
+report_event wave-end 1000 wave_id=w outcome=done
+report_read
+assert_eq 0 "$(report_wave_metric w window_seconds)" 'valid same-second wave has zero elapsed duration'
+assert_eq - "$(report_wave_metric w fully_verified_product_per_hour)" 'zero denominator has unavailable rate'
+report_fixture
+report_event wave-end 999 wave_id=w outcome=done
+report_read
+assert_eq - "$(report_wave_metric w window_seconds)" 'invalid terminal makes wave duration unavailable'
+assert_eq unavailable "$(report_wave_metric w window_basis)" 'invalid terminal cannot be silently relabelled incomplete'
+assert_eq - "$(report_wave_metric w fully_verified_product_per_hour)" 'invalid denominator has unavailable rate'
+
 summary

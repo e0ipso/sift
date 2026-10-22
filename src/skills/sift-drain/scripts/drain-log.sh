@@ -32,6 +32,7 @@ usage() {
   echo "       drain-log.sh phase orient|implement|verify|bookkeep" >&2
   echo "       drain-log.sh return <TICKET> <STATUS>..." >&2
   echo "       drain-log.sh report" >&2
+  echo "       drain-log.sh report-events RUN [WORKTREE [AS_OF]]" >&2
   echo "       drain-log.sh event <KIND> <key=value>..." >&2
   echo "       drain-log.sh event-validate <FILE>" >&2
   echo "       drain-log.sh event-fields <FILE>" >&2
@@ -278,6 +279,10 @@ report() {
         print "minutes per ticket resolved: - (no tickets resolved)"
       print "note: runtime is stamped by the orchestrator around the dispatch, so it"
       print "      includes a few seconds of dispatch overhead and is an upper bound."
+      print "legacy grouping and timing: inferred"
+      print "worker/attempt/gate/phase attribution: unavailable"
+      print "verified delivery: unavailable; done rows are reported outcomes"
+      print "same-second and overlapping dispatches: ambiguous; identities cannot be recovered"
     }
   ' "$LOG"
 }
@@ -298,6 +303,13 @@ MODE="${1:-}"
 
 # Validate the entire command before creating the header or appending a row.
 case "$MODE" in
+  report-events)
+    # shellcheck source=execution-events.sh
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-events.sh"
+    # shellcheck source=execution-report.sh
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-report.sh"
+    report_events "$@"
+    ;;
   event|event-validate|event-fields)
     # shellcheck source=execution-events.sh
     . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-events.sh"

@@ -733,10 +733,10 @@ graph TD
 
 Task 003 owns the new check helper and its case. Task 004 owns preparation and review snapshot code and cases. Coordinate shared schema/documentation boundaries before editing.
 
-### Phase 3: Execution accounting and verified delivery
-**Status:** pending
+### ✅ Phase 3: Execution accounting and verified delivery
+**Status:** completed
 **Parallel Tasks:**
-- Task 002: Reconstruct execution accounting and verified delivery, depends on 001 and 003.
+- ✔️ Task 002: Reconstruct execution accounting and verified delivery, completed, depends on 001 and 003.
 
 ### Phase 4: Stable graph estimates
 **Status:** pending
@@ -826,3 +826,15 @@ The first full phase suite completed before new edits resumed. Parent review fou
 ### Phase 2 verified
 
 Parent tests/run.sh passed after both clock corrections: 669 tests, 3611 assertions, zero failures, six documented skips, 197 seconds. Full output read from /tmp/sift-plan8-phase2-recheck.log. The earlier run before the evidence clock correction passed 668 tests and 3323 assertions but was superseded by this fresh gate. Diff inspected and git diff --check passed. POST_PHASE.md defines no extra lint/format command. Task 003 and task 004 are completed; Phase 2 will be committed before Phase 3 dispatch.
+
+### Phase 3 dispatch
+
+Phase 2 committed as fbf0422 after its full-suite gate. Phase 3 readiness passed for task 002, whose dependencies 001 and 003 are complete. Resolver selected gpt-6-astra/high; T3 returned that exact model/options. Active task: node:delegated-task:command%3Amcp%3Abbce80ee-93ab-4685-aaaa-f0d59a7048cd%3Adelegate-task%3Asift-plan8-task2-20261022-v1. Reporter owns live ticket outcomes, identity graph validity, final evidence applicability and honest interval accounting; ETA remains task 005.
+
+### Phase 3 parent review corrections
+
+The retained real-helper demonstration passed. Parent code review then reproduced a historical-cancellation delivery bug with /tmp/sift-task2-cancelled-retry-probe.sh: a linked successful retry with two authoritative done/landed tickets and three valid final obligations reported only one fully verified product ticket, with zero integrity errors. Historical cancelled execution outcomes must remain observations without permanently suppressing later verified delivery. Also requested explicit wave-level elapsed/throughput windows and denominators, as required by the approved plan; the initial implementation exposed wave endpoints but only run-level rates. Task 002 implementer follow-up is active; no full Phase 3 suite has run yet. Freshness reported 29 potentially stale knowledge nodes; live code/spec remains authoritative.
+
+### Phase 3 verified
+
+Parent cancellation repro now reports two verified deliveries, zero integrity errors and one retry while retaining the cancellation observation. Parent real multiwave fixture passed all 87 assertions. The full tests/run.sh gate then passed 689 tests, 4140 assertions, zero failures and six documented skips in 330 seconds; complete output read from /tmp/sift-plan8-phase3-verification.log. Diff inspected and git diff --check passed. POST_PHASE.md defines no additional lint/format command. Phase 3 is complete and will be committed before ETA dispatch.

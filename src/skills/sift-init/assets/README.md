@@ -526,6 +526,165 @@ installed-copy commands. No paths or keys are renamed and no historical file is 
 Keep `RUNLOG.md` unchanged. Callers adopt event mode explicitly; legacy records cannot
 establish the new attempt, worker or gate identities.
 
+### Read-only execution reports
+
+Use the installed Drain helper with one explicit run identity. `SIFT_ROOT` selects the
+tracker; `WORKTREE` is the current final integrated checkout, defaulting to that root.
+Supply the same environment/platform stamps used for check execution. `AS_OF` defaults
+to one `date +%s` reading. Its optional explicit canonical epoch is a controlled observation
+clock for fixtures, not a historical filter; later timestamps in the observed files are
+diagnosed. The observation must follow every event being measured.
+
+```bash
+bash "$DRAINLOG" report-events "$run_id" "$WORKTREE"
+bash "$DRAINLOG" -- report-events "$run_id" "$WORKTREE" 1100
+bash "$DRAINLOG" report
+```
+
+The last command remains the six-column legacy reader. Its old arithmetic is retained and
+labelled inferred. Worker, attempt, gate and attributable phase identities and verified
+delivery are unavailable. Same-second dispatch calls and overlapping history are ambiguous;
+the reader cannot repair them by inventing identities. Neither report changes RUNLOG bytes,
+events, tickets or evidence, and neither executes project checks. Temporary observation
+files live outside the tracker and integrated checkout and are removed on exit.
+
+`report-events` exits 0 after rendering an observation, including incomplete or invalid
+history. Usage/setup errors exit 2. Diagnostics are data, so exit 0 never means verification
+passed. Only published regular `events/*/event.md` files enter reconstruction, after grammar
+and enclosing run/event identity validation. Producer directories without that final file
+are incomplete publications. Missing references may resolve on a later observation.
+Parentage and ordered membership come from declarations, independent of directory order.
+Exact semantic repetitions ignore only the generated event ID; conflicting declarations
+or outcomes are diagnosed. Repeated interrupt/resume transitions use their timestamps as
+observations within the identified execution, not as new attempt identities. Equal clocks
+permit a logically ordered interrupt/resume/end sequence. Indistinguishable repetitions
+within one second cannot establish an additional cycle.
+
+The report is deterministic TSV, sorted with the C locale. `-` means unavailable or absent.
+Consumers select the first column, then its identity/key; rows are not positional records
+in scan order. The bounded data interface is version 1, reported as
+`metric<TAB>report_version<TAB>1`. These row shapes are available to downstream accounting:
+
+| First column | Remaining columns, in order |
+|---|---|
+| `metric` | unique key, value |
+| `attempt` | attempt ID, wave ID, parent kind, parent ID, ordered comma-separated members, retry origin or `-`, explicit work class, start epoch, end epoch or `-`, envelope seconds or `-`, completed/incomplete/invalid, terminal outcome or `-`, actor, actor ID or `-`, external ID or `-`, last active/interrupted lifecycle state |
+| `span` | span ID, attempt ID, completed/incomplete, start, end or `-`, seconds or `-`, span-start/wait-start, activity or wait reason, wait class or `-` |
+| `wave` | wave ID, numeric ticket wave, start, end or `-`, outcome or incomplete |
+| `wave-metric` | wave ID, unique key within that wave, value |
+| `wave-ticket` | wave ID, unique member ticket ID within that wave, work class, development-verified or `-`, fully-verified or `-` |
+| `sitting` | sitting ID, wave ID, original ordered members, explicit work class or unknown, declaration epoch, declared/invalid |
+| `gate` | gate ID, wave ID, completed/incomplete, explicit work class or unknown, declaration epoch |
+| `transition` | run/attempt interrupt/resume kind, subject ID, epoch, reason or `-` |
+| `member` | ticket ID, attempt ID, wave ID, work class |
+| `ticket-event` | ticket ID, attempt ID, wave ID, kind, outcome or `-`, epoch, evidence reference or `-` |
+| `ticket` | ticket ID, live status, work class, returned-done or `-`, landed or `-`, development-verified or `-`, fully-verified or `-`, non-delivery-outcome or `-` |
+| `check` | event ID, attempt ID, wave ID, gate ID or `-`, check ID, stage, outcome, epoch, evidence reference, reason or `-` |
+| `obligation` | wave ID, expected check ID, stage, scope, passed/outstanding/authorized-deferral |
+| `evidence` | expected check ID, stage, scope, evidence reference, true/false, validator reason |
+| `link` | follow-up/repair, ticket ID, origin attempt or `-`, origin gate or `-`, root cause or `-` |
+| `wait` | controlled reason, external/actionable, elapsed union seconds |
+| `activity` | activity, elapsed union seconds |
+| `diagnostic` | code, affected identity or reference |
+
+`window_start`, `window_end`, `window_seconds` and `window_basis` identify the denominator:
+run start through a valid run end, otherwise through the observation clock. Completed
+attempt durations are start-to-end envelopes, including interruption/wait time, with
+`completed_attempts` as their denominator. Min, lower-median p50 and max are provided; the
+attempt rows retain every sample. An incomplete attempt has no duration sample. Its observed
+envelope age contributes only to `incomplete_attempt_elapsed_lower_bound_seconds`, never
+to effort or a fabricated zero-cost completion. Invalid attempts are counted separately.
+Retry count/rate use all observed attempt declarations as the explicit denominator; resumes
+are separate transitions. Inspect invalid rows before selecting a comparable cohort.
+
+Each wave has additive `wave-metric` rows for `window_start`, `window_end`,
+`window_seconds`, `window_basis`, `throughput_numerator_tickets`,
+`throughput_denominator_seconds` and `fully_verified_product_per_hour`. A valid closed
+wave uses `wave-start/wave-end`; a wave without a terminal uses
+`wave-start/observation` through the report's `observation_epoch`. The latter is elapsed
+observed activity, not a completed-wave duration. An invalid declaration or terminal
+makes the window unavailable (`-`, with basis `unavailable`). The denominator is that
+wave's elapsed window; zero or unavailable denominators have no rate (`-`).
+The numerator counts unique fully verified product tickets within that wave, with
+`wave-ticket` rows exposing each member's contribution. A wave with outstanding closure
+has zero fully verified tickets even when its development checks pass. Join `ticket-event`,
+`attempt`, `obligation`, `evidence` and `gate` rows for the underlying provenance.
+Wave scopes may overlap in time and membership: their windows, numerators and rates are
+not additive. A ticket delivered in two waves contributes once to each wave and once to
+the run's unique-ticket total. Run throughput uses the run window, not summed wave windows.
+These rows do not allocate or multiply shared checks, gate costs or effort per ticket.
+They extend report version 1 without changing existing row shapes or stored records;
+no migration is needed.
+
+`effort_seconds` sums each attempt's union of completed non-wait spans. Nested verification
+and implementation spans within that attempt count once; concurrency between attempts remains
+summed effort. `occupied_seconds` unions all completed work/wait spans across the run.
+`waiting_seconds`, `external_wait_seconds`, `actionable_wait_seconds`, activity and reason
+rows are separate unions, so overlapping subdivisions must not be added. Gate occupied time
+and completed gate envelopes are also separate unions, never a charge per member ticket.
+`unattributed_seconds` is the elapsed window minus occupied time, not proof of idleness.
+Open/invalid spans and missing publications are counted and excluded from measured cost.
+Later reuse of clock-gap check evidence never supplies an original missing span terminal.
+
+Ticket counters cover unique members of reconstructed attempts. Live front-matter determines
+authoritative done and backlog resolution. Worker returns, landing, development verification,
+full verification and non-delivery outcomes remain separate. A missing/ambiguous ticket state
+cannot establish delivery. Wontfix, superseded and cancelled observations do not themselves
+establish delivery. Their historical `ticket-event` provenance, `non-delivery-outcome` flag
+and unique-ticket `non_delivery` count remain visible even after a successful linked retry.
+Eligibility requires current done state and a done ticket outcome paired with landing in
+the same attempt; a cancelled/wontfix/superseded attempt terminal cannot qualify. Historical
+non-delivery does not veto a later eligible attempt, while current wontfix/superseded state
+still prevents delivery. Classification comes from explicit ticket-outcome metadata, otherwise its attempt,
+otherwise its sitting/gate, otherwise unknown. Conflicting classifications stay unknown;
+category names never supply a class. Product, infrastructure and unknown verification counts
+are separate. Gate-only infrastructure work appears in attempt/gate costs and creates no
+delivered ticket.
+
+Required checks come from the current verification mapping, across every declared stage and
+scope. A complete required development set is necessary for development verification. For
+each wave, only its gate attempts' latest result observations can satisfy these obligations;
+simultaneous conflicting results stay outstanding. Each current gate candidate pass/reuse is checked with
+the actual `check-evidence.sh validate-declared` API against `WORKTREE`, expected check ID,
+stage and scope. Identical evidence/obligation requests are validated once per observation,
+not once per member. A failed validator or absent, incomplete, malformed or uncertain
+declaration fails closed. No passing event substitutes for applicable evidence.
+
+Full verification additionally requires a passing wave end and completed successful heads of
+every gate's retry chains. Gates and their evidence must precede the wave end. Delivery
+requires that eligible implementation/landing pair in the verified wave. A graph integrity gap conservatively
+withholds verified delivery for the observed run; missing span terminals alone remain timing
+gaps and do not negate independently applicable content evidence. Throughput reports unique
+fully verified product tickets over the explicit elapsed window, plus tickets/hour. A zero or
+unknown window has no rate. Reports require quiescent integrated inputs and honest declarations;
+they do not provide a filesystem transaction or infer omitted obligations.
+
+### Recorded compatibility deferral
+
+A deferred check event is not authorization. To report an authorized outstanding compatibility
+obligation, its `reason` must be `authorized-deferral` and `evidence_ref` must name an existing
+regular, non-symlink authorization record. Preserve this record with the diagnostic evidence;
+the reporter only reads it. It starts with `# Compatibility deferral v1`, a blank line, then
+exactly ten unique `key<TAB>value` rows in any order. Values are nonempty printable ASCII.
+The fields are `run_id`, `wave_id`, `check_id`, `stage`, `scope`, `authorization_ref`,
+`authorization`, `reason`, `outstanding_obligation` and `config_cksum`.
+
+`stage` must be compatibility. Run, wave, check and scope must match the current obligation;
+`config_cksum` is the exact output of `cksum < .ai/sift/config/config.yaml`, binding the grant
+to the current declarations. `authorization_ref` identifies the actual user directive or
+explicit project policy, and `authorization` retains its relevant text. `reason` explains the
+deferral and `outstanding_obligation` states the required remaining work. These are recorded
+authority and scope, not permission invented by the helper. The reporter does not fetch or
+authenticate the authority reference. Missing or changed scope/authorization remains outstanding.
+
+The report emits `deferral` rows containing wave, check, stage, scope, evidence reference,
+authorization reference, authorization text, reason and outstanding obligation. It counts
+authorized compatibility deferrals once per shared obligation, separately from full pass.
+Development may be verified while compatibility remains deferred; full delivery stays unverified.
+This report/data interface is additive: update Drain and refresh the README mirror. No existing
+file, ticket key, event grammar or legacy byte is renamed or converted. ETA policy and persisted
+estimate snapshots are outside this interface.
+
 ## Rules for agents
 
 1. **Read this file before creating or moving tickets.** Read the applicable sections:

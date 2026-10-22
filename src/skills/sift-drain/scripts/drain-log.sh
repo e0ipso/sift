@@ -33,6 +33,8 @@ usage() {
   echo "       drain-log.sh return <TICKET> <STATUS>..." >&2
   echo "       drain-log.sh report" >&2
   echo "       drain-log.sh report-events RUN [WORKTREE [AS_OF]]" >&2
+  echo "       drain-log.sh estimate RUN WORKTREE DECLARATION AS_OF [REASON]" >&2
+  echo "       drain-log.sh report-estimate RUN [AS_OF]" >&2
   echo "       drain-log.sh event <KIND> <key=value>..." >&2
   echo "       drain-log.sh event-validate <FILE>" >&2
   echo "       drain-log.sh event-fields <FILE>" >&2
@@ -303,6 +305,15 @@ MODE="${1:-}"
 
 # Validate the entire command before creating the header or appending a row.
 case "$MODE" in
+  estimate|report-estimate)
+    # shellcheck source=execution-events.sh
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-events.sh"
+    # shellcheck source=execution-report.sh
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-report.sh"
+    # shellcheck source=execution-estimate.sh
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-estimate.sh"
+    estimate_main "$MODE" "$@"
+    ;;
   report-events)
     # shellcheck source=execution-events.sh
     . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/execution-events.sh"

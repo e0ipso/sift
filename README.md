@@ -682,8 +682,147 @@ authorization reference, authorization text, reason and outstanding obligation. 
 authorized compatibility deferrals once per shared obligation, separately from full pass.
 Development may be verified while compatibility remains deferred; full delivery stays unverified.
 This report/data interface is additive: update Drain and refresh the README mirror. No existing
-file, ticket key, event grammar or legacy byte is renamed or converted. ETA policy and persisted
-estimate snapshots are outside this interface.
+file, ticket key, event grammar or legacy byte is renamed or converted.
+
+### Recorded graph estimates
+
+`drain-log.sh estimate RUN WORKTREE DECLARATION AS_OF [REASON]` explicitly records an
+estimate. `drain-log.sh report-estimate RUN [AS_OF]` renders the recorded head without
+changing it or executing checks. `--` belongs before the subcommand. RUN is an existing
+run identity, WORKTREE is the final integrated tree, and AS_OF is a canonical event epoch.
+An estimate request must follow every recorded event; an earlier observation is rejected
+before publication, so clock passage alone cannot repair its input history and revise it.
+Only rendering defaults AS_OF to one clock reading. A request returns the absolute
+`estimate.md` receipt; rendering returns TSV. Usage, malformed declarations, damaged
+records and ambiguous history exit 2. An unavailable estimate is data and exits 0.
+These commands do not dispatch work, alter ticket state or change `report-events`.
+
+The coordinator supplies a complete remaining graph, including ownership edges it already
+derives from write scopes. Sift does not infer missing edges from timings. DECLARATION is
+a regular text file of tab-separated rows, with no header, comments, escaping or empty
+fields. Values are printable ASCII; tabs separate fields and newlines separate rows.
+Identities use the event identity grammar. Row order is immaterial; member order is retained.
+The limits are 128 nodes, 4096 edges, 2048 candidate sample assumptions, 10000 lines and
+8192 bytes per line. Unknown rows, duplicate declarations, missing graph references and cycles
+are errors before publication. Missing evidence yields labelled unavailability.
+
+| Row | Remaining columns |
+|---|---|
+| `meta` | unique key, value |
+| `scope-wave` | run-local wave ID included in the remaining scope |
+| `node` | entity ID, `sitting` or `gate`, `product`/`infrastructure`/`unknown`, member count, stage, environment identity, ordered comma-separated ticket IDs or `-`, `work` or `known-repair` |
+| `edge` | predecessor entity ID, successor entity ID, `dependency` or `ownership` |
+| `obligation` | gate entity ID, scoped wave ID, check ID, development/compatibility stage, scope identity |
+| `sample` | observed attempt ID, assumed stage, assumed environment identity |
+| `external` | blocked entity ID, blocker identity, explanation without an invented release date |
+
+Every declaration requires exactly these `meta` keys:
+
+- `version`: `1`; `scope`: identity naming the remaining scope.
+- `graph`, `ownership`, `obligations`: each `complete` or `unknown`. Complete means the
+  coordinator has reconciled all remaining work, edges and shared obligations in scope.
+- `capacity`: an explicitly admitted available slot count from 0 through 128, or `unknown`;
+  `capacity_epoch`: the observation epoch, no later than AS_OF; `admission_ref`: the actual
+  admission observation/reference, or `unknown`. Keep this epoch fixed until admission
+  evidence changes. Used concurrency or maximum observed overlap is never slot evidence.
+- `environment`: the expected environment identity, or `unknown`.
+- `retry_policy`: `separate-allowance`; `retry_low` and `retry_high`: nonnegative canonical
+  seconds with low no greater than high; `retry_reason`: the basis for that scenario.
+  Zero explicitly assumes no future retry. This allowance has no inferred probability.
+
+A node is one whole remaining cost entity. A grouped sitting lists its distinct members
+once, with an exact positive count. No ticket belongs to two nodes. A gate has count 0 and
+members `-`; each shared check/stage/scope obligation belongs to one gate, regardless of
+the number of affected tickets. Stages are `development`, `compatibility` or `mixed` for
+an envelope covering both. Multiple obligations may share that mixed gate. Known repairs
+are explicit `known-repair` entities with their dependencies; they are not folded into
+the uncertain future retry allowance. Include landing, cleanup and other remaining work
+in these whole-entity assumptions; the estimator does not extrapolate partial progress.
+
+The estimator calls the actual `report-events RUN WORKTREE AS_OF` helper and consumes its
+attempt/span identity and interval rows, wave membership, current delivery and obligations.
+It checks scoped outstanding obligations against the declaration and refuses already fully
+delivered members. It cannot discover omitted future work or independently prove the
+coordinator's completeness assertion. Unknown graph, ownership, environment or capacity,
+zero admitted slots, absent cohorts, invalid report integrity or unavailable verification
+declarations prevent numeric bounds. Missing timing is never a zero-duration sample.
+
+Each sample row asserts that the observed attempt is comparable to the declared work and
+obligation scope, with the stated stage and environment. The timing report cannot establish
+that comparability. Keep those assertions with the snapshot; do not guess them from a
+category, provider or checkout path. Eligible
+samples are completed successful attempt envelopes of the same parent kind, explicit work
+class, exact group size, stage and environment. Retry attempts and their retried origins,
+incomplete spans and attempts with external waits are excluded. A duration is the parent
+envelope only: child implementation/check spans are never added to it. Sitting and gate
+cohorts are separate. Thus gates occur once as graph entities and uncertain future retries
+occur once as the declared allowance; retry-inclusive samples are not also charged.
+
+For each node, select at most the 20 most recently completed eligible candidates, breaking
+equal-clock ties by attempt ID. Recency is a bounded rank, not a sliding observation-age
+window. The report retains each selected sample ID, duration, classification, group size,
+stage, environment and end epoch. Fewer than three samples are labelled `sparse`; larger
+cohorts remain observed ranges with no confidence claim. Selection is limited to this run
+and the declared comparable candidates. Neither sample counts nor fixture timings establish
+production throughput or a completion guarantee.
+
+For node minima, the actionable lower scenario is the larger of the dependency/ownership
+critical-path sum and the ceiling of total work divided by admitted slots. For node maxima,
+the upper scenario groups the DAG into topological levels and charges each level's largest
+duration times the ceiling of its entity count divided by admitted slots. These hypothetical
+level barriers give a conservative upper scenario without choosing or dispatching workers.
+Add the respective future retry allowance once, then add the recorded origin epoch. Slots,
+scope and environment are assumed fixed for these scenarios. Unreported costs and future
+performance outside the observed range remain uncertain.
+
+External blockers stay separate. `status=conditional-external-blockers` labels otherwise
+available actionable bounds and `full_completion_upper_epoch=-` withholds a finite full
+completion bound. No release/unblock date is inferred. Without external blockers, status
+is `scenario`, still conditional on the recorded assumptions; missing evidence gives
+`unavailable` and `-` bounds. Rendering labels `lower_bound_state=passed` after the saved
+lower epoch passes, while retaining the original origin and bounds.
+
+Each changed explicit request reserves an exclusive
+`runs/<run-id>/estimates/estimate.XXXXXXXXXX/` directory with `mktemp -d`. It copies the
+canonical sorted declaration to `snapshot.tsv` and stable report rows to `observations.tsv`,
+writes and validates `estimate.pending`, then renames it to `estimate.md` in that private
+directory. The final name is the publication marker. No producer reuses a directory or
+rewrites a published file. Incomplete directories remain observable on stderr. There is no
+mutable current-estimate file, sequence or service. Keep each bundle with its history.
+
+`estimate.md` begins with `# Execution estimate v1`, one blank line and TSV rows. Unique
+`estimate KEY VALUE` rows record `id`, `run_id`, `origin_epoch`, `previous`, `revision_reason`,
+`graph_fingerprint`, `input_fingerprint`, `scope`, `capacity`, `retry_policy`,
+`retry_allowance_low`, `retry_allowance_high`, `retry_reason`, `scenario`, `assumptions`,
+`status`, `lower_epoch`, `upper_epoch`, `full_completion_upper_epoch` and `external_blockers`.
+Rendering adds only `lower_bound_state`. `cohort` rows give entity, count, sparse/range label,
+kind, class, group size, stage and environment. `sample` rows give entity, attempt, duration,
+kind, class, group size, stage, environment and end epoch. `entity` rows give entity, purpose,
+members, sampled minimum and maximum seconds or `-`. `diagnostic` rows give code and subject;
+`external` rows retain the declaration. The complete assumptions and graph remain in the
+fingerprinted snapshot beside the record.
+
+Fingerprints use portable `cksum` as `CRC:bytes`, for accidental-change detection rather
+than adversarial authentication. The input fingerprint covers stable report rows, including
+current delivery/evidence decisions. It excludes all observation-clock metrics except the
+stable report version/integrity count, and all wave metrics except the stable delivered
+numerator. Estimate/snapshot records never enter that event observation. The separate graph
+fingerprint covers the declaration, including explicit admission and scope assumptions.
+An unchanged request returns the original receipt without writing, even after its lower
+bound passes. Changing only AS_OF or REASON cannot create a revision. Actual changed report
+evidence or scope/declaration creates a linked record with the supplied reason; the first
+record uses `initial-observation` and `previous=-`.
+
+History heads follow `previous` identities, not timestamps. Requests belong to one
+coordinator. Concurrent publications preserve complete records but may fork the history;
+multiple heads cause a diagnostic and exit 2, never an arbitrary latest selection. Inspect
+such a run before continuing. Reports validate bundle fingerprints and leave all bytes
+unchanged. Observations need quiescent inputs; no filesystem transaction, clock monotonicity
+or power-loss durability beyond the filesystem is promised.
+
+Upgrade is additive: update Drain and refresh the README mirror. Existing events, reports,
+RUNLOG, ticket keys and configuration remain valid without conversion. The estimate tree
+is lazy and is not created by initialization. No event grammar or existing layout is renamed.
 
 ## Rules for agents
 

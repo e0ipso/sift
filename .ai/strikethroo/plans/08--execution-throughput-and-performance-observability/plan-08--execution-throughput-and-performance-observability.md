@@ -738,10 +738,10 @@ Task 003 owns the new check helper and its case. Task 004 owns preparation and r
 **Parallel Tasks:**
 - ✔️ Task 002: Reconstruct execution accounting and verified delivery, completed, depends on 001 and 003.
 
-### Phase 4: Stable graph estimates
-**Status:** pending
+### ✅ Phase 4: Stable graph estimates
+**Status:** completed
 **Parallel Tasks:**
-- Task 005: Persist graph-constrained ETA origins and revisions, depends on 002.
+- ✔️ Task 005: Persist graph-constrained ETA origins and revisions, completed, depends on 002.
 
 ### Phase 5: Coherent worker and gate contracts
 **Status:** pending
@@ -838,3 +838,11 @@ The retained real-helper demonstration passed. Parent code review then reproduce
 ### Phase 3 verified
 
 Parent cancellation repro now reports two verified deliveries, zero integrity errors and one retry while retaining the cancellation observation. Parent real multiwave fixture passed all 87 assertions. The full tests/run.sh gate then passed 689 tests, 4140 assertions, zero failures and six documented skips in 330 seconds; complete output read from /tmp/sift-plan8-phase3-verification.log. Diff inspected and git diff --check passed. POST_PHASE.md defines no additional lint/format command. Phase 3 is complete and will be committed before ETA dispatch.
+
+### Phase 4 dispatch
+
+Phase 3 committed as 1cdf94a after its green parent full suite. Phase 4 readiness passed for task 005. Resolver selected gpt-6-astra/high; fresh T3 capabilities advertise those exact options and the returned delegate matches them. Active task: node:delegated-task:command%3Amcp%3Abbce80ee-93ab-4685-aaaa-f0d59a7048cd%3Adelegate-task%3Asift-plan8-task5-20261022-v1. Scope is immutable graph/admission snapshots, bounded comparable-cohort scenarios and stable estimate origins/revisions; prompt integration and measurement remain later phases.
+
+### Phase 4 verified
+
+Parent retained ETA demonstration passed 27 assertions: original absolute bounds 1142/1142 from origin 1100 remain identical after lower-bound passage and an unchanged request; a real ownership edge creates a linked revision. Parent inspected the three new estimate modules and public API. Full tests/run.sh then passed 696 tests, 4466 assertions, zero failures and six documented skips in 473 seconds; complete output read from /tmp/sift-plan8-phase4-verification.log. Diff check passed. POST_PHASE.md has no additional lint/format command. Phase 4 will be committed before contract integration begins.

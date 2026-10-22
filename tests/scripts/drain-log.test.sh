@@ -2052,4 +2052,231 @@ assert_eq - "$(report_wave_metric w window_seconds)" 'invalid terminal makes wav
 assert_eq unavailable "$(report_wave_metric w window_basis)" 'invalid terminal cannot be silently relabelled incomplete'
 assert_eq - "$(report_wave_metric w fully_verified_product_per_hour)" 'invalid denominator has unavailable rate'
 
+# --- ETA: known graph, real observations, immutable origins ------------------
+eta_fixture() {
+  report_checks_fixture
+  report_check suite development
+  report_check lint development
+  report_check compat compatibility
+  report_event attempt-end 1050 attempt_id=ga outcome=done
+  report_event wave-end 1060 wave_id=w outcome=done
+  report_event wave-start 1070 wave_id=remaining wave=2
+  eta_tools=$(newdir)
+  eta_graph="$eta_tools/graph.tsv"
+  # Two 2-member sittings cost 12 seconds each, one shared gate costs 30.
+  # Two admitted slots: 12 + 30 = 42; one slot or an edge: 24 + 30 = 54.
+  printf '%s\n' \
+    $'meta\tversion\t1' $'meta\tscope\twave-two' \
+    $'meta\tgraph\tcomplete' $'meta\townership\tcomplete' $'meta\tobligations\tcomplete' \
+    $'meta\tcapacity\t2' $'meta\tcapacity_epoch\t1100' $'meta\tadmission_ref\tcoordinator-admitted-two' \
+    $'meta\tenvironment\tfixture-v1' $'meta\tretry_policy\tseparate-allowance' \
+    $'meta\tretry_low\t0' $'meta\tretry_high\t0' $'meta\tretry_reason\tzero-future-retry-scenario' \
+    $'scope-wave\tremaining' \
+    $'node\tleft\tsitting\tproduct\t2\tdevelopment\tfixture-v1\tSFT-0011,SFT-0012\twork' \
+    $'node\tright\tsitting\tproduct\t2\tdevelopment\tfixture-v1\tSFT-0013,SFT-0014\twork' \
+    $'node\tfinal\tgate\tinfrastructure\t0\tmixed\tfixture-v1\t-\twork' \
+    $'edge\tleft\tfinal\tdependency' $'edge\tright\tfinal\tdependency' \
+    $'obligation\tfinal\tremaining\tsuite\tdevelopment\tintegrated' \
+    $'obligation\tfinal\tremaining\tlint\tdevelopment\tintegrated' \
+    $'obligation\tfinal\tremaining\tcompat\tcompatibility\tintegrated' \
+    $'sample\ta\tdevelopment\tfixture-v1' $'sample\tga\tmixed\tfixture-v1' > "$eta_graph"
+}
+eta_request() {
+  run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" estimate report-run "$events_root" "$eta_graph" "${1:-1100}" "${2:-fixture-change}"
+  assert_eq 0 "$R_STATUS" 'explicit estimate request succeeds'
+  eta_record=$R_OUT
+}
+eta_read() {
+  run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" report-estimate report-run "${1:-1100}"
+  assert_eq 0 "$R_STATUS" 'read-only estimate renders'
+}
+eta_value() { printf '%s\n' "$R_OUT" | ETA_KEY="$1" awk -F '\t' '$1=="estimate" && $2==ENVIRON["ETA_KEY"] {print $3}'; }
+
+test_case "ETA graph scenarios count shared groups and gates once under actual admitted capacity"
+eta_fixture
+eta_request
+eta_read
+assert_eq 1142 "$(eta_value lower_epoch)" 'parallel groups and one shared gate: 1100+12+30'
+assert_eq 1142 "$(eta_value upper_epoch)" 'equal observed durations give exact conditional scenario'
+assert_contains "$R_OUT" $'cohort\tleft\t1\tsparse' 'one observation never implies confidence'
+assert_contains "$R_OUT" $'sample\tleft\ta\t12' 'cohort references the reconstructed attempt'
+cp "$eta_graph" "$eta_tools/parallel"
+for constraint in dependency ownership capacity; do
+  cp "$eta_tools/parallel" "$eta_graph"
+  if [ "$constraint" = capacity ]; then
+    awk -F '\t' 'BEGIN{OFS="\t"} $1=="meta" && $2=="capacity"{$3=1} {print}' "$eta_graph" > "$eta_tools/changed"
+    mv "$eta_tools/changed" "$eta_graph"
+  else printf 'edge\tleft\tright\t%s\n' "$constraint" >> "$eta_graph"; fi
+  eta_request
+  eta_read
+  assert_eq 1154 "$(eta_value lower_epoch)" "$constraint serializes the two groups"
+  assert_eq 1154 "$(eta_value upper_epoch)" "$constraint preserves one shared gate cost"
+done
+
+test_case "ETA origins remain fixed after lower-bound passage and revisions need changed evidence"
+eta_fixture
+eta_request
+original_record=$eta_record
+original_id=$(basename "$(dirname "$original_record")")
+cp "$original_record" "$eta_tools/origin"
+before=$(tree_digest "$events_root")
+eta_read 1200
+first_render=$R_OUT
+assert_eq passed "$(eta_value lower_bound_state)" 'elapsed lower bound is disclosed without recalculation'
+assert_eq 1100 "$(eta_value origin_epoch)" 'original observation stays fixed'
+assert_eq 1142 "$(eta_value lower_epoch)" 'absolute lower bound stays fixed'
+eta_read 1300
+assert_eq "$first_render" "$R_OUT" 'later passed-bound rendering is byte identical'
+eta_request 1300 clock-only-change
+assert_eq "$original_record" "$eta_record" 'unchanged explicit request returns the original receipt'
+assert_eq "$before" "$(tree_digest "$events_root")" 'render and unchanged request write no tracker bytes'
+report_event run-interrupt 1250 reason=user-input
+eta_request 1300 new-interruption-evidence
+eta_read 1300
+assert_eq "$original_id" "$(eta_value previous)" 'changed evidence links the prior origin'
+assert_eq new-interruption-evidence "$(eta_value revision_reason)" 'revision retains its actual reason'
+assert_eq 1342 "$(eta_value lower_epoch)" 'new evidence permits a new absolute origin'
+assert_eq "$(cat "$eta_tools/origin")" "$(cat "$original_record")" 'history bytes survive revision'
+before=$(tree_digest "$events_root")
+eta_request 1400 no-change-after-revision
+assert_eq "$before" "$(tree_digest "$events_root")" 'estimate records never invalidate their own evidence fingerprint'
+
+test_case "ETA known repair and future retry costs remain distinct and external release dates stay unknown"
+eta_fixture
+report_event sitting 1000 wave_id=w sitting_id=repair-s members=SFT-0090 work_class=infrastructure
+report_event attempt-start 1000 wave_id=w sitting_id=repair-s attempt_id=repair-a members=SFT-0090
+report_event attempt-end 1007 attempt_id=repair-a outcome=done
+printf '%s\n' \
+  $'node\trepair\tsitting\tinfrastructure\t1\tdevelopment\tfixture-v1\tSFT-0091\tknown-repair' \
+  $'edge\tleft\trepair\tdependency' $'edge\trepair\tfinal\tdependency' \
+  $'sample\trepair-a\tdevelopment\tfixture-v1' >> "$eta_graph"
+awk -F '\t' 'BEGIN{OFS="\t"} $2=="retry_low"{$3=2} $2=="retry_high"{$3=5} {print}' "$eta_graph" > "$eta_tools/changed"
+mv "$eta_tools/changed" "$eta_graph"
+eta_request
+eta_read
+assert_eq 1151 "$(eta_value lower_epoch)" '12 implementation + 7 known repair + 30 gate + 2 future retry'
+assert_eq 1154 "$(eta_value upper_epoch)" 'future retry upper allowance of 5 is charged once'
+assert_contains "$R_OUT" $'entity\trepair\tknown-repair' 'repair remains a named outstanding entity'
+printf 'external\trepair\tvendor\tAwait provider repair; no release date\n' >> "$eta_graph"
+eta_request
+eta_read
+assert_eq conditional-external-blockers "$(eta_value status)" 'finite actionable scenario is explicitly conditional'
+assert_eq - "$(eta_value full_completion_upper_epoch)" 'unresolved external blocker has no finite completion upper bound'
+assert_contains "$R_OUT" 'Await provider repair; no release date' 'external uncertainty remains separate'
+
+test_case "ETA missing evidence is unavailable and invalid graphs fail before publication"
+eta_fixture
+cp "$eta_graph" "$eta_tools/good"
+for missing in graph ownership obligations capacity samples; do
+  if [ "$missing" = samples ]; then
+    sed '/^sample/d' "$eta_tools/good" > "$eta_graph"
+  else
+    ETA_MISSING="$missing" awk -F '\t' 'BEGIN{OFS="\t"} $1=="meta" && $2==ENVIRON["ETA_MISSING"]{$3="unknown"} {print}' "$eta_tools/good" > "$eta_graph"
+  fi
+  eta_request
+  eta_read
+  assert_eq unavailable "$(eta_value status)" "$missing absence is not invented evidence"
+  assert_eq - "$(eta_value lower_epoch)" "$missing absence yields no numeric lower bound"
+  if [ "$missing" = samples ]; then
+    assert_contains "$R_OUT" $'entity\tleft\twork\tSFT-0011,SFT-0012\t-\t-' 'missing duration is never reported as zero'
+  fi
+done
+for damage in cycle missing-node duplicate-member duplicate-obligation bad-id capacity-clock; do
+  cp "$eta_tools/good" "$eta_graph"
+  case "$damage" in
+    cycle) printf 'edge\tfinal\tleft\townership\n' >> "$eta_graph" ;;
+    missing-node) printf 'edge\tabsent\tleft\tdependency\n' >> "$eta_graph" ;;
+    duplicate-member) printf 'node\tduplicate\tsitting\tproduct\t1\tdevelopment\tfixture-v1\tSFT-0011\twork\n' >> "$eta_graph" ;;
+    duplicate-obligation) printf 'obligation\tfinal\tremaining\tsuite\tdevelopment\tintegrated\n' >> "$eta_graph" ;;
+    bad-id) printf 'node\tshort\tsitting\tproduct\t1\tdevelopment\tfixture-v1\tSFT-123\twork\n' >> "$eta_graph" ;;
+    capacity-clock) sed 's/1100/9999/' "$eta_tools/good" > "$eta_graph" ;;
+  esac
+  before=$(tree_digest "$events_root")
+  run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" estimate report-run "$events_root" "$eta_graph" 1100 invalid
+  assert_eq 2 "$R_STATUS" "$damage declaration is rejected"
+  assert_contains "$R_ERR" 'error: estimate declaration:' 'malformed input has a useful boundary diagnostic'
+  assert_eq "$before" "$(tree_digest "$events_root")" 'invalid declaration publishes nothing'
+done
+
+test_case "ETA cohorts are recent, bounded and exclude retries or unobserved stage/environment"
+eta_fixture
+# Twenty-one comparable completed groups, durations 1..21. With the original
+# candidate removed below, the oldest one falls outside the most recent twenty.
+for index in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21; do
+  report_event sitting 1000 wave_id=w "sitting_id=cs$index" members=SFT-0080,SFT-0081 work_class=product
+  report_event attempt-start 1000 wave_id=w "sitting_id=cs$index" "attempt_id=ca$index" members=SFT-0080,SFT-0081
+  report_event attempt-end "$((1000+index))" "attempt_id=ca$index" outcome=done
+  printf 'sample\tca%s\tdevelopment\tfixture-v1\n' "$index" >> "$eta_graph"
+done
+# Initial sample a ends at 1012, so it would displace one duration. Remove its
+# assumption explicitly; no duration model or synthetic reporter is substituted.
+awk -F '\t' '!($1=="sample" && $2=="a")' "$eta_graph" > "$eta_tools/changed"
+mv "$eta_tools/changed" "$eta_graph"
+report_event sitting 1000 wave_id=w sitting_id=retry-s members=SFT-0082,SFT-0083 work_class=product
+report_event attempt-start 1000 wave_id=w sitting_id=retry-s attempt_id=retry-root members=SFT-0082,SFT-0083
+report_event attempt-end 1040 attempt_id=retry-root outcome=failed
+report_event attempt-start 1041 wave_id=w sitting_id=retry-s attempt_id=retry-head retry_of=retry-root members=SFT-0082,SFT-0083
+report_event attempt-end 1042 attempt_id=retry-head outcome=done
+printf '%s\n' $'sample\tretry-root\tdevelopment\tfixture-v1' $'sample\tretry-head\tdevelopment\tfixture-v1' >> "$eta_graph"
+eta_request
+eta_read
+assert_contains "$R_OUT" $'cohort\tleft\t20\tobserved-range-no-confidence' 'cohort bound is visible without claiming confidence'
+assert_not_contains "$R_OUT" $'sample\tleft\tca1\t' 'oldest candidate is outside the recent twenty'
+assert_not_contains "$R_OUT" $'sample\tleft\tretry-head\t' 'retry duration is not added on top of the allowance'
+assert_eq 1132 "$(eta_value lower_epoch)" 'recent minimum 2 plus shared gate 30'
+assert_eq 1151 "$(eta_value upper_epoch)" 'recent maximum 21 plus shared gate 30'
+cp "$eta_graph" "$eta_tools/cohorts"
+for mismatch in environment stage; do
+  ETA_MISMATCH="$mismatch" awk -F '\t' 'BEGIN{OFS="\t"}
+    $1=="sample" && $2!="ga" {if(ENVIRON["ETA_MISMATCH"]=="environment") $4="other-env"; else $3="compatibility"} {print}' "$eta_tools/cohorts" > "$eta_graph"
+  eta_request
+  eta_read
+  assert_eq unavailable "$(eta_value status)" "$mismatch mismatch cannot supply a comparable cohort"
+done
+
+test_case "ETA published history validates bounds and exposes incomplete or damaged bundles"
+eta_fixture
+eta_request
+saved_record=$eta_record
+estimate_dir=$(dirname "$saved_record")
+cp "$saved_record" "$eta_tools/saved-record"
+awk -F '\t' 'BEGIN{OFS="\t"} $1=="estimate" && $2=="lower_epoch"{$3=2000} {print}' "$saved_record" > "$eta_tools/changed"
+cp "$eta_tools/changed" "$saved_record"
+before=$(tree_digest "$events_root")
+run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" report-estimate report-run 2100
+assert_eq 2 "$R_STATUS" 'contradictory saved bounds cannot render as a valid estimate'
+assert_contains "$R_ERR" 'error: estimate record:' 'damaged marker has a useful diagnostic'
+assert_eq "$before" "$(tree_digest "$events_root")" 'damaged evidence is never repaired by rendering'
+cp "$eta_tools/saved-record" "$saved_record"
+printf 'changed\n' >> "$estimate_dir/snapshot.tsv"
+run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" report-estimate report-run 1200
+assert_eq 2 "$R_STATUS" 'changed immutable snapshot fails its fingerprint'
+assert_contains "$R_ERR" 'changed snapshot/observations' 'fingerprint failure names its bundle'
+# Separate valid fixture: a crash before final publication leaves previous bytes.
+eta_fixture
+eta_request
+mkdir "$events_root/.ai/sift/runs/report-run/estimates/estimate.partial"
+printf 'incomplete\n' > "$events_root/.ai/sift/runs/report-run/estimates/estimate.partial/estimate.pending"
+before=$(tree_digest "$events_root")
+eta_read 1200
+assert_contains "$R_ERR" 'incomplete publication' 'partial producer is observable'
+assert_eq 1142 "$(eta_value lower_epoch)" 'partial record cannot replace complete head'
+assert_eq "$before" "$(tree_digest "$events_root")" 'partial and published history both survive observation'
+
+test_case "ETA rejects future-clock observations before they can create clock-only revisions"
+eta_fixture
+report_event run-interrupt 1250 reason=user-input
+before=$(tree_digest "$events_root")
+run_cmd "$events_root" env SIFT_ROOT="$events_root" "$DRAINLOG" estimate report-run "$events_root" "$eta_graph" 1200 future-observation
+assert_eq 2 "$R_STATUS" 'estimate origin must follow all observed events'
+assert_contains "$R_ERR" 'observation precedes recorded events' 'clock problem is diagnosed at the estimate boundary'
+assert_eq "$before" "$(tree_digest "$events_root")" 'future observation creates no estimate bytes'
+assert_no_dir "$events_root/.ai/sift/runs/report-run/estimates" 'no empty store survives invalid origin'
+eta_request 1300
+saved_record=$eta_record
+before=$(tree_digest "$events_root")
+eta_request 1400
+assert_eq "$saved_record" "$eta_record" 'later valid observation clock cannot slide an unchanged origin'
+assert_eq "$before" "$(tree_digest "$events_root")" 'unchanged request preserves history'
+
 summary

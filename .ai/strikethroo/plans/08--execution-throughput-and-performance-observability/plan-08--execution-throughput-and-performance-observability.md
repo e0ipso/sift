@@ -743,10 +743,10 @@ Task 003 owns the new check helper and its case. Task 004 owns preparation and r
 **Parallel Tasks:**
 - ✔️ Task 005: Persist graph-constrained ETA origins and revisions, completed, depends on 002.
 
-### Phase 5: Coherent worker and gate contracts
-**Status:** pending
+### ✅ Phase 5: Coherent worker and gate contracts
+**Status:** completed
 **Parallel Tasks:**
-- Task 006: Wire worker and gate evidence ownership contracts, depends on 002, 003, 004 and 005.
+- ✔️ Task 006: Wire worker and gate evidence ownership contracts, completed, depends on 002, 003, 004 and 005.
 
 ### Phase 6: Real execution measurement
 **Status:** pending
@@ -846,3 +846,11 @@ Phase 3 committed as 1cdf94a after its green parent full suite. Phase 4 readines
 ### Phase 4 verified
 
 Parent retained ETA demonstration passed 27 assertions: original absolute bounds 1142/1142 from origin 1100 remain identical after lower-bound passage and an unchanged request; a real ownership edge creates a linked revision. Parent inspected the three new estimate modules and public API. Full tests/run.sh then passed 696 tests, 4466 assertions, zero failures and six documented skips in 473 seconds; complete output read from /tmp/sift-plan8-phase4-verification.log. Diff check passed. POST_PHASE.md has no additional lint/format command. Phase 4 will be committed before contract integration begins.
+
+### Phase 5 dispatch
+
+Phase 4 committed as 33cb158 after its green parent full suite. Phase 5 readiness passed for task 006; dependencies 002/003/004/005 are complete. Resolver selected gpt-6-astra/high, matched by T3 delegate provider/model/options. Active task: node:delegated-task:command%3Amcp%3Abbce80ee-93ab-4685-aaaa-f0d59a7048cd%3Adelegate-task%3Asift-plan8-task6-20261022-v1. Ownership is coherent worker/gate/review/run-management prompts and their contract guards, with final integrated evidence ownership and an audit of duplicate checks. Helper runtime semantics and broad measurement/final shipping stay with their designated phases.
+
+### Phase 5 verified
+
+Parent inspected the correlated worker, specialist, reviewer and recovery contracts and their executable guards. Attempts stay live through same-attempt ticket outcome/landing and coordinator cleanup. Final check ownership validates all obligations after the last input change; review permissions retain exact receipt authorization and historical tamper protection. Full tests/run.sh passed 702 tests, 4516 assertions, zero failures and six documented skips in 479 seconds. Complete output read from /tmp/sift-plan8-phase5-verification.log; diff check passed. Kenkeep freshness reports 29 potentially stale nodes; live interfaces govern where snapshots describe older contracts. POST_PHASE.md defines no additional lint/format command. Phase 5 will be committed before measurement dispatch.

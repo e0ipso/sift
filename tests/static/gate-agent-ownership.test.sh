@@ -192,13 +192,12 @@ sh_block() {
 }
 
 snapshot() {
-  (cd "$1" && STATE_BEFORE="$2" bash -c "$cmd")
+  (cd "$1" && SIFT_ROOT="$1" SCRIPTS_DIR="$repo/src/skills/sift-drain/scripts" STATE_BEFORE="$2" bash -c "$cmd")
 }
 
 test_case "the reviewer snapshot ignores the review worktree and catches outside writes"
 cmd="$(sh_block "$review" 1)"
-assert_contains "$cmd" 'find .ai/sift -type f' "the snapshot covers the ignored tracker"
-assert_contains "$cmd" 'git ls-files --others' "the snapshot covers untracked files"
+assert_contains "$cmd" 'review-state.sh" snapshot' "the documented snapshot invokes the real Git/tracker guard"
 d="$(newdir)"
 git -C "$d" init -q
 printf 'code\n' > "$d/code.txt"
@@ -206,11 +205,14 @@ git -C "$d" add code.txt
 git -C "$d" -c user.name=Fixture -c user.email=fixture@example.invalid commit -qm initial
 git -C "$d" branch -M main
 mkdir -p "$d/.ai/sift/open"
+mkdir -p "$d/.ai/sift/config"
+printf 'prefix: SFT\n' > "$d/.ai/sift/config/config.yaml"
 printf 'live tracker\n' > "$d/.ai/sift/open/live.md"
 printf '.ai/\n' > "$d/.git/info/exclude"
 git -C "$d" worktree add -q -b sift-review-wave-1 "$TMPROOT/review" main
 states="$(newdir)"
 snapshot "$d" "$states/before"
+assert_contains "$(cat "$states/before")" '@tracker' "the real helper produced a complete snapshot"
 printf 'scratch\n' > "$TMPROOT/review/scratch.txt"
 snapshot "$d" "$states/clean"
 assert_eq 0 "$(cmp -s "$states/before" "$states/clean"; echo $?)" "writes inside the review worktree do not trip the check"
@@ -221,7 +223,7 @@ printf 'live tracker\n' > "$d/.ai/sift/open/live.md"
 printf 'changed\n' > "$d/code.txt"
 snapshot "$d" "$states/code"
 assert_eq 1 "$(cmp -s "$states/before" "$states/code"; echo $?)" "a tracked edit is caught"
-git -C "$d" checkout -q code.txt
+printf 'code\n' > "$d/code.txt"
 printf 'one\n' > "$d/notes.txt"
 snapshot "$d" "$states/untracked-before"
 printf 'two\n' > "$d/notes.txt"
@@ -239,8 +241,8 @@ assert_eq 0 "$(cmp -s "$states/before" "$states/restored"; echo $?)" "the snapsh
 # are counted, any other status line is a changed tracked file. Run the
 # documented commands on the same checkout.
 test_case "the review worktree check counts scratch files apart from tracked changes"
-status_cmd="$(sh_block "$review" 2)"
-remove_cmd="$(sh_block "$review" 3)"
+status_cmd="$(sh_block "$review" 3)"
+remove_cmd="$(sh_block "$review" 4)"
 assert_contains "$status_cmd" 'git -C "$REVIEW_WORKTREE" status --porcelain' "step 6 lists the review worktree"
 assert_contains "$remove_cmd" 'git worktree remove --force' "step 6 removes a worktree that holds scratch files"
 review_status() {
@@ -261,5 +263,45 @@ assert_no_dir "$wt" "the worktree is removed with its scratch files"
 assert_eq "" "$(git -C "$d" branch --list sift-review-wave-2)" "the review branch is deleted"
 snapshot "$d" "$states/after-review"
 assert_eq 0 "$(cmp -s "$states/before-review" "$states/after-review"; echo $?)" "the integration checkout and tracker are as before"
+
+test_case "review comparison permits only exact authorized publication and keeps historical tamper checks"
+comparison="$(sh_block "$review" 2)"
+assert_contains "$comparison" 'review-state.sh" compare' "comparison uses the narrow helper"
+assert_contains "$comparison" 'ALLOW_EVENTS' "allowances come from coordinator receipts"
+assert_contains "$(cat "$review")" 'outside the critical snapshot comparison window' "estimate writes cannot masquerade as reviewer events"
+scripts="$repo/src/skills/sift-drain/scripts"
+snapshot "$d" "$states/event-before"
+receipt="$(SIFT_ROOT="$d" "$scripts/drain-log.sh" event run-start actor=coordinator)"
+assert_file "$receipt" "the coordinator has an actual publication receipt"
+compare_documented() (
+  cd "$d" || exit
+  export SIFT_ROOT="$d" SCRIPTS_DIR="$scripts"
+  STATE_BEFORE="$states/event-before" STATE_AFTER="$states/event-after"
+  ALLOW_EVENTS=("$@")
+  # Execute the documented block with a real Bash array, never interpolate receipt data.
+  eval "$comparison"
+)
+if compare_documented > "$states/compare.out" 2> "$states/compare.err"; then R_STATUS=0; else R_STATUS=$?; fi
+assert_eq 1 "$R_STATUS" "new publication without authorization is rejected"
+if compare_documented --allow-event "$receipt" > "$states/compare.out" 2> "$states/compare.err"; then R_STATUS=0; else R_STATUS=$?; fi
+R_ERR="$(cat "$states/compare.err")"
+assert_eq 0 "$R_STATUS" "the exact new receipt is allowed by the documented comparison"
+snapshot "$d" "$states/event-before"
+sed "s/actor: 'coordinator'/actor: 'worker'/" "$receipt" > "$receipt.tmp" && mv "$receipt.tmp" "$receipt"
+if compare_documented --allow-event "$receipt" > "$states/compare.out" 2> "$states/compare.err"; then R_STATUS=0; else R_STATUS=$?; fi
+R_ERR="$(cat "$states/compare.err")"
+assert_eq 1 "$R_STATUS" "an allowance cannot authorize a historical record change"
+assert_contains "$R_ERR" 'changed historical tracker file' "the reason preserves history protection"
+
+test_case "integrated gate ownership replaces repeated broad runs without waiving final obligations"
+gate="$repo/src/skills/sift-drain/references/wave-gate.md"
+close="$(awk '$0 == "## 5. Closing the wave" {p=1} p' "$gate")"
+assert_contains "$close" 'ALL required obligations' "close evaluates the complete final obligation set"
+assert_contains "$close" 'validate-declared' "close checks actual declared inputs"
+assert_contains "$close" 'missing/invalidated checks' "uncovered final obligations execute"
+assert_contains "$close" 'exactly one owner' "shared broad checks have a single owner"
+assert_contains "$(gate_prompt "$gate" '## 3. Root-cause fixes')" 'Batch independent root-cause repairs' "repairs batch before integrated execution"
+assert_not_contains "$(gate_prompt "$gate" '## 3. Root-cause fixes')" 'then every full suite' "each repair no longer repeats broad gate checks"
+assert_contains "$(gate_prompt "$gate" '## 2. Batch coverage agent')" 'Do not add a fresh coverage audit' "coverage consumes existing waived criteria"
 
 summary

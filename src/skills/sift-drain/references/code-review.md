@@ -13,24 +13,35 @@ The reviewer is one of:
 
 ## Running the reviewer
 
-1. Prepare a review worktree at the integration tip with `prepare-worktree.sh`, using a
+1. Publish a review gate and live attempt using run-management.md Execution evidence before
+   preparation. Keep its work_class explicit and preserve originating failure references.
+   Prepare a review worktree at the integration tip with `SIFT_ROOT`, `SIFT_PREPARE_RUN_ID` and
+   `SIFT_PREPARE_ATTEMPT_ID` passed to `prepare-worktree.sh`, using a
    branch such as `sift-review-wave-<N>`. It never holds ticket files or commits. On exit 3,
    do not run the reviewer and keep the worktree. Skip the stage as for a failed reviewer
    below: record the exit code, the hook status, the worktree path and branch, then continue
-   with stage 1.
+   with stage 1. Record the actual failed attempt after disposition; keep any incomplete
+   preparation clock span visible.
 2. Set `{{REVIEW_BASE}}` to the wave's recorded review base. Without one, after a resume or
    context loss, search `git log` on the integration branch for each archived current-wave
    ticket ID and use the parent of the earliest match. Name any ticket with no match in the
    wave summary.
-3. Substitute the placeholders in the Reviewer prompt fence, with the review worktree as
-   `{{PROJECT_ROOT}}`. From the project root, snapshot the integration checkout to a
-   temporary file outside it:
+3. Substitute only the trailing Assignment values in the Reviewer prompt. Start the
+   coordinator-owned review span on the live review attempt before taking the snapshot.
+   Keep explicit estimate/snapshot-bundle writes outside the critical snapshot comparison window;
+   report-estimate is read-only. Preparation, branch creation and cleanup also stay outside
+   that window. The reviewer may report timing boundaries but has no telemetry write authority.
+   The coordinator normally publishes no events during the window. If it explicitly authorizes
+   new diagnostic events, retain each exact event.md receipt; never derive authorization from
+   a directory scan or from the reviewer's claimed permission. An allowance never exempts
+   Git state changes either; if diagnostic additions affect tracked/untracked Git status,
+   publish them outside this window. Do not allow helper execution
+   that suppresses its event receipts inside this window.
+
+   From the original integration root, with SIFT_ROOT bound there:
 
    ```sh
-   { git rev-parse HEAD; git status --porcelain; git diff HEAD | cksum
-     git for-each-ref; git stash list
-     git ls-files --others --exclude-standard | while IFS= read -r f; do cksum "$f"; done
-     find .ai/sift -type f -exec cksum {} + | LC_ALL=C sort; } > "$STATE_BEFORE"
+   "$SCRIPTS_DIR/review-state.sh" snapshot > "$STATE_BEFORE"
    ```
 
 4. Run the reviewer from the review worktree and wait for it to finish; do not poll with
@@ -40,11 +51,23 @@ The reviewer is one of:
      configured. `sh -c` keeps the command's own quoting.
    - Reviewer agent: dispatch the prompt like a gate agent, on the configured model or the
      session's model, and save its final reply to `$REVIEW_OUT`.
-5. Write the same snapshot to `$STATE_AFTER` and run `cmp "$STATE_BEFORE" "$STATE_AFTER"`.
-   If they differ, the reviewer wrote outside its worktree. Stop the gate and show the user
-   `diff "$STATE_BEFORE" "$STATE_AFTER"`. Do not restore, reset, clean or check out anything,
-   do not file tickets from the report, and do not land or test further work until the user
-   answers. This is the one case where code review blocks the gate.
+5. Build the Bash ALLOW_EVENTS array from only exact coordinator-authorized new event
+   receipts, one --allow-event followed by its absolute receipt per authorization. Use an
+   empty array when none was authorized. Take the after snapshot and compare:
+
+   ```sh
+   "$SCRIPTS_DIR/review-state.sh" snapshot > "$STATE_AFTER" &&
+     "$SCRIPTS_DIR/review-state.sh" compare "$STATE_BEFORE" "$STATE_AFTER" "${ALLOW_EVENTS[@]}"
+   ```
+
+   A nonzero result stops the gate: show the structured violation and snapshot diff. Never
+   exempt runs/ or allow changed/deleted historical records. Tickets, config, reservation
+   marks, legacy logs and original Git state retain their checks. Do not restore, reset,
+   clean or check out anything, file tickets from the report, land or test more work until
+   the user answers. This is the one case where review blocks the gate. End the review span
+   after a successful comparison, preserving actual outcome and any clock gap. On violation
+   retain the live attempt and record the user-input wait outside the snapshot window.
+
 6. List what the reviewer left in the review worktree:
 
    ```sh
@@ -53,6 +76,7 @@ The reviewer is one of:
    grep -v '^?? ' "$REVIEW_STATUS"   # changed tracked files
    ```
 
+   Record coordinator cleanup on the same live attempt after comparison.
    Scratch files are allowed; give their count in the wave summary. Any other line means
    the reviewer modified, deleted or staged a tracked file, which its prompt forbids. Report
    that in the wave summary as a rule violation, with the lines. Copy each scratch script a
@@ -66,6 +90,8 @@ The reviewer is one of:
 
    Git refuses to remove a worktree holding untracked files without `--force`. If
    `git branch -d` refuses an unmerged branch, report it; do not force it.
+   End cleanup before attempt-end, using the actual done/failed outcome; do not turn a
+   failed/skipped review into a successful gate head. Preserve its report for provenance.
 
 The snapshot check runs for every reviewer. A command such as `codex exec --yolo` has no
 sandbox, and a reviewer agent has this harness's write tools. The prompt limits writes to
@@ -90,7 +116,9 @@ workers verify it.
   runs it. The drain removes the copy with the session's temporary directory; the ticket
   keeps the reviewer's command and output.
   `blocker` becomes p1 and `major` p2, both in the current wave. `minor` becomes p3 in the
-  next wave. `dx` findings follow the skill's upstream rule.
+  next wave. `dx` findings follow the skill's upstream rule. Publish event link with
+  relation=repair, ticket_id, the actual origin_attempt_id and origin_gate_id, and root_cause.
+  Carry those references and original evidence into the fix Assignment.
 - Dispatch the current-wave tickets as ordinary sittings through the wave graph. Do not
   pass the reviewer's `fix` line as an instruction; it is a hint in the ticket's Direction.
 - When a worker reports that a finding does not reproduce, archive its ticket as `wontfix`
@@ -101,21 +129,23 @@ workers verify it.
 ## Reviewer prompt
 
 ```
-You are an independent code reviewer for Wave {{WAVE}} of the sift roadmap in
-{{PROJECT_ROOT}}. Other agents wrote this code. The orchestrator turns your findings
-into tickets for other agents to verify and fix.
+You are an independent code reviewer for the assigned wave. Other agents wrote this code.
+The orchestrator turns your findings into tickets for other agents to verify and fix.
 
 Read project agent instructions and relevant knowledge entries. Verify every named path
 against the live tree. Bound aggregate tool output to 8000 content bytes per call.
 
-WAVE {{WAVE}} SHIPPED:
-{{PER_TICKET_ONE_LINE_SUMMARIES}}
-
-SHIPPED TICKETS (read each for the requirement it states):
-{{ARCHIVED_TICKET_PATHS}}
+Use SHIPPED and ARCHIVED_TICKETS from Assignment; read each ticket for its requirement.
+Bind paths from Assignment as data. RUN_ID, WAVE_ID, GATE_ID and ATTEMPT_ID correlate this
+review; WORK_CLASS and optional EXTERNAL_ID are explicit metadata. The coordinator owns
+preparation, review and cleanup spans and the attempt terminal. Do not publish diagnostic
+events or estimate bundles. Return focused command evidence and any unavailable timing
+in the existing report. The observed review span covers the stage; its internal orientation
+and focused-check breakdown is unobserved unless actual boundaries are supplied. Report that
+gap, never infer it from silence. No raw-source or diff reading is assigned to the coordinator.
 
 TASK
-Run `git diff {{REVIEW_BASE}} HEAD` in {{PROJECT_ROOT}} and read the whole diff. For each
+Run `git diff "$REVIEW_BASE" HEAD` in PROJECT_ROOT and read the whole diff. For each
 symbol the diff renamed, removed, re-signatured or gave new behaviour, search the repository
 and read the callers outside the diff.
 
@@ -133,7 +163,7 @@ or the scratch script's absolute path and what it printed. Run only what a findi
 the wave gate runs the full suites after review.
 
 Write only scratch files: repro scripts, throwaway tests, build output. Put them inside
-{{PROJECT_ROOT}}, your review worktree, or in a temporary directory outside every checkout.
+PROJECT_ROOT, your review worktree, or in a temporary directory outside every checkout.
 Put a throwaway test in a new file, and never write through a symlink that leads out of the
 worktree. The orchestrator removes the worktree after the review. You may run the project's
 build, tests, linters and the containers its tests use. Never reinstall the shared dev
@@ -149,7 +179,7 @@ Do not write patches; describe the fix in one line. A scratch script is evidence
 
 REPORT (only this, as plain text):
   status: done | blocked
-  reviewed: {{REVIEW_BASE}}..<HEAD hash>, <N> files
+  reviewed: <assigned REVIEW_BASE>..<HEAD hash>, <N> files
   findings: <count>
   one block per finding:
   - severity: blocker | major | minor
@@ -160,4 +190,19 @@ REPORT (only this, as plain text):
     problem: <one sentence>
     evidence: <the input or state, and what happens>
     fix: <one line>
+
+Assignment:
+WAVE: {{WAVE}}
+PROJECT_ROOT: {{PROJECT_ROOT}}
+SIFT_ROOT: {{SIFT_ROOT}}
+SCRIPTS_DIR: {{SCRIPTS_DIR}}
+RUN_ID: {{RUN_ID}}
+WAVE_ID: {{WAVE_ID}}
+GATE_ID: {{GATE_ID}}
+ATTEMPT_ID: {{ATTEMPT_ID}}
+WORK_CLASS: {{WORK_CLASS}}
+EXTERNAL_ID: {{EXTERNAL_ID}}
+REVIEW_BASE: {{REVIEW_BASE}}
+SHIPPED: {{PER_TICKET_ONE_LINE_SUMMARIES}}
+ARCHIVED_TICKETS: {{ARCHIVED_TICKET_PATHS}}
 ```

@@ -80,13 +80,21 @@ scripts/next-ticket.sh --group   # optional cluster hint for planning a sitting
 scripts/ticket-check.sh
 scripts/reserve-ids.sh <count>
 scripts/prepare-worktree.sh <base> <branch> <absolute-new-path>  # exit 3: setup failed, worktree kept
-scripts/drain-log.sh dispatch <TICKET>...
-scripts/drain-log.sh return <TICKET> <STATUS>...
-scripts/drain-log.sh report
+scripts/drain-log.sh event KIND key=value...
+scripts/drain-log.sh event-fields EVENT_RECORD
+scripts/drain-log.sh report-events RUN_ID INTEGRATED_WORKTREE
+scripts/drain-log.sh report-estimate RUN_ID
+scripts/check-evidence.sh run RUN ATTEMPT CHECK STAGE SCOPE WORKTREE CWD -- COMMAND ARG...
+scripts/check-evidence.sh validate-declared EVIDENCE CHECK STAGE SCOPE WORKTREE
+scripts/review-state.sh snapshot
+scripts/review-state.sh compare BEFORE AFTER [--allow-event EVENT_RECORD]...
 ```
 
-Pass all tickets in a sitting to one dispatch or return call so they share a timestamp.
-Workers stamp their own phases. `drain-log.sh` alone writes `RUNLOG.md`.
+Before preparation, load Execution evidence in run-management.md for the exact publication,
+span/wait, check and lifetime contract. New executions use immutable events; never mix them
+with ticketless legacy phase stamps. drain-log.sh report remains the read-only legacy reader.
+Do not hand-edit RUNLOG.md, event records or evidence manifests. Helpers return structured
+proof; coordinator source/diff/raw-log reading boundaries remain unchanged.
 Use `find` and `command grep`, or no-ignore search, inside the usually ignored tracker.
 
 ## Wave graph
@@ -108,13 +116,18 @@ Repeat until no dispatchable work remains in this wave:
    lost context, read that wave's remaining tickets in full. Dependencies and overlapping
    write scopes create sequential edges. Fill available slots with ready, non-overlapping
    sittings.
-2. Prepare each branch and worktree using `prepare-worktree.sh` from the original
+2. Publish run/wave/sitting/attempt identities before preparation, with ordered members,
+   explicit work_class and optional opaque external correlation. For a retry retain the
+   sitting, narrow its members and link a new attempt to the prior attempt. Prepare each
+   branch and worktree using `prepare-worktree.sh` with `SIFT_ROOT`, `SIFT_PREPARE_RUN_ID`
+   and `SIFT_PREPARE_ATTEMPT_ID` from the original
    repository. Pass the prepared worktree as `PROJECT_ROOT`, its branch, and the original
    project root as `SIFT_ROOT`. Keep the integration checkout for landings. Workers use
    absolute shared tracker paths; do not replace their `.ai/sift` with a symlink. On exit 3,
    do not dispatch that sitting; report it and keep the worktree (see
    [run-management.md](references/run-management.md)).
-3. Stamp `drain-log.sh dispatch` immediately before dispatch. For a fresh worker, load the
+3. Dispatch only after preparation succeeds; preserve setup failure evidence before any
+   worker starts. For a fresh worker, load the
    placeholder preamble and Template section of [ticket-agent-prompt.md](references/ticket-agent-prompt.md)
    and send the fixed contract first, verbatim, followed by its resolved Assignment block.
    Keep assignment values at the end; prepend no ticket summary or coordinator history. For a related sitting
@@ -127,18 +140,27 @@ Repeat until no dispatchable work remains in this wave:
    Bounded documentation or metadata tasks may use a cheaper tier with lower reasoning
    effort, explicit inputs and checks. Apply reasoning effort only where the harness exposes
    it. Honor user preferences.
-5. On return, handle tamper first, then record each ticket's reported status with
-   `drain-log.sh return`. For each done ticket, cherry-pick its commit with `-n`, set
+5. On return, handle tamper first, then publish ticket-outcome for attempted members as
+   defined in Execution evidence. Keep not-started members in the retry report, not as an
+   invented event outcome. Keep the attempt live through landing and cleanup. For each done ticket, cherry-pick its commit
+   with `-n`, set
    status, resolution and updated, then move it to the mirrored archive path and delete the
    folders the move emptied. Land one commit per ticket, naming its ID in the message and
-   containing implementation and tracker changes where tracked.
+   containing implementation and tracker changes where tracked. Record landed on the same
+   attempt as its done outcome, with the integrated commit reference. Finish coordinator
+   landing/cleanup spans before attempt-end. A worker return is not delivery or termination.
 6. Assign every filed follow-up to this or a later wave. Run `ticket-check.sh` after your
    bookkeeping and fix any findings. Report one progress line per ticket and surface every
-   self-filed ID. Rewire the graph and dispatch newly ready sittings.
+   self-filed ID. Record actual origin_attempt_id/origin_gate_id links for repairs and
+   follow-ups. Rewire the graph and dispatch newly ready sittings.
 
 **Failure policy:** retry only failed tickets once with their failure context. After a
 second failure, set status blocked, keep the file under open with its wave, report it,
-and continue. Preserve completed tickets from a partially successful sitting.
+and continue. Preserve completed tickets from a partially successful sitting. Land them
+before terminating the old attempt and starting its narrowed linked retry. Carry preserved
+commits, original failure provenance and still-valid check references/reasons into Assignment.
+Resume only an identifiable still-active execution; restart with a new attempt. Cancellation
+is an execution outcome, not a new ticket lifecycle state.
 
 ## Consume worker reports
 
@@ -154,8 +176,10 @@ Do not load [wave-gate.md](references/wave-gate.md) during intake or implementat
 At each gate stage, read only its numbered section and send that stage's resolved fence.
 Load section 3 only for failures and section 4 only when capture is warranted. Load section 5
 at close. The order and skip conditions are below; other stage prompts can stay unread.
-Prepare gate worktrees and branches as for implementation workers, and handle exit 3 the
-same way. Workers from the wave do not continue into the gate or the next wave.
+Publish a gate and members=- attempt before each gate preparation, carrying correlation
+through the same helper environment. Handle exit 3 and clock gaps the same way as workers.
+Keep gate attempts live through their integration and cleanup, then record real terminals.
+Workers from the wave do not continue into the gate or the next wave.
 
 With code review on, read [code-review.md](references/code-review.md) at the
 gate, then run the reviewer and land its fix tickets before stage 1. Otherwise leave it
@@ -166,24 +190,34 @@ unread.
    does not remove the full e2e run when that layer exists.
 2. Build batch coverage input from waived archived resolutions and deferred unsafe
    sequences. Dispatch the coverage agent next; it may also carry the full-suite close.
-3. Land returned commits, then verify the integrated state with the full test, lint,
-   static-analysis and applicable e2e suites. Keep raw logs on disk. Report commands,
-   exit codes, available counts, failures and absolute log paths, or no-e2e-layer status.
+3. Land returned commits. Assign exactly one integrated owner per required test, lint,
+   static-analysis and applicable full e2e obligation. Specialists keep focused checks while
+   authoring. Owners use check-evidence.sh run and validate-declared against integrated
+   inputs; retain producer receipts, decisions/reasons, commands, exit codes, available
+   counts and log paths. Coordinator consumes their structured proof, never raw logs.
 4. Group failures by root cause. Reserve IDs and file reported defects before dispatching
-   their fixes. Land fix commits and repeat every full run after the last fix.
+   their fixes. Batch independent repairs when dependencies and write ownership permit.
+   Land fixes before expensive integrated reruns; execute all missing/invalidated obligations.
 5. Work any remaining p1/p2 tickets filed into this wave before closing. Tickets inserted
    into an already closed wave become the current wave's tail; their deferred coverage
    belongs to the next gate. Do not reopen a closed gate.
 6. When green, dispatch one knowledge-capture pass if reports contain durable candidates
-   and the project has a capture skill. Land its commit and post the wave summary.
+   and the project has a capture skill. Land its commit, then validate ALL required checks
+   against final quiescent inputs at close. Execute missing/invalidated checks and validate
+   again. An earlier green worker or gate is never a blanket skip. Close attempts, then the
+   wave, and post the summary. Actual compatibility deferrals remain outstanding; use the
+   authorized record format in Execution evidence and never count them as full passes.
 
 Continue into the next wave without a human pause.
 
 ## Final report at run end
 
 Report wave state, blocked tickets and reasons, all filed tickets, the code review
-choice with per-wave finding counts or skip reasons, and the timing table from
-`drain-log.sh report`.
+choice with per-wave finding counts or skip reasons. Use report-events for returned, landed,
+development/full delivery, explicit classifications, elapsed denominators, waits and gaps;
+use report-estimate for saved origins/bounds. Request a new estimate only for changed evidence
+or scope, consuming the existing graph/ownership/admission evidence without rescheduling.
+Keep capacity_epoch fixed until admission evidence changes. Legacy report is labelled inferred.
 
 ## Contract pins
 
@@ -191,17 +225,22 @@ choice with per-wave finding counts or skip reasons, and the timing table from
 
 ```text
 @PIN: src/skills/sift-drain/ name: sift-drain
-@PIN: src/skills/sift-drain/references/ticket-agent-prompt.md The four phase commands in this contract are the only phase stamps for the sitting.
+@PIN: src/skills/sift-drain/references/ticket-agent-prompt.md Correlated activity uses spans, never ticketless legacy phase stamps.
 @PIN: src/skills/sift-drain/references/run-management.md ### Write scope is an edge, not a hope
 @PIN: src/skills/sift-drain/references/ticket-agent-prompt.md Step 6: Return one final report
 @PIN: src/skills/sift-drain/references/ticket-agent-prompt.md resolution: <TICKET-ID>: <one line, including waivers>
 @PIN: src/skills/sift-drain/references/ticket-agent-prompt.md # Canonical sub-agent prompt for one worker sitting
-@PIN: src/skills/sift-drain/references/wave-gate.md You are the e2e specialist closing Wave {{WAVE}} of the sift roadmap in {{PROJECT_ROOT}}.
-@PIN: src/skills/sift-drain/references/wave-gate.md You are the batch coverage agent closing Wave {{WAVE}} of the sift roadmap in
-@PIN: src/skills/sift-drain/references/wave-gate.md Fix one root cause of Wave {{WAVE}} gate fallout in {{PROJECT_ROOT}}.
-@PIN: src/skills/sift-drain/references/wave-gate.md You are the knowledge-capture pass closing Wave {{WAVE}} of the sift roadmap in
-@PIN: src/skills/sift-drain/references/code-review.md You are an independent code reviewer for Wave {{WAVE}} of the sift roadmap in
+@PIN: src/skills/sift-drain/references/wave-gate.md You are the e2e specialist closing the assigned wave.
+@PIN: src/skills/sift-drain/references/wave-gate.md You are the batch coverage agent closing the assigned wave.
+@PIN: src/skills/sift-drain/references/wave-gate.md Fix the one assigned root cause of gate fallout.
+@PIN: src/skills/sift-drain/references/wave-gate.md You are the knowledge-capture pass closing the assigned wave.
+@PIN: src/skills/sift-drain/references/code-review.md You are an independent code reviewer for the assigned wave.
 @PIN: src/skills/sift-drain/references/code-review.md ## Handling findings
+@PIN: src/skills/sift-drain/references/run-management.md ## Execution evidence
+@PIN: src/skills/sift-drain/references/run-management.md Keep the attempt live through landing and cleanup.
+@PIN: src/skills/sift-drain/references/wave-gate.md Evaluate ALL required obligations on final integrated inputs
+@PIN: src/skills/sift-drain/scripts/check-evidence.sh validate-declared)
+@PIN: src/skills/sift-drain/scripts/review-state.sh compare)
 @PIN: src/skills/sift-drain/references/run-management.md ## Ticket intake
 @PIN: src/skills/sift-drain/references/run-management.md ## Worker check-back
 @PIN: src/skills/sift-drain/references/run-management.md ## Reporting to the user

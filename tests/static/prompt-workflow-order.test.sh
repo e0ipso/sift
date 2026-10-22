@@ -464,4 +464,150 @@ fixed_prefix "$work/bad-two" > "$work/bad-prefix-two"
 assert_ne "$(cat "$work/bad-prefix-one")" "$(cat "$work/bad-prefix-two")" "the proof rejects a substitution anywhere before Assignment"
 
 
+test_case "worker correlation leaves the attempt live for coordinator integration"
+template="$(worker_template "$PROMPT")"
+assert_contains "$template" 'RUN_ID: {{RUN_ID}}' "run identity is an assignment input"
+assert_contains "$template" 'ATTEMPT_ID: {{ATTEMPT_ID}}' "attempt identity is an assignment input"
+assert_contains "$template" 'Do not publish attempt-end' "return cannot terminate coordinator work"
+assert_contains "$template" 'check-evidence.sh" run' "scoped checks use the real evidence wrapper"
+assert_contains "$template" 'including step 3c' "verification inside implementation has its own timing"
+assert_not_contains "$template" 'drain-log.sh phase' "correlated workers do not stamp ticketless legacy phases"
+assert_contains "$template" 'origin_attempt_id=$ATTEMPT_ID' "follow-ups retain their actual origin"
+
+# The same fixed-prefix proof applies to specialist and recovery dispatches.
+# Every dynamic value belongs after a single Assignment boundary.
+assignment_errors() {
+  local file="$1" section="$2" body prefix
+  body="$(worker_template "$file" "$section")"
+  [ -n "$body" ] || { echo 'missing template'; return; }
+  [ "$(printf '%s\n' "$body" | grep -c '^Assignment:$')" = 1 ] || echo 'missing or repeated Assignment'
+  prefix="$(printf '%s\n' "$body" | awk '$0 == "Assignment:" { exit } { print }')"
+  case "$prefix" in *'{{'*) echo 'dynamic prefix' ;; esac
+  printf '%s\n' "$body" | grep -Fq 'ATTEMPT_ID: {{ATTEMPT_ID}}' || echo 'missing attempt'
+}
+test_case "gate and recovery prompts keep changing identities behind fixed prefixes"
+for pair in \
+  'wave-gate.md|## 1. E2E specialist agent' \
+  'wave-gate.md|## 2. Batch coverage agent' \
+  'wave-gate.md|## 3. Root-cause fixes' \
+  'wave-gate.md|## 4. Wave knowledge capture' \
+  'code-review.md|## Reviewer prompt' \
+  'ticket-agent-prompt.md|## Resume a stalled sitting' \
+  'ticket-agent-prompt.md|## Tamper check-back'
+do
+  file="$REPO_ROOT/src/skills/sift-drain/references/${pair%%|*}"
+  heading="${pair#*|}"
+  assert_eq '' "$(assignment_errors "$file" "$heading")" "$heading has a fixed correlated prefix"
+done
+assert_eq '{{SITTING_INPUTS}}' "$(worker_template "$PROMPT" '## Redispatch on failure')" \
+  "retries carry only the complete canonical replacement assignment"
+damaged="$(newdir)/gate.md"
+awk '/^## 1\. E2E specialist agent$/ { target=1 }
+  target && /^```$/ && !hit { print; print "Early {{RUN_ID}}"; hit=1; next } { print }' \
+  "$gate" > "$damaged"
+assert_contains "$(assignment_errors "$damaged" '## 1. E2E specialist agent')" \
+  'dynamic prefix' "an early correlation value is rejected"
+
+# Execute the shipped handoff blocks rather than maintaining a second CLI model.
+# This is an API/lifetime guard, not task 7's throughput measurement fixture.
+execution_block() {
+  awk -v tag="<!-- @EXECUTION: $2 -->" '
+    $0 == tag { seek=1; next }
+    seek && /^```/ { inside=1; seek=0; next }
+    inside && /^```/ { exit }
+    inside { print }
+  ' "$1"
+}
+test_case "published contract commands keep return landing cleanup and final checks in valid lifetimes"
+management="$REPO_ROOT/src/skills/sift-drain/references/run-management.md"
+proof="$(newdir)/handoff.sh"
+cat > "$proof" <<'SETUP'
+set -eu
+export SIFT_ROOT="$1"
+export SIFT_EVIDENCE_DIR="$SIFT_ROOT/../evidence"
+SCRIPTS_DIR="$2"
+cd "$SIFT_ROOT"
+WAVE=1 WORK_CLASS=product MEMBERS=SFT-0001 RETRY_OF='' EXTERNAL_ID=''
+git init -q
+git config user.name Fixture
+git config user.email fixture@example.invalid
+mkdir -p .ai/sift/config tests
+printf '.ai/\n' > .git/info/exclude
+cat > .ai/sift/config/config.yaml <<'CONFIG'
+prefix: SFT
+verification:
+  suite:
+    complete: true
+    required: true
+    stage: development
+    scope: integrated
+    cwd: .
+    command: [bash, tests/check.sh]
+    inputs: [tests]
+    environment: [CHECK_ENV]
+    platform: CHECK_PLATFORM
+CONFIG
+printf 'exit 0\n' > tests/check.sh
+git add tests/check.sh
+git commit -qm initial
+BASE_BRANCH=$(git symbolic-ref --short HEAD)
+BRANCH=worker PROJECT_ROOT="$SIFT_ROOT/../prepared"
+SETUP
+for block in run-wave sitting attempt preparation; do
+  body="$(execution_block "$management" "$block")"
+  assert_ne '' "$body" "$block command contract is nonempty"
+  printf '%s\n' "$body" >> "$proof"
+done
+cat >> "$proof" <<'RETURN'
+TICKET_ID=SFT-0001 TICKET_OUTCOME=done TICKET_WORK_CLASS=product
+RETURN
+execution_block "$management" ticket-outcome >> "$proof"
+printf '%s\n' 'ACTOR=coordinator ACTIVITY=landing SPAN_OUTCOME=done' >> "$proof"
+execution_block "$management" span-start >> "$proof"
+printf '%s\n' 'LANDED_COMMIT=$(git rev-parse HEAD)' >> "$proof"
+execution_block "$management" landed >> "$proof"
+execution_block "$management" span-end >> "$proof"
+printf '%s\n' 'ACTIVITY=cleanup' >> "$proof"
+execution_block "$management" span-start >> "$proof"
+execution_block "$management" span-end >> "$proof"
+printf '%s\n' 'ATTEMPT_OUTCOME=done' >> "$proof"
+execution_block "$management" attempt-end >> "$proof"
+for block in gate gate-attempt; do execution_block "$management" "$block" >> "$proof"; done
+cat >> "$proof" <<'CHECK'
+CHECK_ID=suite STAGE=development SCOPE=integrated LOGICAL_CWD=.
+CHECK_COMMAND=(bash tests/check.sh)
+export CHECK_ENV=fixture CHECK_PLATFORM=fixture
+CHECK
+printf 'EVIDENCE=$(\n' >> "$proof"
+execution_block "$management" check-run >> "$proof"
+printf ')\n' >> "$proof"
+execution_block "$management" check-validate >> "$proof"
+execution_block "$management" attempt-end >> "$proof"
+cat >> "$proof" <<'CLOSE'
+"$SCRIPTS_DIR/drain-log.sh" event wave-end "run_id=$RUN_ID" "wave_id=$WAVE_ID" outcome=done actor=coordinator
+"$SCRIPTS_DIR/drain-log.sh" report-events "$RUN_ID" "$PROJECT_ROOT"
+CLOSE
+root="$(newdir)/project"; mkdir "$root"
+run_cmd "$REPO_ROOT" bash "$proof" "$root" "$REPO_ROOT/src/skills/sift-drain/scripts"
+assert_eq 0 "$R_STATUS" "documented publication preparation check and validation interfaces execute"
+assert_contains "$R_OUT" "$(printf 'metric\tintegrity_errors\t0')" "return followed by landing and cleanup has no lifetime errors"
+assert_contains "$R_OUT" "$(printf 'valid\ttrue')" "final integrated declaration validation is real"
+assert_contains "$R_OUT" "$(printf 'metric\tcompleted_attempts\t2')" "ticket and gate attempts terminate after their owned work"
+
+test_case "manual span closure preserves malformed clock gaps without fabricated terminals"
+clockproof="$(newdir)/clock.sh"
+cat > "$clockproof" <<'SETUP'
+set -eu
+export SIFT_ROOT="$1"
+SCRIPTS_DIR="$2"
+RUN_ID=clock-run ATTEMPT_ID=clock-attempt SPAN_ID=clock-span SPAN_START=1000
+ACTOR=worker SPAN_OUTCOME=done
+date() { printf '1001\nbad\n'; }
+SETUP
+execution_block "$management" span-end >> "$clockproof"
+run_cmd "$REPO_ROOT" bash "$clockproof" "$root" "$REPO_ROOT/src/skills/sift-drain/scripts"
+assert_contains "$R_ERR" 'remains incomplete' "malformed clock is diagnosed before publication or arithmetic"
+assert_not_contains "$R_ERR" 'integer expression expected' "malformed clock never reaches numeric comparison"
+assert_no_dir "$root/.ai/sift/runs/clock-run" "bad clock cannot publish a fabricated terminal"
+
 summary

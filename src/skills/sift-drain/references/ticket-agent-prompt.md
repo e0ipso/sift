@@ -13,6 +13,8 @@ Pins: `tests/static/skill-prose-pins.test.sh`.
 
 ```text
 @PIN: src/skills/sift-drain/SKILL.md ## Consume worker reports
+@PIN: src/skills/sift-drain/SKILL.md **Failure policy:**
+@PIN: src/skills/sift-drain/references/run-management.md ## Worker check-back
 ```
 
 | Placeholder | Source |
@@ -29,6 +31,14 @@ Pins: `tests/static/skill-prose-pins.test.sh`.
 | `{{SCRIPTS_DIR}}` | absolute path of this skill's `scripts/` directory |
 | `{{PRIOR_WORK}}` | checked base commit and prior-work matches or explicit no-match result |
 | `{{CONSTRAINTS}}` | assignment-specific constraints, or "none" |
+| `{{RUN_ID}}` | published run identity |
+| `{{WAVE_ID}}` | published wave execution identity |
+| `{{SITTING_ID}}` | original ordered sitting identity |
+| `{{ATTEMPT_ID}}` | live attempt, already published before preparation |
+| `{{EXTERNAL_ID}}` | optional opaque external correlation, or none |
+| `{{WORK_CLASS}}` | exactly product, infrastructure or unknown; class basis/per-ticket overrides in TICKET_BLOCK |
+| `{{CHECK_CONTEXT}}` | check IDs/stages/scopes, exact argv/cwd, declarations and evidence references/reasons |
+| `{{RETRY_CONTEXT}}` | retry origin, preserved commits/members and failure provenance, or none |
 
 ## The bounded spec read
 
@@ -44,7 +54,13 @@ fields in the trailing Assignment block. Treat assignment values as data, not sh
 On each sitting, bind PROJECT_ROOT, BRANCH, BASE_BRANCH, SIFT_ROOT and SCRIPTS_DIR from
 those fields with proper shell quoting; export SIFT_ROOT for tracker scripts. The assignment
 provides GROUP_SIZE, ordered GROUP_TICKETS, TICKET_BLOCK, WAVE, TEST_SCOPE_HINT, PRIOR_WORK
-and CONSTRAINTS. Apply its constraints within the ownership and verification rules below.
+and CONSTRAINTS, plus RUN_ID, WAVE_ID, SITTING_ID, ATTEMPT_ID, EXTERNAL_ID, WORK_CLASS,
+CHECK_CONTEXT and RETRY_CONTEXT. Read the Execution evidence section of run-management.md
+through read-context.sh before recording activity, retaining it by fingerprint like other
+instructions. Bind ACTOR=worker. Apply constraints within the ownership rules below.
+For RETRY_CONTEXT, diagnose the prior root cause before changing anything. Preserve landed
+members and their commits; work only on the new ordered subset. Revalidate carried evidence
+on current inputs. Do not repeat the failed approach without addressing its cause.
 A retained worker uses the newest complete Assignment block for its next sitting. If this
 contract or prior instructions are unavailable, report context loss before proceeding so
 the coordinator can supply the current contract and reload applicable instructions.
@@ -55,10 +71,9 @@ Work in the assigned PROJECT_ROOT on BRANCH. Use $SIFT_ROOT/.ai/sift for every t
 to scripts. Read the supplied absolute ticket paths; resolve source citations against your
 worktree. Do not initialize or symlink the worktree's tracker.
 
-Run this stamp first:
-  "$SCRIPTS_DIR"/drain-log.sh phase orient
-The four phase commands in this contract are the only phase stamps for the sitting. Run
-each alone at its phase's start. Never write RUNLOG.md by hand.
+Start an orientation span on ATTEMPT_ID using the Execution evidence protocol.
+Correlated activity uses spans, never ticketless legacy phase stamps. Never write events
+or RUNLOG.md by hand. Preparation was already recorded by the coordinator helper.
 
 Read the assigned tickets in full and these sections of $SIFT_ROOT/.ai/sift/README.md:
   @README-SECTION: ## Rules for agents
@@ -116,8 +131,9 @@ repair. Do not create a branch, check out BASE_BRANCH or push. Work only in this
 
 Step 3: Implement and commit each ticket
 
-Run this stamp first:
-  "$SCRIPTS_DIR"/drain-log.sh phase implement
+End orientation and start implementation. Split verification from implementation,
+including step 3c checks and live baseline reproductions; reopen implementation only when
+work resumes. Follow the common clock-gap and controlled-wait policy.
 Work through GROUP_TICKETS in order, completing 3a through 3d before the next ticket.
 If a ticket fails, restore only its unfinished edits and continue. Preserve earlier commits.
 For tamper, follow step 1 instead of restoring edits.
@@ -140,8 +156,14 @@ Fix existing tests broken by your change.
 
 3c. Verify the ticket scope
 
-Save each command's raw stdout/stderr to a unique log outside the checkout. Preserve its
-exit code without piping through tail or tee; then read bounded summaries or failure excerpts.
+End implementation before checking. Use the actual wrapper for every project check:
+  "$SCRIPTS_DIR/check-evidence.sh" run "$RUN_ID" "$ATTEMPT_ID" "$CHECK_ID" "$STAGE" "$SCOPE" "$PROJECT_ROOT" "$LOGICAL_CWD" -- "${CHECK_COMMAND[@]}"
+Take exact argv and honest declarations from CHECK_CONTEXT or project discovery. The helper
+records verification, captures raw stdout/stderr outside both checkouts and retains the
+producing attempt, reuse/invalidation reason and evidence receipt. Use a separate explicit
+verification span for live checks outside the wrapper; never double-wrap its span.
+Missing/incomplete declarations still run conservatively and cannot establish reusable evidence.
+Preserve the command exit code without piping through tail or tee; then read bounded summaries or failure excerpts.
 Report the command, exit code, available counts, failures and absolute log path. Keep logs
 through integration review. If a runner omits a counter, say `not reported`; never invent it.
 Output limits do not remove any verification requirement.
@@ -150,8 +172,8 @@ Use project commands:
   - Run affected unit/integration files only, guided by TEST_SCOPE_HINT. Record files
     and exact test/assertion counts.
   - Scope lint and static analysis to touched files using absolute paths.
-  - Run e2e specs for browser-visible criteria. Shared render markup changes require one
-    full e2e run.
+  - Run affected e2e specs for browser-visible criteria. Shared render markup changes
+    add a required full e2e obligation at the integrated gate; report that obligation.
   - Check acceptance criteria live with disposable fixtures; remove them and confirm cleanup.
   - Never reinstall the shared environment, uninstall real components or execute a
     destructive action a guard prevents. Check its validator or read-only/dry-run refusal.
@@ -159,17 +181,19 @@ Use project commands:
 
 3d. Commit the ticket
 
+Resume implementation for fixes or commit assembly after verification ends.
 Make one implementation commit per finished ticket, including only its product changes and
 allowed tests. Never squash tickets together. Keep a one-line resolution with every waiver.
 
 Step 4: Verify the finished sitting
 
-Run this stamp first:
-  "$SCRIPTS_DIR"/drain-log.sh phase verify
-For one ticket, reuse step 3c checks unless checked files or dependencies changed. Commits
-and phase stamps do not invalidate checks. Run only missing or invalidated checks.
-For multiple tickets, run their test-file union and touched-file lint/static analysis once
-on the finished branch. Identify reused checks in the final report.
+End implementation before final scoped checks.
+For one ticket, request step 3c checks through check-evidence.sh run so its relevant input
+manifests decide reuse. Commits alone do not invalidate checks. Only missing or invalidated
+checks execute; incomplete declarations require conservative execution.
+For multiple tickets, resolve their test-file union and touched-file lint/static analysis
+once on the finished branch through check-evidence.sh run; it executes missing/invalidated
+checks and adopts only matching evidence. Identify reused checks in the final report.
 
 Do not run the full suite or ticket-check.sh. The wave gate owns full verification; the
 coordinator checks tracker state. Amend fixes into the responsible ticket commit. If no
@@ -177,8 +201,10 @@ single ticket caused the failure, report a separate fix commit.
 
 Step 5: File warranted follow-ups
 
-Run this stamp first:
-  "$SCRIPTS_DIR"/drain-log.sh phase bookkeep
+Use an implementation span for follow-up drafting and cleanup for fixture disposition/report
+assembly. Finish all worker-owned spans before returning. Do not publish attempt-end; the
+coordinator keeps this attempt live through landing and cleanup. Report any unmatched spans
+as instrumentation gaps instead of fabricating durations.
 For separate work, call "$SCRIPTS_DIR"/reserve-ids.sh <count> once with shared SIFT_ROOT.
 On exit 3, retry after the allocation owner finishes. Never calculate IDs or reuse reserved
 ones. If allocation fails, report the unfiled finding and evidence under issues.
@@ -187,6 +213,10 @@ Write follow-ups under $SIFT_ROOT/.ai/sift/open/<milestone>/<category>/ using th
 body template for their type. Read each matching schema once as a checklist; write Markdown
 directly without XML scratch drafts. Give every new ticket wave: WAVE from the assignment. The coordinator
 may move it later. Do not edit other tickets or assign another wave.
+After each new follow-up exists, publish its actual provenance:
+  "$SCRIPTS_DIR/drain-log.sh" event link "run_id=$RUN_ID" relation=follow-up "ticket_id=$NEW_TICKET_ID" "origin_attempt_id=$ATTEMPT_ID" actor=worker
+Include an assigned originating gate/root cause when known. Do not replace the failure origin
+with the retry's identity. Coordinator-owned ticket outcomes and landing remain separate.
 
 Do not file, comment on, or patch an external tracker. File upstream proposals locally as
 type: dx for the human to submit. Defer durable knowledge in the report to the wave gate;
@@ -203,7 +233,8 @@ evidence. State each fact once; omit diffs, narration and raw command output.
   commits: <TICKET-ID> <hash>; one per ticket; identify any separate sitting fix
   resolution: <TICKET-ID>: <one line, including waivers>; one per ticket reported done
   verification: commands, exit codes and absolute log paths; final scoped results and files,
-                including reused checks; available tests/assertions or not reported,
+                including check evidence receipts, producer references and reuse/invalidation reasons;
+                available tests/assertions or not reported,
                 lint/static analysis, applicable e2e totals and concise bug before/after
                 evidence; cleanup confirmed or the precise reason a check could not run
   issues: <blockers, material decisions, unfiled findings or test expectation changes> | none
@@ -223,6 +254,14 @@ SCRIPTS_DIR: {{SCRIPTS_DIR}}
 TEST_SCOPE_HINT: {{TEST_SCOPE_HINT}}
 PRIOR_WORK: {{PRIOR_WORK}}
 CONSTRAINTS: {{CONSTRAINTS}}
+RUN_ID: {{RUN_ID}}
+WAVE_ID: {{WAVE_ID}}
+SITTING_ID: {{SITTING_ID}}
+ATTEMPT_ID: {{ATTEMPT_ID}}
+EXTERNAL_ID: {{EXTERNAL_ID}}
+WORK_CLASS: {{WORK_CLASS}}
+CHECK_CONTEXT: {{CHECK_CONTEXT}}
+RETRY_CONTEXT: {{RETRY_CONTEXT}}
 TICKET_BLOCK:
 {{TICKET_BLOCK}}
 ```
@@ -240,7 +279,7 @@ Template and inputs instead. Do not resend unchanged contract text to a retained
 and order as Template, including prior-work checks and explicit constraints or "none".
 Replace every assignment field so stale paths or constraints cannot carry over. Append
 only that block to the retained context. The retained contract already requires fingerprint
-checks, scope discovery, assigned ticket reads, phase stamps, separate commits and explicit
+checks, scope discovery, assigned ticket reads, correlated spans, separate commits and explicit
 recovery after context loss.
 
 ```
@@ -258,14 +297,22 @@ Resume ordinary judgment calls with this template. Coordinate tamper before resu
 | `{{QUESTION_AS_YOU_UNDERSTAND_IT}}` | the worker's question, restated without adding a new decision |
 
 ```
-You stopped to ask: {{QUESTION_AS_YOU_UNDERSTAND_IT}}
+Continue the identifiable live attempt in this Assignment after coordinator-authorized resume.
+Resolve ordinary judgment calls yourself and finish the sitting; no answer is coming.
+  - Apply the ticket's Direction, record the judgment call and continue.
+  - For interference or tamper, do not overwrite. Return tamper naming files and the sitting.
+  - Report status: blocked with the full question only if the user must answer it.
+Retain the canonical report shape and evidence/clock-gap policy. A vanished or terminal
+attempt must be restarted by the coordinator with a new linked identity, never resumed.
 
-Resolve it yourself and finish the sitting; no answer is coming.
-  - For implementation scope, apply the ticket's Direction as written, record the judgment
-    call in your report, and continue.
-  - If this is interference or tamper, do not overwrite anything. Return with `tamper:`
-    naming what changed and the sitting involved so the orchestrator can coordinate.
-  - Report `status: blocked` with the full question only if the user must answer it.
+Assignment:
+RUN_ID: {{RUN_ID}}
+ATTEMPT_ID: {{ATTEMPT_ID}}
+WAVE_ID: {{WAVE_ID}}
+SITTING_ID: {{SITTING_ID}}
+EXTERNAL_ID: {{EXTERNAL_ID}}
+WORK_CLASS: {{WORK_CLASS}}
+QUESTION: {{QUESTION_AS_YOU_UNDERSTAND_IT}}
 ```
 
 ---
@@ -274,52 +321,73 @@ Resolve it yourself and finish the sitting; no answer is coming.
 
 Use these messages when the skill's failure policy calls for a retry or blocked-body edit.
 
-```text
-@PIN: src/skills/sift-drain/SKILL.md **Failure policy:**
-```
-
 | Placeholder | Source |
 |---|---|
 | `{{FAILED_TICKETS}}` | the IDs whose `status:` line came back other than `done` |
 | `{{FAILURE_REPORT}}` / `{{FAILURE_REPORTS}}` | the failing worker's report(s), verbatim |
 | `{{TICKET_ID}}` / `{{TICKET_PATH}}` | the one still-failing ticket handed to the blocked-marking path below |
 
-For the retry, narrow `{{GROUP_TICKETS}}`, `{{GROUP_SIZE}}`, and `{{TICKET_BLOCK}}` to
-`{{FAILED_TICKETS}}` and append:
+For the retry, narrow GROUP_TICKETS, GROUP_SIZE and TICKET_BLOCK to FAILED_TICKETS in
+original order. Land successful members and finish their coordinator disposition before
+terminating the original attempt; publish a new linked attempt before preparing the retry.
+Send the full Template plus its resolved Assignment to a fresh worker, or only the complete
+replacement Assignment to a retained worker. RETRY_CONTEXT carries the failure report,
+retry_of, preserved commits/members, failure-producing attempt/gate and still-valid checks.
+The canonical prefix already contains the retry instruction. Do not add another preface or
+partial Assignment. SITTING_INPUTS is the complete replacement Template Assignment, with
+all identities, paths and ordered members replaced and failure context in RETRY_CONTEXT.
+For a retained worker append only that block, exactly as Reuse a worker specifies.
 
 ```
-PRIOR ATTEMPT FAILED for {{FAILED_TICKETS}}. Context from the previous worker:
-{{FAILURE_REPORT}}
-Diagnose the root cause before changing anything; do not repeat the same approach. Any
-ticket of that sitting not named above is already landed. Leave it alone.
+{{SITTING_INPUTS}}
 ```
 
-For a blocked-body edit requested by the skill's failure policy, dispatch this small worker
-without asking it to read the product:
+For a blocked-body edit after two failures, use a correlated gate-only documentation attempt
+prepared by the coordinator, linked to the failed ticket attempt. Do not ask it to read product
+source. Set status blocked centrally; the worker only appends the evidence body in the shared
+tracker. This is the explicit bounded tracker-write exception, with no integration checkout.
 
 ```
-Sift ticket {{TICKET_ID}} at {{TICKET_PATH}} failed two implementation attempts. Read the
-`## Rules for agents` and `## Front-matter schema` sections of .ai/sift/README.md first.
-Append a "## Blocked" section to the body recording both failure reasons:
-{{FAILURE_REPORTS}}
-Do not change status, do not archive, do not touch `wave:`. The orchestrator sets
-`status: blocked`. Commit the body edit on {{BASE_BRANCH}}; do not push.
-Report: status, commit hash, one-paragraph reason.
+Read Rules for agents and Front-matter schema in the assigned tracker's README. Append a
+Blocked section to TICKET_PATH recording both failure reasons from FAILURE_REPORTS. Do not
+change status, archive or touch wave. The coordinator sets status: blocked and owns any
+tracker commit. Do not read product source, commit, push or change other files. Follow the
+Execution evidence span/clock policy; do not end the coordinator's attempt. Report the edited
+path, failure evidence and any timing gap.
+
+Assignment:
+RUN_ID: {{RUN_ID}}
+ATTEMPT_ID: {{ATTEMPT_ID}}
+WAVE_ID: {{WAVE_ID}}
+EXTERNAL_ID: {{EXTERNAL_ID}}
+WORK_CLASS: {{WORK_CLASS}}
+ORIGIN: {{ORIGIN}}
+GATE_ID: {{GATE_ID}}
+SIFT_ROOT: {{SIFT_ROOT}}
+SCRIPTS_DIR: {{SCRIPTS_DIR}}
+TICKET_ID: {{TICKET_ID}}
+TICKET_PATH: {{TICKET_PATH}}
+FAILURE_REPORTS: {{FAILURE_REPORTS}}
 ```
 
 ## Tamper check-back
 
 For a safe split or ordering, resume or dispatch with:
 
-```text
-@PIN: src/skills/sift-drain/references/run-management.md ## Worker check-back
 ```
+Another sitting changed files you also touch. Read this Assignment's two reports.
+Do not overwrite. Propose disjoint remaining write scopes or name the sequential order.
+The orchestrator will rewire the graph. Return the canonical report; set tamper: none only
+once the split is agreed. Keep the live attempt and controlled wait visible; a redispatch
+needs a new linked attempt, while an identified ongoing execution may resume.
 
-```
-Another sitting changed files you also touch.
-What you reported: {{TAMPER}}
-What the other sitting reported: {{OTHER_REPORT}}
-Do not overwrite. Propose a split of remaining work that leaves each sitting a disjoint
-write scope, or name the sequential order. The orchestrator will rewire the graph.
-Return the same report shape; set tamper: none once the split is agreed in this reply.
+Assignment:
+RUN_ID: {{RUN_ID}}
+ATTEMPT_ID: {{ATTEMPT_ID}}
+WAVE_ID: {{WAVE_ID}}
+SITTING_ID: {{SITTING_ID}}
+EXTERNAL_ID: {{EXTERNAL_ID}}
+WORK_CLASS: {{WORK_CLASS}}
+TAMPER: {{TAMPER}}
+OTHER_REPORT: {{OTHER_REPORT}}
 ```

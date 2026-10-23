@@ -33,9 +33,14 @@ comment or a mapping, and double each single quote inside it.
 
 The coordinator protects review state with the installed Drain skill's
 `scripts/review-state.sh`. `snapshot` writes a read-only snapshot to standard output.
-`compare BEFORE AFTER [--allow-event EVENT.md]...` exits 0 only when Git state and every
-historical tracker file are unchanged, and each new tracker file is one explicitly allowed,
-valid execution event at its exact path. Repeat `--allow-event` for each authorized receipt.
+`compare BEFORE AFTER [--allow-event EVENT.md]...` exits 0 only when the recorded HEAD
+commit, status, diff checksum, stashes, untracked files and every historical tracker file
+are unchanged, and each new tracker file is one explicitly allowed, valid execution event
+at its exact path. A ref is not a change when its object is a commit whose tree equals the
+tree of that snapshot's recorded HEAD. Snapshots still record every ref, and existing
+snapshots need no rewrite. A missing object, an object that is not a commit, a commit with
+any other tree, or a different HEAD commit still fails the comparison. Repeat
+`--allow-event` for each authorized receipt.
 Relative `.ai/sift/...` and absolute event paths are accepted. Changed or deleted history,
 unused or duplicate allowances, pending publications, malformed records and any other new
 tracker file exit 1. Usage or malformed snapshots exit 2. This is an exact receipt list,

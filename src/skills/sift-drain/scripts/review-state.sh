@@ -9,6 +9,10 @@
 # EVENT.md may be absolute under this project or relative to its root. An
 # allowance applies only when that exact path is new in AFTER. It never permits
 # a changed or deleted historical file.
+#
+# snapshot records every ref. compare ignores a commit ref whose tree equals
+# the HEAD commit recorded in that same snapshot. A missing object, a
+# non-commit, any other tree, and a different HEAD commit still fail.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -107,6 +111,98 @@ line_for_path() {
   ' "$1"
 }
 
+# Object names compare must resolve: the recorded HEAD commit and every ref.
+snapshot_object_names() {
+  awk '
+    function hex40(s) { return length(s) == 40 && s ~ /^[0123456789abcdef]+$/ }
+    BEGIN { refs = 0 }
+    $0 == "@git-head" {
+      if ((getline line) == 1 && hex40(line)) print line
+      next
+    }
+    $0 == "@git-refs" { refs = 1; next }
+    refs && substr($0, 1, 1) == "@" { exit }
+    refs {
+      sha = substr($0, 1, 40)
+      if (hex40(sha) && substr($0, 41, 1) == " ") print sha
+    }
+  ' "$1"
+}
+
+# One cat-file --batch for both snapshots. The map is "sha tree" lines for
+# commits, preceded by a marker so an empty result cannot be mistaken for the
+# snapshot when a later awk reads the map as its first file.
+load_ref_trees() {
+  local before="$1" after="$2" map="$3" shas batch
+  shas="$map.names"
+  batch="$map.batch"
+  if ! {
+    snapshot_object_names "$before"
+    snapshot_object_names "$after"
+  } | LC_ALL=C sort -u > "$shas"; then
+    echo 'error: review state: cannot list snapshot refs' >&2
+    return 2
+  fi
+  if [ -s "$shas" ]; then
+    if ! git -C "$ROOT" cat-file --batch < "$shas" > "$batch"; then
+      echo 'error: review state: cannot resolve Git objects for ref comparison' >&2
+      return 2
+    fi
+  else
+    : > "$batch"
+  fi
+  printf 'map\n' > "$map" || return 2
+  if ! LC_ALL=C awk '
+    function hex40(s) { return length(s) == 40 && s ~ /^[0123456789abcdef]+$/ }
+    BEGIN { body_left = 0; expect_tree = 0; sha = "" }
+    {
+      if (body_left > 0) {
+        if (expect_tree && $1 == "tree" && hex40($2)) {
+          print sha, $2
+          expect_tree = 0
+        }
+        body_left -= length($0) + 1
+        if (body_left < 0) body_left = 0
+        next
+      }
+      if ($2 == "missing") next
+      if (hex40($1) && $3 ~ /^[0123456789]+$/) {
+        sha = $1
+        body_left = $3 + 1
+        expect_tree = ($2 == "commit")
+      }
+    }
+  ' "$batch" >> "$map"; then
+    echo 'error: review state: cannot read Git object trees' >&2
+    return 2
+  fi
+}
+
+# Drop commit ref lines whose tree equals this snapshot's recorded HEAD.
+# Every other line, including a missing object or a non-commit, stays.
+filter_same_tree_refs() {
+  local input="$1" output="$2" map="$3" head_sha
+  head_sha="$(awk '$0 == "@git-head" { if ((getline line) == 1) print line; exit }' "$input")" || return 2
+  if ! SIFT_REVIEW_HEAD="$head_sha" LC_ALL=C awk '
+    function hex40(s) { return length(s) == 40 && s ~ /^[0123456789abcdef]+$/ }
+    BEGIN { head = ENVIRON["SIFT_REVIEW_HEAD"]; section = "" }
+    NR == FNR { if (hex40($1)) trees[$1] = $2; next }
+    $0 == "@git-head" { section = "head"; print; next }
+    section == "head" { section = ""; print; next }
+    $0 == "@git-refs" { section = "refs"; print; next }
+    substr($0, 1, 1) == "@" { section = ""; print; next }
+    section == "refs" && substr($0, 41, 8) == " commit\t" {
+      sha = substr($0, 1, 40)
+      if (head != "" && hex40(sha) && trees[sha] != "" && trees[head] != "" &&
+          trees[sha] == trees[head]) next
+    }
+    { print }
+  ' "$map" "$input" > "$output"; then
+    echo 'error: review state: cannot filter snapshot refs' >&2
+    return 2
+  fi
+}
+
 compare_state() {
   [ "$#" -ge 2 ] || usage
   local before="$1" after="$2"; shift 2
@@ -142,7 +238,10 @@ compare_state() {
 
   snapshot_parts "$before" "$before_git" "$before_tracker" "$markers" "$expected" || exit 2
   snapshot_parts "$after" "$after_git" "$after_tracker" "$markers" "$expected" || exit 2
-  if ! cmp -s "$before_git" "$after_git"; then
+  load_ref_trees "$before_git" "$after_git" "$tmp/ref-trees" || exit 2
+  filter_same_tree_refs "$before_git" "$tmp/before.refs" "$tmp/ref-trees" || exit 2
+  filter_same_tree_refs "$after_git" "$tmp/after.refs" "$tmp/ref-trees" || exit 2
+  if ! cmp -s "$tmp/before.refs" "$tmp/after.refs"; then
     echo 'review state violation: integration Git state changed' >&2
     bad=1
   fi

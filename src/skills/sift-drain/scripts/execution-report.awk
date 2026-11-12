@@ -22,7 +22,13 @@ function subject(e,   k) {
 }
 function signature(e,   j,k,s) {
     s=""
-    for(j=1;j<=nk;j++) { k=keys[j]; s=s length(v[e,k]) ":" v[e,k] }
+    # Materialize omitted fields before helpers receive their values.
+    # GNU awk 5.3 can corrupt uninitialized array elements passed to functions.
+    for(j=1;j<=nk;j++) {
+        k=keys[j]
+        if(!((e SUBSEP k) in v)) v[e,k]=""
+        s=s length(v[e,k]) ":" v[e,k]
+    }
     return s
 }
 function member(list,t) { return index("," list ",","," t ",")>0 }

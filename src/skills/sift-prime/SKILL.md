@@ -13,10 +13,10 @@ user, then write tickets for `sift-drain`.
 Run `sift-init`'s `scripts/sift-gate.sh` first. Use its resolved root and exit code:
 
 - **0 (`READY`)**. Continue below.
-- **3 (`UNINITIALIZED`)**. Hand off to `sift-init`; initialize without asking.
-- **4 (`UNINITIALIZED`)**. Hand off to `sift-init`; report the resolved path and ask
+- **3 (`UNINITIALIZED`)**. Use `sift-init` to initialize without asking.
+- **4 (`UNINITIALIZED`)**. Use `sift-init`. Report the resolved path and ask
   before initialization.
-- **6 (`INCOMPLETE`)**. Hand off to `sift-init`; repair without asking.
+- **6 (`INCOMPLETE`)**. Use `sift-init` to repair without asking.
 - **5 (`UNRESOLVED`)**. No project root found. Report the `$PWD` it walked from and stop.
 
 `tests/static/gate-handoff-contract.test.sh` checks these handoffs.
@@ -30,16 +30,16 @@ Run `sift-init`'s `scripts/sift-gate.sh` first. Use its resolved root and exit c
 
 ## Orchestrate, never implement
 
-Delegate analysis to read-only sweep agents and ticket writing to batch drafters. Work
-from their reports, existing milestone definitions and the agreed slate. Send questions
-about source evidence back to the sweep agent rather than inspecting implementation code.
-You write agreed milestone definitions and call the ID allocator. Never commit, push or
-write to an external tracker during priming.
+Delegate read-only analysis to sweep agents and ticket writes to batch drafters.
+Use their reports, milestone definitions and agreed slate. Return source questions to the sweep agent without reading implementation.
+
+You write agreed milestones and reserve IDs. Never commit, push or write external trackers during priming.
 
 ## Scripts
 
 Resolve this skill's `scripts/` directory once. Call the helpers rather than reproducing
-their parsing. They use the nearest ancestor `.ai/sift` and its configured prefix;
+their parsing. They use the nearest ancestor `.ai/sift` and its configured prefix.
+
 `SIFT_ROOT` and `SIFT_PREFIX` override them. Exit 2 indicates setup or usage failure.
 
 ```sh
@@ -68,7 +68,7 @@ After dedupe, assign milestones using the findings and existing milestone defini
 Ask the same sweep agent a focused follow-up if evidence is missing. Include shared
 interfaces, defaults and acceptance criteria in the proposed slate.
 
-Reuse a milestone when its outcome fits; otherwise propose a repository-specific,
+Reuse a milestone when its outcome fits. Otherwise propose a repository-specific,
 kebab-case name and short outcome description. Group by project outcome, not type or
 directory. Do not target a milestone count. Use `backlog` only for findings the evidence
 cannot classify, and explain each exception. If it is the only existing milestone and
@@ -76,45 +76,41 @@ findings express several outcomes, propose named milestones.
 
 ## Phase 2: Negotiate
 
-Present new milestones, then the slate. Each row includes title, type, priority, effort,
-milestone, rationale, citations, dependency edges and an explicit wave number. Rows with
-no slate dependencies start in Wave 1; place others in the first wave after all their
-slate dependencies. Show every cited site in clustered rows and name what dedupe dropped.
+Present proposed milestones, then the slate. Include each row's title, type, priority, effort, milestone, rationale, citations, dependencies and wave.
+Independent rows start in Wave 1. Other rows use the first wave after all slate dependencies.
 
-Ask for agreement and apply requested changes. Keep negotiation in chat; create no files
-before approval. The user decides the ticket count.
+Show all clustered citations and IDs removed by dedupe.
+
+Ask for agreement and apply requested changes. Negotiate in chat without creating files before approval.
+The user decides the ticket count.
 
 ## Phase 3: Write
 
-Reserve all approved IDs in one call before drafting:
+Reserve every approved ID before drafting, in one call:
 
 ```sh
 scripts/reserve-ids.sh <number of agreed slate rows>
 ```
 
-The allocator records reservations before printing IDs. Keep unused reservations as gaps.
-Exit 3 means the shared lock is busy or unavailable: retry after its owner finishes;
-never calculate a next ID yourself.
+The allocator persists reservations before printing IDs. Keep unused reservations as gaps.
+Exit 3 means a busy or unavailable shared lock. Retry after its owner finishes. Never calculate IDs yourself.
 
-Write agreed new milestones into `MILESTONES.md` and create their `open/<milestone>/`
-folders before dispatch. Validate assigned metadata, including lowercase effort,
-positive waves and dependency ordering. You own wave, cluster and dependency values.
+Write agreed milestones into `MILESTONES.md` and create their `open/<milestone>/` directories before dispatch.
+Validate metadata, including lowercase effort, positive waves and dependency order. You own wave, cluster and dependency assignments.
 
-Use [drafting-agent-prompt.md](references/drafting-agent-prompt.md) verbatim with the
-approved rows, shared decisions and one date for the slate. Use one batch by default;
-split only when subject boundaries or size warrant separate contexts. Batches own disjoint
-paths. Prefer fresh task contexts containing these inputs, without the negotiation history.
-Resume the same drafter for corrections and preserve completed rows on partial failure.
+Supply [drafting-agent-prompt.md](references/drafting-agent-prompt.md) verbatim with approved rows, shared decisions and one slate date.
+Default to one batch. Split only for distinct subjects or excessive size, with disjoint paths.
+
+Prefer fresh contexts without negotiation history. Resume the same drafter for corrections.
+Preserve written rows on partial failure.
 
 ## Phase 4: Verify and report
 
-After all batches return, run `bash .ai/sift/scripts/sift.sh consistency` and
-`bash .ai/sift/scripts/sift.sh required`. Fix findings
-caused by this run. A reserved dependency may be absent during drafting; validate it here.
+After all batches return, run `bash .ai/sift/scripts/sift.sh consistency` and `bash .ai/sift/scripts/sift.sh required`.
+Fix findings caused by this run. Validate dependencies here, including IDs reserved before their tickets existed.
 
-Report written IDs with titles, types and priorities, grouped by wave; blocked rows and
-reasons; and the inspected scope if fenced. Make no claims about uninspected paths.
-State that nothing was committed or pushed, and identify `sift-drain` as the next step.
+Report IDs, titles, types and priorities by wave. Include blocked rows/reasons and any inspected scope fence.
+Make no claims about uninspected paths. State that nothing was committed or pushed. Name `sift-drain` as the next step.
 
 ## Contract pins
 

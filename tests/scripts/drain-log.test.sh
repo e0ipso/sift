@@ -1168,6 +1168,15 @@ assert_eq "$example_attempt" "$example_span_attempt" \
   'the verification span remains attached to its declared attempt by identity'
 assert_no_file "$example_root/.ai/sift/RUNLOG.md" \
   'correlated event mode leaves six-column legacy history absent'
+# These omitted fields are read again after report formatting. GNU awk 5.3
+# must retain their empty values instead of corrupting them across helper calls.
+assert_eq - "$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1 == "attempt" {print $7}')" \
+  'an omitted retry origin renders as unavailable'
+assert_eq $'-\t-' "$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1 == "attempt" {print $15 "\t" $16}')" \
+  'omitted actor and external identities stay unavailable'
+assert_eq 0 "$(printf '%s\n' "$R_OUT" | awk -F '\t' '$1 == "metric" && $2 == "retry_attempts" {print $3}')" \
+  'reading an omitted retry field again does not create a retry'
+
 
 test_case "a reworded correlated-example anchor extracts no substitute block"
 work="$(newdir)"

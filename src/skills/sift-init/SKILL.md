@@ -1,18 +1,15 @@
 ---
 name: sift-init
-description: This skill should be used when the user asks to "initialize sift", "set up sift", "add sift to this repo", "create the sift tree", or when any other sift skill needs to confirm that `.ai/sift` exists before it runs. Provides the deterministic project-root gate every sift skill runs first, and the idempotent tree materialization behind it.
+description: Initialize or repair .ai/sift. Resolve the project root before any Sift skill uses the tracker.
 ---
 
 # Initialize Sift
 
-Follow this contract in order. Resolve the project root first. Materialization is the
-only write, and it is idempotent.
+Resolve the root before writing. Create absent entries only.
 
 ## Identity pin
 
-The installable name must match the directory that holds this skill. The line below is
-machine-read by `tests/static/skill-prose-pins.test.sh`; its target ends in `/`, so the
-test looks for the construct in that directory's `SKILL.md` front matter.
+`tests/static/skill-prose-pins.test.sh` checks the directory name against the front-matter name.
 
 ```text
 @PIN: src/skills/sift-init/ name: sift-init
@@ -20,18 +17,14 @@ test looks for the construct in that directory's `SKILL.md` front matter.
 
 ## 1. Resolve the root and inspect the tree
 
-**Input.** Start from the canonicalized `$PWD`. `SIFT_ROOT=/path` overrides the walk.
-Resolve the gate script's absolute path once and reuse it.
-
-**Command.** Every sift skill runs this before doing anything else:
+Every Sift skill first runs the read-only gate. Resolve its absolute path once:
 
 ```sh
 scripts/sift-gate.sh
 ```
 
-The gate reads only and never asks the user a question. Without `SIFT_ROOT`, it makes
-one upward walk to `/`, records the nearest match in each tier, then applies tier
-precedence:
+`SIFT_ROOT=/path` overrides discovery. Otherwise, walk upward from canonical `$PWD` to `/` once.
+Record the nearest match in each tier. Select by tier precedence, regardless of distance:
 
 | Precedence | Match | Result |
 |---|---|---|
@@ -39,12 +32,10 @@ precedence:
 | B | `-e $dir/.git` | use the repository root |
 | C | `-f $dir/AGENTS.md` or `-f $dir/CLAUDE.md` | use the agent-instructed project root |
 
-A beats B, and B beats C, regardless of distance. Tier A prevents a nearer nested
-repository from splitting the ticket ID space after initialization. The `.git` check
-uses `-e`, because worktrees and submodules may store `.git` as a file. `$HOME` and `/`
-are inspected but excluded as roots, so a user-level agents file cannot claim them.
+A prevents nested repositories from splitting the ticket ID space. B accepts `.git` files for worktrees and submodules.
+Inspect `$HOME` and `/`, but exclude both as roots.
 
-**Output.** The gate prints these `key=value` lines as applicable:
+The gate prints applicable `key=value` fields:
 
 ```text
 state=READY|INCOMPLETE|UNINITIALIZED|UNRESOLVED
@@ -57,88 +48,77 @@ missing=<required entries, comma-separated>
 prefix=<configured prefix>
 ```
 
-`root`, `tier`, `marker`, and `corroboration` appear for a resolved root.
-`confidence` appears only for `UNINITIALIZED`, `missing` only for `INCOMPLETE`, and
-`prefix` only for `READY`. `UNRESOLVED` prints `state=UNRESOLVED` and writes the reason
-to stderr.
-
-**Result and required action.** The exit code decides the next step:
+Resolved roots include `root`, `tier`, `marker` and `corroboration`.
+Only `UNINITIALIZED` includes `confidence`, only `INCOMPLETE` includes `missing`, and only `READY` includes `prefix`.
+`UNRESOLVED` also writes its reason to stderr. The gate never asks questions.
 
 | Exit | `state=` | Required action |
 |---|---|---|
-| 0 | `READY` | Proceed with the requested sift task. |
-| 3 | `UNINITIALIZED` | Tier B found a high-confidence root; initialize without asking about the root. |
-| 4 | `UNINITIALIZED` | Tier C found a low-confidence root; report the path and ask before writing. |
-| 5 | `UNRESOLVED` | Report the `$PWD` that was searched and ask for an explicit root. |
-| 6 | `INCOMPLETE` | Repair without asking, using the materialization command in step 3. |
+| 0 | `READY` | Continue the requested Sift task. |
+| 3 | `UNINITIALIZED` | Initialize the high-confidence tier B root without asking about the root. |
+| 4 | `UNINITIALIZED` | Report the low-confidence tier C path and ask before writing. |
+| 5 | `UNRESOLVED` | Report the searched `$PWD` and ask for an explicit root. |
+| 6 | `INCOMPLETE` | Repair through step 3 without asking. |
 | 2 | n/a | Report the usage or environment error and stop. |
 
-`tests/static/gate-handoff-contract.test.sh` compares the exit 4 and 6 actions here
-with the gate script and both consuming skills.
+`tests/static/gate-handoff-contract.test.sh` checks the exit 4 and 6 actions across the gate, init, Prime and Drain.
 
 ## 2. Choose and validate the inputs
 
-**Input.** Use `ROOT` from the gate. Choose an immutable prefix and, optionally, the
-first milestone. The prefix appears in every ticket ID, filename, and inline
-`PREFIX-XXXX` reference, so confirm it before any write. The default milestone is
-`backlog`.
+Use the gate's resolved root as `ROOT`. Confirm the permanent prefix before writing.
+It appears in every ticket ID, filename and inline reference. The default first milestone is `backlog`.
 
-**Command.** Derive a prefix suggestion, show it to the user, and allow an override:
+Show the prefix suggestion and permit an override:
 
 ```sh
 scripts/sift-init.sh --suggest-prefix --root "$ROOT"
 ```
 
-The suggestion strips non-alphanumerics from the root basename, uppercases it, and
-takes the first four characters. Exit 0 prints the suggestion. Exit 1 prints nothing,
-so ask the user for a prefix.
+The suggestion removes non-alphanumerics from the root basename, uppercases it, and takes its first four characters.
+Exit 0 prints the suggestion. Exit 1 prints nothing, so ask for a prefix.
 
-**Validation.** A supplied prefix must contain 2 to 8 uppercase ASCII letters or
-digits and start with a letter. A milestone must be lowercase kebab-case: lowercase
-letters and digits in hyphen-separated groups, such as `backlog` or `v1-2`. Empty
-values, path characters, spaces, uppercase milestone letters, and leading, trailing,
-or doubled milestone hyphens are invalid. Any invalid or missing input exits 2 before
-the script creates a directory.
+A prefix has 2 to 8 uppercase ASCII letters or digits and starts with a letter.
+A milestone has lowercase letters and digits in hyphen-separated groups, such as `backlog` or `v1-2`.
+Reject empty values, path characters, spaces, uppercase milestone letters, and leading, trailing or doubled milestone hyphens.
 
-**Worktree setup.** Ask this only on a fresh tree, gate exit 3 or 4, after the user
-confirms the prefix. Never ask it on `INCOMPLETE` repair or `READY`. List the ignored
-paths a new drain worktree would lack:
+Missing or invalid input exits 2 before directory creation.
+
+After prefix confirmation, ask about worktree setup only for a fresh tree, gate exit 3 or 4.
+Do not ask on `READY` or `INCOMPLETE`. List ignored paths absent from new drain worktrees:
 
 ```sh
 scripts/sift-init.sh --suggest-worktree-links --root "$ROOT"
 ```
 
-It prints one path per line and writes nothing. It omits `.ai`, `.ai/sift` and anything
-under it, and names git can only print quoted. Outside a git work tree it prints nothing
-and exits 0; exit 2 means git failed. Offer small local state from the list, such as env
-files and tool settings, as suggested symlinks. Do not suggest dependency or build
-directories; an install command such as `npm ci` recreates those. The user may deselect or
-edit links, add commands, or choose none.
+This read-only command prints one path per line. It excludes `.ai`, `.ai/sift`, its descendants, and names Git can only print quoted.
+Outside a Git worktree it prints nothing and exits 0. A Git failure exits 2.
 
-A link must be relative, with no empty, `.` or `..` component, and must not be `.ai`,
-`.ai/sift` or under it. A command must be one non-blank line that `bash -n` parses
-with no error or warning. Either violation exits 2 before any write.
+Offer small local state, such as env files and tool settings, as symlinks.
+Use install commands, such as `npm ci`, for dependency or build directories.
+The user may change links, add commands, or choose none.
+
+A link must be relative without empty, `.` or `..` components. Exclude `.ai`, `.ai/sift` and its descendants.
+A command must be one nonblank line that `bash -n` accepts without errors or warnings.
+
+Invalid setup input exits 2 before any write.
 
 ## 3. Materialize or repair the tree
 
-**Input.** Use the resolved `ROOT`, confirmed prefix, and optional milestone. An
-`INCOMPLETE` tree uses this same command. Keep its configured prefix when one exists;
-if the prefix is missing, choose and confirm one through step 2.
-
-**Command.** Run:
+Use the confirmed prefix and optional milestone with the resolved root:
 
 ```sh
 scripts/sift-init.sh --root "$ROOT" --prefix ACME [--milestone <name>] \
   [--worktree-link <path>]... [--worktree-command <cmd>]...
 ```
 
-Pass one `--worktree-link` per chosen link and one `--worktree-command` per command, in
-the user's order, or neither when the user chose none. Any of them writes
-`config/worktree-setup`, an executable bash script: link steps first, then commands, each
-in the order given. A link step symlinks `$SIFT_ROOT/<path>` to `<path>` in the worktree and
-skips a missing source or an existing destination. A command step runs the command verbatim.
+On repair, keep the configured prefix. If it is missing, confirm one through step 2.
+Pass one option per chosen link or command, in the user's order. Omit both options if the user chose none.
 
-**Created entries.** The command creates only absent paths:
+Setup options create executable `config/worktree-setup`, with links first and commands second.
+Each link connects `$SIFT_ROOT/<path>` to `<path>` in the worktree, unless the source is missing or the destination exists.
+Each command runs verbatim.
+
+Create only absent entries:
 
 ```text
 .ai/sift/
@@ -153,34 +133,28 @@ skips a missing source or an existing destination. A command step runs the comma
 └── archive/               <- empty
 ```
 
-`README.md`, `scripts/sift.sh` and the XSD/XML assets are copied byte for byte. A repeat run repairs missing entries and keeps every existing
-entry. It does not restore a missing `.gitignore`; that absence is the repository's
-opt-in to tracking the sift tree. The hook is create-if-absent like every other entry: an
-existing hook is kept whatever options the run gets. A run with hook options reports
-`created` or `kept` for `.ai/sift/config/worktree-setup`; a run without them prints no
-hook line.
+Copy README, script and XSD/XML assets byte for byte. Repeat runs repair missing entries and preserve existing entries.
+Never restore a missing `.gitignore`, because its deletion opts into tracking.
 
-**Publication guarantee.** A bare `mkdir` claims `.ai/sift`, so one concurrent writer
-wins and the others enter the repair path. Each file is staged beside its destination,
-then published create-if-absent with `ln`; a writer that loses the link race keeps the
-file already published. Readers never see a partially written file. On a filesystem
-without hard-link support, the script falls back to a same-directory atomic `mv`.
+Preserve an existing hook regardless of supplied options.
+With setup options, report the hook as `created` or `kept`. Without options, print no hook line.
 
-**Output and failures.** Exit 0 prints the tree path, one `created` or `kept` line for
-each managed entry, `prefix: <value>   first milestone: <value>`, and `gate: READY`.
-It may also print the comparison findings from step 4. Exit 2 reports a usage,
-filesystem, asset, publication, or final gate failure. Stop on exit 2 and report the
-diagnostic; never compensate by overwriting an existing path.
+A bare `mkdir` claims `.ai/sift`. One concurrent writer wins, and the others repair.
+Stage each file beside its destination. Publish it with create-if-absent `ln`, preserving the winner of a link race.
+
+Readers never see partial files. Filesystems without hard links use a same-directory atomic `mv` fallback.
+
+Exit 0 prints the tree path, each managed entry's `created` or `kept` result,
+`prefix: <value>   first milestone: <value>`, and `gate: READY`. Step 4 may add comparison findings.
+Usage, filesystem, asset, publication or final gate failure exits 2. Stop and report its diagnostic.
+
+Never compensate by overwriting an existing path.
 
 ## 4. Review installed convention drift
 
-**Input and comparison.** Compare README, script and XSD/XML assets with their installed
-copies. This check reads only.
-
-**Output.** A differing installed copy prints a `stale` line. An installed schema that
-the skill no longer ships prints an `orphan` line. Matching files stay on the ordinary
-`kept` lines. The report offers these copy commands for stale files, with absolute
-paths already substituted:
+Compare installed README, script and XSD/XML files with their assets without writing.
+Report differing copies as `stale`, withdrawn schemas as `orphan`, and matching copies on ordinary `kept` lines.
+Print refresh commands with absolute paths:
 
 ```sh
 cp <skill>/assets/README.md <root>/.ai/sift/README.md
@@ -188,42 +162,30 @@ cp <skill>/assets/schemas/*.xsd <skill>/assets/schemas/*.xml <root>/.ai/sift/sch
 cp <skill>/assets/scripts/sift.sh <root>/.ai/sift/scripts/sift.sh
 ```
 
-For each orphan, it prints an `rm` command instead. Copying cannot remove a withdrawn
-schema, and the installed file may be repository-owned.
+Print an `rm` command per orphan. Copying cannot remove withdrawn schemas, which may contain repository-owned content.
+Report findings and offer these commands. Ask for explicit approval before copying or removing installed files.
 
-**Required action.** Name the findings and offer the printed commands. Ask for explicit
-approval before running any copy or removal command. An installed spec may contain
-repository annotations, so refresh is never part of init or repair.
+Installed copies may contain local annotations. Refresh is never part of init or repair.
 
 ## 5. Report and stop
 
-Report these fields after a successful run:
+Report the resolved root, permanent prefix, placeholder first milestone and `READY` state.
+Include the hook's chosen steps, `kept` result or absence, plus drift findings and offered remedies.
+Explain the default tracking policy and its opt-out.
 
-- resolved root
-- permanent prefix
-- first milestone, noting that it is a placeholder
-- gate state `READY`
-- worktree setup hook: the chosen links and commands, `kept` for an existing hook, or none
-- convention drift findings and offered remedies, if any
-- tracking policy and its opt-out
+Fresh `.ai/sift/.gitignore` files contain `*` and `!.gitignore`. Deleting this file opts the whole backlog into tracking.
+Ignore-aware searches skip an untracked tree. Use `find` and `command grep` inside it.
 
-The default tracking policy is untracked. A fresh `.ai/sift/.gitignore` contains `*`
-and `!.gitignore`, so the tree ignores itself. Deleting that file opts the whole backlog
-into tracking. Ignore-aware search such as `rg` then skips an untracked sift tree; use
-`find` plus `command grep` when working inside it.
-
-Never edit the repository root `.gitignore`. Init owns `.ai/sift` only. It does not
-create a first ticket, file any backlog work, or perform any requested sift task after
-the gate becomes ready.
+Init owns `.ai/sift` only. Never edit the root `.gitignore`, create a first ticket, or continue a requested Sift task after initialization.
 
 ## 6. Maintain the shipped assets
 
-Sources are `README.md`, `schemas/` and `src/operations/sift.sh`; shipped copies live in
-`src/skills/sift-init/assets/`. After changing a source, run:
+Sources are `README.md`, `schemas/` and `src/operations/sift.sh`. Shipped copies live in `src/skills/sift-init/assets/`.
+After a source change, run:
 
 ```sh
 src/skills/sift-init/scripts/sync-assets.sh
 ```
 
-It copies the normative files, mirrors schema additions and removals, then exits
-non-zero if drift remains. Do not hand-copy the assets or add a separate `diff` step.
+It copies the normative files, mirrors schema additions and removals, and fails if drift remains.
+Do not hand-copy assets or add a separate `diff` step.

@@ -13,10 +13,10 @@ commits and tracker updates, and complete each wave gate before continuing.
 Run `sift-init`'s `scripts/sift-gate.sh` first. Use its resolved root and exit code:
 
 - **0 (`READY`)**. Continue below.
-- **3 (`UNINITIALIZED`)**. Hand off to `sift-init`; initialize without asking.
-- **4 (`UNINITIALIZED`)**. Hand off to `sift-init`; report the resolved path and ask
+- **3 (`UNINITIALIZED`)**. Use `sift-init` to initialize without asking.
+- **4 (`UNINITIALIZED`)**. Use `sift-init`. Report the resolved path and ask
   before initialization.
-- **6 (`INCOMPLETE`)**. Hand off to `sift-init`; repair without asking.
+- **6 (`INCOMPLETE`)**. Use `sift-init` to repair without asking.
 - **5 (`UNRESOLVED`)**. No project root found. Report the `$PWD` it walked from and stop.
 
 `tests/static/gate-handoff-contract.test.sh` checks these handoffs.
@@ -30,45 +30,40 @@ Run `sift-init`'s `scripts/sift-gate.sh` first. Use its resolved root and exit c
 
 ## Choose code review
 
-Once the gate reaches `READY`, directly or after the `sift-init` handoff, settle the code
-review choice before intake or any other analysis. Use the drain request's answer if it
-gave one. Otherwise use the `code_review` block in `.ai/sift/config/config.yaml`, described
-in the installed README's Configuration section. Otherwise stop and ask the user:
+After `READY`, settle review before intake or analysis. Use the request's choice, else `.ai/sift/config/config.yaml`'s `code_review` block.
+The installed README's Configuration section defines that block. If neither supplies a choice, ask:
 
-> Do you want a code review between waves? If so, give the full command that runs another
-> harness non-interactively, or a model for this harness. Give neither to review with this
-> session's model.
+> Do you want a code review between waves? Supply a non-interactive command for another harness, or a model for this harness.
+> Supply neither to use this session's model.
 
-Wait for the answer, then continue. A choice is off, a command, a model, or this session's
-model. Check a command's first word with `command -v` and its `--help` for a
-non-interactive mode that reads the prompt on stdin. Check that this harness can dispatch
-a named model. If a check fails, say so and ask. Keep the choice for the whole run and
-restate it in every wave summary. After context loss, settle it again the same way: the
-config, else ask.
+Wait for the answer. Choices are off, a command, a named model, or the session model.
+Check the command's first word with `command -v`. Check its `--help` for non-interactive stdin prompts.
+
+Check that the harness can dispatch a named model. If a check fails, report it and ask.
+Retain the choice throughout the run and state it in every wave summary.
+
+After context loss, use config or ask again.
 
 ## Orchestrate, never implement
 
-Workers implement product code and tests. You prepare their workspaces, land commits,
-archive tickets and assign follow-up waves. Delegate merge conflicts too.
+Workers implement code and tests, including merge conflicts. You prepare workspaces, land commits, archive tickets and assign follow-up waves.
+Read tickets using run-management.md's refresh protocol. Consume worker reports and archived resolutions needed for coverage.
 
-Read the current wave's tickets once, then refresh only changed tickets as described in
-run-management.md. Read worker reports and archived resolution lines needed for gate
-coverage. Derive write scope from ticket citations. Send source, diff and raw test-output
-questions to workers.
+Derive write scope from ticket citations. Return source, diff and raw-output questions to workers.
 
-Load reference sections only when their stage begins; retain already-read sections while
-their content remains available and unchanged. Use `read-context.sh FILE '## Heading' PAGE`
-for bounded reads (`--all` for a ticket). Follow its `next` page until `none`; an incomplete
-read is not intake. Keep aggregate tool output below the harness limit, normally one 8000-byte
-content page per call. Save large inventories and raw verification output to temporary files.
+Load reference sections when their stage begins. Reuse sections only while their content remains available and unchanged.
+Use `read-context.sh FILE '## Heading' PAGE`, or `--all` for tickets. Follow `next` until `none`.
 
-Never push or write to an external tracker. Reserve an ID and file upstream proposals
-locally as `type: dx` for the user.
+Incomplete reads do not count as intake. Keep aggregate output below the harness limit, normally one 8000-byte content page per call.
+Save large inventories and raw verification output to temporary files.
+
+Never push or write to external trackers. Reserve IDs and file upstream proposals locally as `type: dx`.
 
 ## Scripts
 
 Resolve this skill's `scripts/` directory once. Call its helpers rather than reimplementing
-them. Tracker helpers use the nearest ancestor `.ai/sift` and its configured prefix;
+them. Tracker helpers use the nearest ancestor `.ai/sift` and its configured prefix.
+
 `SIFT_ROOT` and `SIFT_PREFIX` override them.
 
 ```sh
@@ -91,133 +86,117 @@ scripts/review-state.sh compare BEFORE AFTER [--allow-event EVENT_RECORD]...
 ```
 
 Before preparation, load Execution evidence in run-management.md for the exact publication,
-span/wait, check and lifetime contract. New executions use immutable events; never mix them
+span/wait, check and lifetime contract. New executions use immutable events. Never mix them
 with ticketless legacy phase stamps. drain-log.sh report remains the read-only legacy reader.
+
 Do not hand-edit RUNLOG.md, event records or evidence manifests. Helpers return structured
-proof; coordinator source/diff/raw-log reading boundaries remain unchanged.
+proof. Coordinator source/diff/raw-log reading boundaries remain unchanged.
+
 Use `find` and `command grep`, or no-ignore search, inside the usually ignored tracker.
 
 ## Wave graph
 
-A sitting contains related tickets from one wave. Use several sittings when orientation
-or write scope differs. At intake, read the Ticket intake and The tree moves underneath you
-sections of [run-management.md](references/run-management.md). Load Worker check-back only
-on a check-back and Reporting to the user when reporting. With code review on, record
-the integration branch's HEAD as the wave's review base before its first landing. If a
-current-wave ticket is already archived, as on a resume, record nothing; the gate derives
-the base from `git log`.
+A sitting holds related tickets from one wave. Separate sittings when orientation or write scope differs.
+At intake, load Ticket intake and The tree moves underneath you from [run-management.md](references/run-management.md).
 
-Repeat until no dispatchable work remains in this wave:
+Load Worker check-back on check-back, and Reporting to the user when reporting.
+With review enabled, record integration HEAD before the wave's first landing.
+If a current-wave ticket is already archived, record no base. The gate derives it from `git log`.
 
-1. Before every dispatch, run `wave-status.sh` and compare ticket snapshots. Read added or
-   changed current-wave tickets; reconcile moves, removals and changed dependencies. Reuse
-   unchanged ticket context. Rebuild dependencies and write ownership from the reconciled
-   snapshot, retaining in-flight owners. On first load, a new wave or
-   lost context, read that wave's remaining tickets in full. Dependencies and overlapping
-   write scopes create sequential edges. Fill available slots with ready, non-overlapping
-   sittings.
-2. Publish run/wave/sitting/attempt identities before preparation, with ordered members,
-   explicit work_class and optional opaque external correlation. For a retry retain the
-   sitting, narrow its members and link a new attempt to the prior attempt. Prepare each
-   branch and worktree using `prepare-worktree.sh` with `SIFT_ROOT`, `SIFT_PREPARE_RUN_ID`
-   and `SIFT_PREPARE_ATTEMPT_ID` from the original
-   repository. Pass the prepared worktree as `PROJECT_ROOT`, its branch, and the original
-   project root as `SIFT_ROOT`. Keep the integration checkout for landings. Workers use
-   absolute shared tracker paths; do not replace their `.ai/sift` with a symlink. On exit 3,
-   do not dispatch that sitting; report it and keep the worktree (see
-   [run-management.md](references/run-management.md)).
-3. Dispatch only after preparation succeeds; preserve setup failure evidence before any
-   worker starts. For a fresh worker, load the
-   placeholder preamble and Template section of [ticket-agent-prompt.md](references/ticket-agent-prompt.md)
-   and send the fixed contract first, verbatim, followed by its resolved Assignment block.
-   Keep assignment values at the end; prepend no ticket summary or coordinator history. For a related sitting
-   in a retained worker context, load Reuse a worker and send only the new inputs. Load
-   recovery sections only for the corresponding failure or check-back. If the contract
-   changed or prior context is unavailable, supply the full current contract again.
-4. Choose the worker's model tier and reasoning effort from the work, not from the ticket's
-   `effort` field, which measures size. Use the session's tier by default. Use a stronger
-   tier and higher reasoning effort for difficult architecture, concurrency or verification.
-   Bounded documentation or metadata tasks may use a cheaper tier with lower reasoning
-   effort, explicit inputs and checks. Apply reasoning effort only where the harness exposes
-   it. Honor user preferences.
-5. On return, handle tamper first, then publish ticket-outcome for attempted members as
-   defined in Execution evidence. Keep not-started members in the retry report, not as an
-   invented event outcome. Keep the attempt live through landing and cleanup. For each done ticket, cherry-pick its commit
-   with `-n`, set
-   status, resolution and updated, then move it to the mirrored archive path and delete the
-   folders the move emptied. Land one commit per ticket, naming its ID in the message and
-   containing implementation and tracker changes where tracked. Record landed on the same
-   attempt as its done outcome, with the integrated commit reference. Finish coordinator
-   landing/cleanup spans before attempt-end. A worker return is not delivery or termination.
-6. Assign every filed follow-up to this or a later wave. Run `ticket-check.sh` after your
-   bookkeeping and fix any findings. Report one progress line per ticket and surface every
-   self-filed ID. Record actual origin_attempt_id/origin_gate_id links for repairs and
-   follow-ups. Rewire the graph and dispatch newly ready sittings.
+Repeat while this wave has dispatchable work:
 
-**Failure policy:** retry only failed tickets once with their failure context. After a
-second failure, set status blocked, keep the file under open with its wave, report it,
-and continue. Preserve completed tickets from a partially successful sitting. Land them
-before terminating the old attempt and starting its narrowed linked retry. Carry preserved
-commits, original failure provenance and still-valid check references/reasons into Assignment.
-Resume only an identifiable still-active execution; restart with a new attempt. Cancellation
-is an execution outcome, not a new ticket lifecycle state.
+1. Run `wave-status.sh` and reconcile ticket snapshots before each dispatch.
+   Apply run-management.md's refresh protocol, retaining in-flight ownership and unchanged context.
+
+   Rebuild dependency and overlapping-write edges. Fill available slots with ready, non-overlapping sittings.
+2. Follow Execution evidence for publication, ordered membership, class, correlation and retry identities before preparation.
+   Run `prepare-worktree.sh` from the original repository with `SIFT_ROOT`, `SIFT_PREPARE_RUN_ID` and `SIFT_PREPARE_ATTEMPT_ID`.
+
+   Pass the prepared path as `PROJECT_ROOT`, its branch, and the original root as `SIFT_ROOT`.
+   Keep the integration checkout for landings. Workers use absolute tracker paths, never a replacement `.ai/sift` symlink.
+
+   Retain failed preparation evidence. Exit 3 keeps the worktree and prevents dispatch.
+3. After successful preparation, dispatch [ticket-agent-prompt.md](references/ticket-agent-prompt.md)'s preamble and Template contract verbatim, followed by resolved Assignment.
+   Keep all variable values last. Prepend no summary or coordinator history.
+
+   For related retained contexts, use Reuse a worker and send only new inputs.
+   Load recovery sections only for their matching condition. Resend the full current contract after contract changes or context loss.
+4. Choose model tier and reasoning from the work. Ticket `effort` measures size.
+
+   Default to the session tier. Use stronger models and reasoning for difficult architecture, concurrency or verification.
+   Bounded documentation or metadata may use cheaper models, lower reasoning, explicit inputs and checks.
+
+   Set reasoning only where supported. Honor user preferences.
+5. Validate the return and handle tamper first. Follow Execution evidence for outcomes, landing, cleanup and attempt lifetime.
+
+   For each done ticket, cherry-pick with `-n`, set status/resolution/updated, archive to its mirrored path, and prune emptied folders.
+   Land one commit per ticket, naming its ID and including implementation and tracked tracker changes.
+6. Assign follow-ups to this or later waves. Record their actual origin links under Execution evidence.
+
+   Run `ticket-check.sh` after bookkeeping and fix findings. Report each ticket and every self-filed ID.
+   Rebuild the graph and dispatch ready sittings.
+
+**Failure policy:** retry failed tickets once with their failure context.
+After a second failure, mark the ticket blocked, retain its open path and wave, report it, and continue.
+For partial success, land completed members before ending the old attempt and starting its narrowed linked retry.
+
+Carry preserved commits, failure provenance and valid check references/reasons in Assignment.
+Resume only identifiable live executions. Restarts need new attempts. Cancellation is an execution outcome, never a ticket state.
 
 ## Consume worker reports
 
-[ticket-agent-prompt.md](references/ticket-agent-prompt.md) owns the exact report schema.
-Validate reports before changing tracker state; ask the same worker for missing fields.
-Its status and commit control landing, resolution supplies archive text and waived
-coverage, and verification supports the progress update. Reserve IDs and file any
-unfiled findings from issues before dispatching work that needs them.
+[ticket-agent-prompt.md](references/ticket-agent-prompt.md) owns the exact report schema. Validate it before tracker changes.
+Ask the same worker for missing fields. Status and commit control landing. Resolution supplies archive text and waived coverage.
+
+Verification supports progress reports. Reserve IDs and file unfiled issues before dispatching dependent work.
 
 ## Wave gate
 
-Do not load [wave-gate.md](references/wave-gate.md) during intake or implementation.
-At each gate stage, read only its numbered section and send that stage's resolved fence.
-Load section 3 only for failures and section 4 only when capture is warranted. Load section 5
-at close. The order and skip conditions are below; other stage prompts can stay unread.
-Publish a gate and members=- attempt before each gate preparation, carrying correlation
-through the same helper environment. Handle exit 3 and clock gaps the same way as workers.
-Keep gate attempts live through their integration and cleanup, then record real terminals.
-Workers from the wave do not continue into the gate or the next wave.
+Load [wave-gate.md](references/wave-gate.md) only at the gate. Read each stage's numbered section and send its resolved fence.
+Load section 3 for failures, section 4 when capture is warranted, and section 5 at close.
 
-With code review on, read [code-review.md](references/code-review.md) at the
-gate, then run the reviewer and land its fix tickets before stage 1. Otherwise leave it
-unread.
+Apply Execution evidence to gate publication, preparation, clock gaps, landing and cleanup.
+Publish a gate and `members=-` attempt before preparation. Keep the attempt live through integration and cleanup.
 
-1. Dispatch the e2e specialist alone, after any code review, when an e2e layer can
-   reach this wave's behavior. Otherwise record the skip reason. A skipped authoring pass
-   does not remove the full e2e run when that layer exists.
-2. Build batch coverage input from waived archived resolutions and deferred unsafe
-   sequences. Dispatch the coverage agent next; it may also carry the full-suite close.
-3. Land returned commits. Assign exactly one integrated owner per required test, lint,
-   static-analysis and applicable full e2e obligation. Specialists keep focused checks while
-   authoring. Owners use check-evidence.sh run and validate-declared against integrated
-   inputs; retain producer receipts, decisions/reasons, commands, exit codes, available
-   counts and log paths. Coordinator consumes their structured proof, never raw logs.
-4. Group failures by root cause. Reserve IDs and file reported defects before dispatching
-   their fixes. Batch independent repairs when dependencies and write ownership permit.
-   Land fixes before expensive integrated reruns; execute all missing/invalidated obligations.
-5. Work any remaining p1/p2 tickets filed into this wave before closing. Tickets inserted
-   into an already closed wave become the current wave's tail; their deferred coverage
-   belongs to the next gate. Do not reopen a closed gate.
-6. When green, dispatch one knowledge-capture pass if reports contain durable candidates
-   and the project has a capture skill. Land its commit, then validate ALL required checks
-   against final quiescent inputs at close. Execute missing/invalidated checks and validate
-   again. An earlier green worker or gate is never a blanket skip. Close attempts, then the
-   wave, and post the summary. Actual compatibility deferrals remain outstanding; use the
-   authorized record format in Execution evidence and never count them as full passes.
+Wave workers do not continue into gates or later waves.
 
-Continue into the next wave without a human pause.
+If review is enabled, load [code-review.md](references/code-review.md) now. Run review and land its fix tickets before stage 1.
+Otherwise leave the review reference unread.
+
+1. Dispatch the e2e specialist alone when an e2e layer reaches this wave's behavior. Otherwise record the skip reason.
+
+   Skipping authoring never removes a required full e2e run.
+2. Supply waived archived criteria and deferred unsafe sequences to batch coverage. That agent may also own full-suite closure.
+3. Land commits. Give each required test, lint, static-analysis and applicable full e2e obligation exactly one integrated owner.
+
+   Specialists run focused authoring checks. Integrated owners use `check-evidence.sh run` and `validate-declared`.
+   Retain receipts, producer identities, decisions/reasons, commands, exit codes, available counts and log paths.
+
+   Consume structured proof, never raw logs.
+4. Group failures by root cause. Reserve IDs and file defects before dispatching fixes.
+
+   Batch independent repairs within dependency and ownership constraints. Land repairs before expensive integrated reruns.
+   Execute every missing or invalidated obligation.
+5. Finish p1/p2 tickets assigned to this wave before closing.
+   Work inserted into a closed wave joins the current wave's tail. Its deferred coverage belongs to the next gate.
+
+   Never reopen closed gates.
+6. When green, run one knowledge-capture pass if reports contain durable candidates and the project has a capture skill.
+   Land its commit. Validate ALL required checks against final quiescent inputs.
+
+   Execute missing or invalidated checks and validate again. Earlier passes never justify a blanket skip.
+   Close attempts, then the wave. Report the result and continue without a human pause.
+
+   Compatibility deferrals remain outstanding. Use Execution evidence's authorized records, never count deferrals as full passes.
 
 ## Final report at run end
 
-Report wave state, blocked tickets and reasons, all filed tickets, the code review
-choice with per-wave finding counts or skip reasons. Use report-events for returned, landed,
-development/full delivery, explicit classifications, elapsed denominators, waits and gaps;
-use report-estimate for saved origins/bounds. Request a new estimate only for changed evidence
-or scope, consuming the existing graph/ownership/admission evidence without rescheduling.
-Keep capacity_epoch fixed until admission evidence changes. Legacy report is labelled inferred.
+Report wave state, blocked tickets/reasons, every filed ticket, and the review choice with per-wave findings or skip reasons.
+Use `report-events` for returned/landed/verified delivery, classifications, elapsed denominators, waits and gaps.
+Use `report-estimate` for saved origins and bounds. Request revisions only for changed evidence or scope.
+
+Reuse existing dependency, ownership and admission evidence without rescheduling. Keep `capacity_epoch` fixed until admission evidence changes.
+Label legacy reports inferred.
 
 ## Contract pins
 

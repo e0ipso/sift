@@ -72,7 +72,7 @@ assert_eq 0 "$R_STATUS" "exits 0"
 assert_file "$d/.ai/sift/open/platform/bug/SFT-0042--alone.md" "the ticket lands under the new milestone"
 assert_no_dir "$d/.ai/sift/open/caching/bug" "the emptied category folder is gone"
 assert_no_dir "$d/.ai/sift/open/caching" "and so is the emptied milestone folder"
-assert_eq 0 "$(test -d "$d/.ai/sift/open"; echo $?)" "open/ itself survives"
+assert_eq directory "$(test -d "$d/.ai/sift/open" && echo directory)" "open/ itself survives"
 
 test_case "a sibling in another category keeps the old milestone folder"
 d="$(newdir)"; make_tree "$d"

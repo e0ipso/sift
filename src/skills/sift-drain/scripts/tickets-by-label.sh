@@ -7,12 +7,9 @@
 #   scripts/tickets-by-label.sh caching --paths
 #   scripts/tickets-by-label.sh --paths -- caching
 #
-# `--` ends the options: every argument behind it is positional, whatever it
-# looks like, and exactly one of them may be the label. A kebab label can never
-# begin with a hyphen, so the marker is never strictly needed — it is there for
-# the caller who passes a label out of a variable and spells the guard anyway.
-# `--` is honoured identically by list-labels.sh, which has no positional to
-# take and so refuses anything at all behind it.
+# `--` ends options. Every later argument is positional, including leading hyphens.
+# Accept exactly one kebab label. The marker also protects labels from variables.
+# list-labels.sh uses the same marker but accepts no positional arguments.
 #
 # Default output is TSV: id<TAB>title<TAB>relative-path
 #
@@ -33,10 +30,7 @@ LABEL=""
 OPEN_ONLY=0
 PATHS_ONLY=0
 
-# take_label — the one-label rule, in one place, so the arm that reads a label
-# before the marker and the loop that reads one after it cannot drift. Two
-# labels look like an AND this script does not implement, and answering for
-# either one would be a plausible wrong answer.
+# Enforce one label before and after `--`. Multiple labels do not imply AND.
 take_label() {
   [ -z "$LABEL" ] || usage
   LABEL="$1"
@@ -59,8 +53,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-# Behind the marker nothing is an option any more, so a leading hyphen reaches
-# the kebab validator as a label rather than the parser as a flag.
+# After `--`, send leading hyphens to label validation, not option parsing.
 while [ $# -gt 0 ]; do
   take_label "$1"
   shift
